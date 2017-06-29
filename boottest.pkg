@@ -1,0 +1,40 @@
+d 'BOOTTEST': module to provide fast execution of the wild bootstrap with null imposed
+d
+d  boottest is a post-estimation command that offers fast execution
+d of the wild bootstrap (Wu 1986) with null imposed, as recommended
+d by Cameron, Gelbach, and Miller (2008) for estimates with
+d clustered standard errors and few clusters. It also performs the
+d “score bootstrap” (Kline and Santos 2012), which adapts the
+d wild approach to Maximum Likelihood estimators. Two wrappers,
+d waldtest and scoretest, give easy access to the classical Wald
+d (1943) and Rao (1948) score/Lagrange multiplier tests. boottest
+d works after regress, cnsreg, ivreg, ivregress, ivreg2 and most
+d Stata ML-based estimation commands. boottest offers inference
+d based on multi-way clustering after many Stata estimation
+d commands that do not otherwise support it. When bootstrapping, it
+d offers a choice of Rademacher, Mammen (1993), Webb (2014), and
+d standard normal weights. boottest requires Stata version 11.2 or
+d later and runs fastest in version 13 or later. 
+d
+d KW: wild bootstrap
+d KW: Cameron
+d KW: Gelbach
+d KW: Miller
+d KW: score bootstrap
+d KW: Rao LM test
+d KW: multi-way clustering
+d
+d Requires: Stata version 11.2
+d
+d Distribution-Date: 20170620
+d
+d Author: David Roodman
+d Support: email david@@davidroodman.com
+d
+f boottest.ado
+f boottest.mata
+f boottest.sthlp
+f ../a/artest.ado
+f ../s/scoretest.ado
+f ../w/waldtest.ado
+f ../l/lboottest.mlib
