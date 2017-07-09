@@ -67,7 +67,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 1000) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) cmdline(string) *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) *]
 
 	if `reps'==0 local svmat
 
@@ -405,6 +405,7 @@ program define _boottest, rclass sortpreserve
 				if `"`cmdline'"'=="" local 0 `e(cmdline)'
 				                else local 0 `cmdline'
 				syntax [anything] [aw pw fw iw] [if] [in], [CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) CLuster(passthru) Robust vce(string) *]
+				if "`e(cmd)'"=="ml" local max max // tack on max option in case ml run in interactive model and cmdline() is missing it
 
 				cap _estimates drop `hold'
 				_estimates hold `hold', restore
@@ -426,7 +427,7 @@ program define _boottest, rclass sortpreserve
 					constraint `r(free)' `_constraint'
 				}
 				
-				cap `=cond("`quietly'"=="", "noisily", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `options'
+				cap `=cond("`quietly'"=="", "noisily", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `max' `options'
 				local rc = _rc
 				constraint drop `_constraints'
 				if e(converged)==0 {
@@ -436,7 +437,7 @@ program define _boottest, rclass sortpreserve
 				if !`rc' {
 					tempname b0
 					mat `b0' = e(b)
-					cap noi `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' nowarning
+					cap noi `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' `max' nowarning
 					local rc = _rc
 				}
 				if `rc' {

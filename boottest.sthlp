@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.4 17 January 2017}{...}
+{* *! version 1.6.0 9 July 2017}{...}
 {boottest:help boottest}
 {hline}{...}
 
@@ -61,6 +61,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt ar}}request Anderson-Rubin test{p_end}
 {synopt:{opt seed(#)}}initialize random number seed to {it:#}{p_end}
 {synopt:{opt qui:etly}}suppress display of null-imposed estimate; relevant after ML estimation{p_end}
+{synopt:{opt cmd:line(string)}}provide estimation command line; needed only after custom ML estimation{p_end}
 {synopt:{cmd:h0}({it:{help estimation options##constraints():constraints}}{cmd:)}}({it:deprecated}) specify linear hypotheses expressed as constraints; default is "1" if {it:indeplist} empty{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -294,6 +295,14 @@ all parameters on instrumented variables, and no others.
 
 {phang}{opt qui:etly}, with Maximum Likelihood-based estimation, suppresses display of initial re-estimation with null imposed.
 
+{phang}{opt cmd:line(string)} provides {cmd:boottest} with the command line just used to generate the estimates. This is needed only when performing the 
+Kline-Santos score bootstrap after estimation with the {help ml model} command, and only when imposing the null. In order to impose the null on an ML estimate,
+{cmd:boottest} needs to rerun the estimation with a null constraint applied. And in order to do that, it needs access to the exact command line that generated the 
+results. Most Stata estimation commands save the full command line in the {cmd:e(cmdline}} return macro, which {cmd:boottest} looks for. However, if you perform estimation
+directly with Stata's {cmd:ml model} command, perhaps with a custom likelihood evaluator, no {cmd:e(cmdline}} is saved. The {opt cmd:line(string)} option provides a work-around, by allowing you
+to pass the estimation command line manually. If you run {cmd:ml} in interactive mode, with a separate {cmd:ml max} call, pass the earlier {cmd:ml model} command line;
+{cmd:boottest} will automatically append a {cmd:maximize} option to it. An example appears below.
+
 {phang}
 {cmd:h0}({it:{help estimation options##constraints():constraints}}{cmd:)} (deprecated) specifies the numbers of the stored constraints that jointly express
 the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 7". The default is "1". 
@@ -387,6 +396,16 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit} // same probit estimate as previous{p_end}
 {phang}. {stata boottest tenure}{space 67} // requires Stata 14.0 or later {p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 16} // requires Stata 14.0 or later{p_end}
+{phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit}
+
+{phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
+{phang}. {stata 	args lnf theta}{p_end}
+{phang}. {stata 	quietly replace `lnf' = lnnormal((2*$ML_y1-1) * `theta')}{p_end}
+{phang}. {stata end}{p_end}
+{phang}. {stata sysuse auto}{p_end}
+{phang}. {stata ml model lf myprobit (foreign = mpg weight)} // define model{p_end}
+{phang}. {stata ml max} // estimate{p_end}
+{phang}. {stata boottest mpg, cmdline(ml model lf myprobit (foreign = mpg weight))} // score bootstrap; pass the model definition since {cmd:ml} doesn't save it in {cmd:e(cmdline)}{p_end}
 
 {title:References}
 
