@@ -1,4 +1,4 @@
-*! boottest 1.6.0 9 July 2017
+*! boottest 1.6.1 9 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -450,6 +450,53 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_i, _e, eUZVR0wt, ID1, Ystar, _beta, betaEnd
@@ -718,7 +765,7 @@ void boottestModel::boottest() {
 			            cross( Nclust? _panelsum(*pZExcl, *pewt, clust.info) : *pZExcl :* *pewt , u)
 			numer = (*pR0)[|.,.\.,kEx|] * (betadevEx = betadenom[|.,.\kEx,.|] * betanumer)
 
-			if (K)
+			if (K | AR)
 				numer = numer + (*pR0)[|.,kEx+1\.,.|] * (betadevEnd = betadenom[|kEx+1,.\.,.|] * betanumer)
 			else
 				betadevEnd = J(0,cols(u),0)

@@ -1,4 +1,4 @@
-*! boottest 1.6.0 9 July 2017
+*! boottest 1.6.1 9 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -595,6 +595,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.6.1 Fixed AR test crash
 * 1.6.0 Added left and right p value types. Added cmdline option. Added nowarning option to ml, iter(0) call to suppress non-convergence warning.
 * 1.5.7 renamed _selectindex() to boottest_selectindex() to reduce conflicts with old cmp versions
 * 1.5.6 Fixed crash on waldtest after ML
