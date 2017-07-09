@@ -1,4 +1,4 @@
-*! boottest 1.5.7 19 June 2017
+*! boottest 1.6.0 9 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -47,7 +47,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 }
 
 class boottestModel {
-	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, Nclust, robust, weights, REst, multiplier, quietly, sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p
+	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, Nclust, robust, weights, REst, multiplier, quietly, sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI
@@ -247,7 +247,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 
 void boottestModel::new() {
 	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = 0
-	null = dirty = 1
+	twotailed = null = dirty = 1
 	cuepoint = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pR = pR0 = pwt = &J(0,0,0)
 	pr = pr0 = &J(0,1,0)
@@ -269,10 +269,12 @@ void boottest_set_dirty   (class boottestModel scalar M                      ) {
 	 M.set_dirty(1)
 }
 void boottest_set_ptype(class boottestModel scalar M, string scalar ptype)     {
-	ptype = strlower(ptype)
-	if (ptype!="symmetric" & ptype!="equaltail") 
-		_error(198, `"p-value type must be "symmetric" or "equaltail"."')
-	M.ptype = ptype:=="equaltail"
+	real scalar p
+	p = cross( (strtrim(strlower(ptype)) :== ("symmetric"\"equaltail"\"left"\"right")), 1::4 ) - 1
+	if (p<0) 
+		_error(198, `"p-value type must be "symmetric", "equaltail", "left", or "right.""')
+	M.ptype = p
+	M.twotailed = p<=1
 }
 void boottest_set_XEnd    (class boottestModel scalar M, real matrix X       ) {
 	M.pXEnd  = &X; M.set_dirty(1)
@@ -392,14 +394,15 @@ real scalar boottestModel::get_p(|real scalar analytical) {
 	t = Dist[1]
 	if (reps & analytical==.) {
 		if (t == .) return (.)
-		if (sqrt) {
-			if (ptype)
-				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / (colnonmissing(Dist) - 1) // equal-tail p value
-			else {
-				_Dist = abs(Dist); t= abs(t)
-				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1) // symmetric p value
-			}
-		} else
+		if (sqrt & ptype != 2) {
+			if (ptype==0) { // symmetric p value
+				_Dist = abs(Dist); t = abs(t)
+				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
+			} else if (ptype==1) // equal-tail p value
+				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / (colnonmissing(Dist) - 1)
+			else if (ptype==3) // left-tailed p value
+				p = 1 -(       colsum(t:< Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
+		} else // left-tailed p value or p value based on squared stats 
 				p = 1 -(       colsum(t:> Dist)                       + (colsum(t:== Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
 	} else
 		p = small? Ftail(df, df_r, sqrt? t:*t : t) : chi2tail(df, sqrt? t:*t : t)
@@ -948,11 +951,11 @@ void boottestModel::plot(real scalar level) {
 			hi = gridstop <.? gridstop  : numer[1] + *pr0 - t
 		}
 
-		if (gridstart==.) // try at most 10 times to bracket confidence set by doubling on high and low sides in turn
+		if (gridstart==. & ptype!=3) // unless right-tailed p value, try at most 10 times to bracket confidence set by doubling on low side
 			for (i=10; i & -r0_to_p(lo)<-alpha; i--)
 				lo = 2 * lo - hi
-		if (gridstop==.)
-			for (i=10; i & -r0_to_p(hi) < -alpha; i--)
+		if (gridstop==. & ptype!=2) // ditto for high side
+			for (i=10; i & -r0_to_p(hi)<-alpha; i--)
 				hi = 2 * hi - lo
 	} else {
 		lo = gridstart
@@ -1082,7 +1085,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (plotname != "") {
 		M.plot(level)
 		st_matrix(plotname, (M.plotX,M.plotY))
-		if (ciname != "" & level<100) st_matrix(ciname, M.CI) // also makes plotX & plotY
+		if (level<100 & ciname != "") st_matrix(ciname, M.CI) // also makes plotX & plotY
 	}
 
 	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but that suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak

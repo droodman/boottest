@@ -1,4 +1,4 @@
-*! boottest 1.5.7 19 June 2017
+*! boottest 1.6.0 9 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -67,7 +67,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 1000) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) cmdline(string) *]
 
 	if `reps'==0 local svmat
 
@@ -158,14 +158,14 @@ program define _boottest, rclass sortpreserve
 	}
 
 	if `:word count `ptype'' > 1 {
-		di as err "The {cmd:wp:type} option must be {cmdab:sym:metric} or {cmdab:eq:qualtail}."
+		di as err "The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:left}, or {cmd:right}."
 		exit 198
 	}
 	if "`ptype'"'=="" local ptype symmetric
 	else {
 		local 0, `ptype'
-		syntax, [SYMmetric EQualtail]
-		local ptype `symmetric'`equaltail'
+		syntax, [SYMmetric EQualtail left right]
+		local ptype `symmetric'`equaltail'`left'`right'
 	}
 
 	local ML = e(converged) != .
@@ -384,14 +384,14 @@ program define _boottest, rclass sortpreserve
 			if `level'<100 tempname cimat
 		}
 
-		if rowsof(`C0')>1 & "`ptype'"=="equaltail" di as txt "Note: {cmd:ptype(equaltail)} ignored for multi-constraint null hypotheses."
+		if rowsof(`C0')>1 & "`ptype'"!="symmetric" di as txt "Note: {cmd:ptype(`ptype')} ignored for multi-constraint null hypotheses."
 
 		if `ML' {
 			local K .
 
 			if `null' {
-				if "`e(cmdline)'"=="" {
-					di as err "Can only impose null after Maximum Likelihood-based estimation commands that provide the return value e(cmdline)."
+				if "`e(cmdline)'"=="" & `"`cmdline'"'=="" {
+					di as err "Original estimation command line needed. Include it in a {cmd:cmdline()} option."
 					exit 198
 				}
 				if "`cmd'"=="tobit" {
@@ -402,7 +402,8 @@ program define _boottest, rclass sortpreserve
 				mat `CC0' = `C0' \ nullmat(`C') // add null to model constraints
 
 				`quietly' di as res _n "Re-running regression with null imposed." _n
-				local 0 `e(cmdline)'
+				if `"`cmdline'"'=="" local 0 `e(cmdline)'
+				                else local 0 `cmdline'
 				syntax [anything] [aw pw fw iw] [if] [in], [CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) CLuster(passthru) Robust vce(string) *]
 
 				cap _estimates drop `hold'
@@ -435,7 +436,7 @@ program define _boottest, rclass sortpreserve
 				if !`rc' {
 					tempname b0
 					mat `b0' = e(b)
-					cap noi `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options'
+					cap noi `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' nowarning
 					local rc = _rc
 				}
 				if `rc' {
@@ -542,8 +543,9 @@ program define _boottest, rclass sortpreserve
 		if "`graph'"=="" & "`plotmat'"!="" {
 			tempvar X Y _plotmat
 
-			if "`cimat'"!="" mat `_plotmat' = `plotmat' \ ((`cimat'[1...,1] \ `cimat'[1...,2]), J(2*rowsof(`cimat'), 1, 1-`level'/100))
-				else           mat `_plotmat' = `plotmat'
+			cap confirm matrix `cimat'
+			if _rc mat `_plotmat' = `plotmat'
+			  else mat `_plotmat' = `plotmat' \ ((`cimat'[1...,1] \ `cimat'[1...,2]), J(2*rowsof(`cimat'), 1, 1-`level'/100))
 			mat colnames `_plotmat' = `X' `Y'
 			qui svmat `_plotmat', names(col)
 			label var `Y' " " // in case user turns on legend
@@ -567,10 +569,11 @@ program define _boottest, rclass sortpreserve
 			}
 			di
 
-			tempname t
-			mata st_numscalar("`t'", anyof(st_matrix("`cimat'"), .))
-			if `t' di "(A confidence interval could not be bounded. Try widening the search range with the {cmd:gridmin()} and {cmd:gridmax()} options.)"
-
+			if inlist("`ptype'", "symmetric", "equaltail") {
+				tempname t
+				mata st_numscalar("`t'", anyof(st_matrix("`cimat'"), .))
+				if `t' di "(A confidence interval could not be bounded. Try widening the search range with the {cmd:gridmin()} and {cmd:gridmax()} options.)"
+			}
 			return matrix CI`_h' = `cimat'
 		}
 		
@@ -591,6 +594,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.6.0 Added left and right p value types. Added cmdline option. Added nowarning option to ml, iter(0) call to suppress non-convergence warning.
 * 1.5.7 renamed _selectindex() to boottest_selectindex() to reduce conflicts with old cmp versions
 * 1.5.6 Fixed crash on waldtest after ML
 * 1.5.5 Fixed bug in determining confidence intervals when some test results is missing.
