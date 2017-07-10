@@ -1,4 +1,4 @@
-*! boottest 1.6.1 9 July 2017
+*! boottest 1.6.1 10 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -158,14 +158,14 @@ program define _boottest, rclass sortpreserve
 	}
 
 	if `:word count `ptype'' > 1 {
-		di as err "The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:left}, or {cmd:right}."
+		di as err "The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:lower}, or {cmd:upper}."
 		exit 198
 	}
 	if "`ptype'"'=="" local ptype symmetric
 	else {
 		local 0, `ptype'
-		syntax, [SYMmetric EQualtail left right]
-		local ptype `symmetric'`equaltail'`left'`right'
+		syntax, [SYMmetric EQualtail lower upper]
+		local ptype `symmetric'`equaltail'`lower'`upper'
 	}
 
 	local ML = e(converged) != .
@@ -379,8 +379,12 @@ program define _boottest, rclass sortpreserve
 		if _rc exit 111
 		_estimates unhold `hold'
 		if `k_autoCns' mat `C0' = `C0'[`k_autoCns'+1...,1...]
+
+		local plotmat
+		local peakmat
+		local cimat
 		if "`noci'"=="" & !`ML' & rowsof(`C0')==1 {
-			tempname plotmat
+			tempname plotmat peakmat
 			if `level'<100 tempname cimat
 		}
 
@@ -437,17 +441,19 @@ program define _boottest, rclass sortpreserve
 				if !`rc' {
 					tempname b0
 					mat `b0' = e(b)
-					cap noi `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' `max' nowarning
+					cap `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' `max'
 					local rc = _rc
 				}
 				if `rc' {
 					di as err "Error imposing null. Perhaps {cmd:`e(cmd)'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
 					exit `rc'
 				}
-				mat `V' = e(V)
-				if diag0cnt(`V') {
-					`quietly' di _n as res "Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable."
-					`quietly' di           "This may indicate that the constrained optimum is far from the unconstrained one, i.e., that the hypothesis is incompatible with the data." _n
+				_ms_omit_info e(b)
+				`quietly' mata {
+					if (!all(diagonal(st_matrix("e(V)")) :| st_matrix("r(omit)")')) {
+						printf("\n{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable.")
+						printf("\nThis may indicate that the constrained optimum is far from the unconstrained one, i.e., that the hypothesis is incompatible with the data.\n")
+					}
 				}
 			}
 			else mat `V' = e(V`=cond("`e(V_modelbased)'"!="", "_modelbased", "")')
@@ -509,7 +515,7 @@ program define _boottest, rclass sortpreserve
 			}
 		}
 
-		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
+		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'",  "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
@@ -518,7 +524,7 @@ program define _boottest, rclass sortpreserve
 		
 		if `N_h0s'>1 local _h _`h'
 
-		if `df'==1 & !`ar' {
+		if `df'==1 {
 			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
 			scalar `stat' = `stat' * `stat'
 		}
@@ -541,25 +547,33 @@ program define _boottest, rclass sortpreserve
 			return scalar padj`_h' = `padj'
 		}
 
-		if "`graph'"=="" & "`plotmat'"!="" {
+		if "`plotmat'"!="" {
 			tempvar X Y _plotmat
-
-			cap confirm matrix `cimat'
-			if _rc mat `_plotmat' = `plotmat'
-			  else mat `_plotmat' = `plotmat' \ ((`cimat'[1...,1] \ `cimat'[1...,2]), J(2*rowsof(`cimat'), 1, 1-`level'/100))
-			mat colnames `_plotmat' = `X' `Y'
-			qui svmat `_plotmat', names(col)
-			label var `Y' " " // in case user turns on legend
-			format `X' %5.0g
-			if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
-			local 0, `graphopt'
-			syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
-			line `Y' `X', sort(`X') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X' if _n>rowsof(`plotmat'), mlabel(`X') mlabpos(6) xtitle("") ///
-				ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"') ///
-				yscale(range(0 .)) name(`graphname'`_h', `replace') ///
-				`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
-
+			mat `_plotmat' = `plotmat'
 			return matrix plot`_h' = `plotmat'
+			mat `plotmat' = `_plotmat'
+
+			if "`graph'"=="" {
+				cap confirm matrix `peakmat'
+				if !_rc {
+					mata st_matrix("`plotmat'", st_matrix("`plotmat'") \ st_matrix("`peakmat'"))
+					return matrix peak`_h' = `peakmat'
+				}
+				cap confirm matrix `cimat'
+				if _rc mat `_plotmat' = `plotmat'
+					else mata st_matrix("`_plotmat'", st_matrix("`plotmat'") \ ((st_matrix("`cimat'")[,1] \ st_matrix("`cimat'")[,2]), J(2*`=rowsof(`cimat')', 1, 1-`level'/100)))
+				mat colnames `_plotmat' = `X' `Y'
+				qui svmat `_plotmat', names(col)
+				label var `Y' " " // in case user turns on legend
+				format `X' %5.0g
+				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
+				local 0, `graphopt'
+				syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
+				line `Y' `X', sort(`X') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X' if _n>rowsof(`plotmat'), mlabel(`X') mlabpos(6) xtitle("") ///
+					ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"') ///
+					yscale(range(0 .)) name(`graphname'`_h', `replace') ///
+					`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
+			}
 		}
 
 		if "`cimat'" != "" {
@@ -595,7 +609,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.6.1 Fixed AR test crash
+* 1.6.1 Fixed AR test crash. Dropped nowarning in favor of capture because commands such as poisson don't accept it. Changed left and right lower and upper. Fixed bugs.
+*       Suppressed non-concavity warning when imposing null after ML that was incorrectly triggered by omitted factor variables.
 * 1.6.0 Added left and right p value types. Added cmdline option. Added nowarning option to ml, iter(0) call to suppress non-convergence warning.
 * 1.5.7 renamed _selectindex() to boottest_selectindex() to reduce conflicts with old cmp versions
 * 1.5.6 Fixed crash on waldtest after ML

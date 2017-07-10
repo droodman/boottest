@@ -1,5 +1,5 @@
-*! artest 1.5.0 7 September 2016
-*! Copyright (C) 2015-16 David Roodman
+*! artest 1.6.1 10 July 2016
+*! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,6 @@ program define artest
 	}
 	local 0 `*'
 	
-	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NONULl NOGRaph SMall gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) ar]	
-	boottest `h0s', `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `nonull' `nograph' reps(0) ar `gridmin' `gridmax' `gridpoints' `graphopt' `graphname'
+	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NONULl NOGRaph SMall Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) ar]	
+	boottest `h0s', `h0' reps(0) ar `bootcluster' `cluster' `robust' `quietly' `noci' `nonull' `nograph' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphname'
 end

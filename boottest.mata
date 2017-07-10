@@ -1,4 +1,4 @@
-*! boottest 1.6.1 9 July 2017
+*! boottest 1.6.1 10 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -53,6 +53,7 @@ class boottestModel {
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI
 	string scalar wttype, madjtype
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta
+	real rowvector peak
 	struct boottest_clust colvector clust
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
@@ -63,18 +64,18 @@ class boottestModel {
 	real colvector get_dist()
 }
 
-void AnalyticalModel::new() {
+void AnalyticalModel::new()
 	AR = 0
-}
 
-void AnalyticalModel::setParent(class boottestModel scalar B) {
+void AnalyticalModel::setParent(class boottestModel scalar B)
 	parent = &B
-}
+
 void AnalyticalModel::SetLIMLFullerK(real scalar _LIML, real scalar _Fuller, real scalar _K) {
 	LIML = _LIML
 	Fuller = _Fuller
 	K = _K
 }
+
 void AnalyticalModel::SetAR(real scalar _AR) {
 	if (AR = _AR) LIML = Fuller = K = 0
 }
@@ -270,9 +271,9 @@ void boottest_set_dirty   (class boottestModel scalar M                      ) {
 }
 void boottest_set_ptype(class boottestModel scalar M, string scalar ptype)     {
 	real scalar p
-	p = cross( (strtrim(strlower(ptype)) :== ("symmetric"\"equaltail"\"left"\"right")), 1::4 ) - 1
+	p = cross( (strtrim(strlower(ptype)) :== ("symmetric"\"equaltail"\"lower"\"upper")), 1::4 ) - 1
 	if (p<0) 
-		_error(198, `"p-value type must be "symmetric", "equaltail", "left", or "right.""')
+		_error(198, `"p-value type must be "symmetric", "equaltail", "lower", or "upper.""')
 	M.ptype = p
 	M.twotailed = p<=1
 }
@@ -394,18 +395,24 @@ real scalar boottestModel::get_p(|real scalar analytical) {
 	t = Dist[1]
 	if (reps & analytical==.) {
 		if (t == .) return (.)
-		if (sqrt & ptype != 2) {
+		if (sqrt & ptype != 3) {
 			if (ptype==0) { // symmetric p value
 				_Dist = abs(Dist); t = abs(t)
 				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
 			} else if (ptype==1) // equal-tail p value
 				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / (colnonmissing(Dist) - 1)
-			else if (ptype==3) // left-tailed p value
+			else // upper-tailed p value
 				p = 1 -(       colsum(t:< Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
-		} else // left-tailed p value or p value based on squared stats 
+		} else // upper-tailed p value or p value based on squared stats 
 				p = 1 -(       colsum(t:> Dist)                       + (colsum(t:== Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
-	} else
-		p = small? Ftail(df, df_r, sqrt? t:*t : t) : chi2tail(df, sqrt? t:*t : t)
+	} else {
+		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
+		if (sqrt & !twotailed) {
+			p = p / 2
+			if ((ptype==3) == (t<0))
+				p = 1 - p
+		}
+	}
 	return (p)
 }
 
@@ -437,12 +444,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 	} else
 		st_view(V, i, j, selectvar)
 }
-
-
-
-
-
-
 
 
 
@@ -646,7 +647,8 @@ void boottestModel::boottest() {
 
 		df = rows(*pR0)
 		df_r = Nclust? clust[Nclust].N - 1 : _Nobs - k
-		if (df==1 & !AR) set_sqrt(1) // work with t/z stats instead of F/chi2
+
+		if (df==1) set_sqrt(1) // work with t/z stats instead of F/chi2
 
 		if (small)
 			multiplier = (_Nobs - k) / (_Nobs - robust) / df // divide by # of constraints because F stat is so defined
@@ -965,7 +967,7 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 	
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot(real scalar level) {
-	real scalar t, alpha, _quietly, g, i, j; real colvector lo, hi; pointer (real colvector) _pr0
+	real scalar t, alpha, _quietly, c, i, j; real colvector lo, hi; pointer (real colvector) _pr0
 
 	_quietly = quietly
 	boottest_set_quietly(this, 1)
@@ -984,7 +986,7 @@ void boottestModel::plot(real scalar level) {
 	if (gridstart==. | gridstop==.) {
 		if (reps)
 			if (AR) {
-				t = abs(cuepoint) * (small? (1-invttail(df_r, alpha/2))/(1-invttail(df_r, get_padj(1)/2)) : invnormal(alpha/2)/invnormal(get_padj(1)/2))
+				t = abs(cuepoint) * (small? invttail(df_r, alpha/2)/invttail(df_r, get_padj(1)/2) : invnormal(alpha/2)/invnormal(get_padj(1)/2))
 				lo = gridstart<.? gridstart : cuepoint - t
 				hi = gridstop <.? gridstop  : cuepoint + t
 			} else {
@@ -993,12 +995,12 @@ void boottestModel::plot(real scalar level) {
 				hi = gridstop <.? gridstop  : numer[1] + *pr0 + DistCDR[ceil (( 1-alpha/2)*(rows(DistCDR)-1))+1] * abs(numer[1]/Dist[1])
 			}
 		else {
-			t = abs(numer[1]/Dist[1]) * (small? 1-invttail(df_r, alpha/2) : invnormal(alpha/2))
+			t = abs(numer[1]/Dist[1]) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))
 			lo = gridstart<.? gridstart : numer[1] + *pr0 + t
 			hi = gridstop <.? gridstop  : numer[1] + *pr0 - t
 		}
 
-		if (gridstart==. & ptype!=3) // unless right-tailed p value, try at most 10 times to bracket confidence set by doubling on low side
+		if (gridstart==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by doubling on low side
 			for (i=10; i & -r0_to_p(lo)<-alpha; i--)
 				lo = 2 * lo - hi
 		if (gridstop==. & ptype!=2) // ditto for high side
@@ -1012,12 +1014,18 @@ void boottestModel::plot(real scalar level) {
 	plotX = rangen(lo, hi, gridpoints)
 	if (cuepoint == .) cuepoint = numer[1] + *pr0 // non-AR case
 	if (cuepoint < lo) { // insert original point estimate into grid
-		if (gridstart == .) plotX = cuepoint \ plotX
+		if (gridstart == .) {
+			plotX = cuepoint \ plotX
+			c = 1
+		}
 	} else if (cuepoint > hi) {
-		if (gridstop == .) plotX = plotX \ cuepoint
+		if (gridstop == .) {
+			plotX = plotX \ cuepoint
+			c = gridpoints+1
+		}
 	} else {
-		g = floor((cuepoint - lo)/(hi - lo)*(gridpoints - 1)) + 1
-		plotX = plotX[|.\g|] \ cuepoint \ plotX[|g+1\.|]
+		c = floor((cuepoint - lo)/(hi - lo)*(gridpoints - 1)) + 2
+		plotX = plotX[|.\c-1|] \ cuepoint \ plotX[|c\.|]
 	}
 
 	plotY = J(rows(plotX), 1, .)
@@ -1050,6 +1058,17 @@ void boottestModel::plot(real scalar level) {
 		}
 	}
 
+	if (c < .) { // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
+		peak = plotX[c], plotY[c]
+		if (c==1) { // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
+			plotX = plotX[|2\.|]; plotY = plotY[|2\.|]
+		} else if (c==gridpoints+1) {
+			plotX = plotX[|.\gridpoints|]; plotY = plotY[|.\gridpoints|]
+		} else {
+			plotX = plotX[|.\c-1|] \ plotX[|c+1\.|]; plotY = plotY[|.\c-1|] \ plotY[|c+1\.|]
+		}
+	}
+
 	boottest_set_quietly(this, _quietly)
 	pr0 = _pr0 // inconsistent in bypassing function interface to class members
 }
@@ -1063,7 +1082,8 @@ real matrix boottestModel::combs(real rowvector X) {
 }
 
 // Stata interface
-void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, string scalar plotname, real scalar level, real scalar ML, real scalar LIML, real scalar Fuller, 
+void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
+	string scalar plotname, string scalar peakname, real scalar level, real scalar ML, real scalar LIML, real scalar Fuller, 
 	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar wildtype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
 	string scalar XExnames, string scalar XEndnames, real scalar cons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, 
@@ -1132,6 +1152,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (plotname != "") {
 		M.plot(level)
 		st_matrix(plotname, (M.plotX,M.plotY))
+		if (cols(M.peak)) st_matrix(peakname, M.peak)
 		if (level<100 & ciname != "") st_matrix(ciname, M.CI) // also makes plotX & plotY
 	}
 
