@@ -164,7 +164,7 @@ program define _boottest, rclass sortpreserve
 	if "`ptype'"'=="" local ptype symmetric
 	else {
 		local 0, `ptype'
-		syntax, [SYMmetric EQualtail lower upper]
+		syntax, [SYMmetric EQualtail LOWer UPper]
 		local ptype `symmetric'`equaltail'`lower'`upper'
 	}
 
