@@ -26,15 +26,13 @@ d KW: multi-way clustering
 d
 d Requires: Stata version 11.2
 d
-d Distribution-Date: 20170620
-d
 d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
 f boottest.ado
 f boottest.mata
 f boottest.sthlp
-f ../a/artest.ado
-f ../s/scoretest.ado
-f ../w/waldtest.ado
-f ../l/lboottest.mlib
+f artest.ado
+f scoretest.ado
+f waldtest.ado
+f lboottest.mlib
