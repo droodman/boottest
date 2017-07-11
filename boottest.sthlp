@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0 9 July 2017}{...}
+{* *! version 1.6.1 10 July 2017}{...}
 {boottest:help boottest}
 {hline}{...}
 
@@ -79,7 +79,7 @@ In addition, these options are relevant when testing a single hypothesis after O
 {synopt:{opt noci}}prevent derivation of confidence set from inverted bootstrap test{p_end}
 {synopt:{cmd:graphname(}{it:name}[{cmd:, replace}]{cmd:)}}name graph; for multiple independent hypotheses, uses {it:name} as stub{p_end}
 {synopt:{opt nogr:aph}}allow derivation of confidence set but don't graph confidence function{p_end}
-{synopt:{opt p:type(symmetric | equaltail | lower | upper)}}set p value type; {it:symmetric} is default{p_end}
+{synopt:{opt p:type(symmetric | equaltail | lower | upper)}}for unary hypotheses, set p value type; {it:symmetric} is default{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -269,7 +269,8 @@ producing {it:name}_1, {it:name}_2, etc.
 
 {phang}{opt nogr:aph} prevents graphing of the confidence function but not the derivation of confidence sets.
 
-{phang}{opt p:type(symmetric | equaltail | lower | upper)} sets whether p value type. The default {it:symmetric}, has the p value derived from the
+{phang}{opt p:type(symmetric | equaltail | lower | upper)} sets the p value type. The option applies only to unary hypotheses, ones involving a single 
+quality or inequality. The default, {it:symmetric}, has the p value derived from the
 square of the {it:t}/{it:z} statistic, or, equivalently, the absolute value. {it:equaltail} performs a two-tailed test using the {it:t}/{it:z} statistic. For example, 
 if the confidence level is 95, then the symmetric p value is less than 0.05 if the square of the test statistic is in the top 5 centiles of the corresponding bootstrapped 
 distribution. The equal-tail p value is less than 0.05 if the test statistic is in the top or bottom 2.5 centiles. In addition, {it:lower} and {it:upper} allow

@@ -1,4 +1,4 @@
-*! boottest 1.6.1 10 July 2017
+*! boottest 1.6.2 11 July 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -448,11 +448,13 @@ program define _boottest, rclass sortpreserve
 					di as err "Error imposing null. Perhaps {cmd:`e(cmd)'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
 					exit `rc'
 				}
-				_ms_omit_info e(b)
-				`quietly' mata {
-					if (!all(diagonal(st_matrix("e(V)")) :| st_matrix("r(omit)")')) {
-						printf("\n{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable.")
-						printf("\nThis may indicate that the constrained optimum is far from the unconstrained one, i.e., that the hypothesis is incompatible with the data.\n")
+				if "`quietly'"=="" {
+					_ms_omit_info e(b)
+					tempname t
+					mata st_numscalar("`t'", !all(diagonal(st_matrix("e(V)")) :| st_matrix("r(omit)")'))
+					if `t' {
+						di _n as res "\n{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable.\n"
+						di "This may indicate that the constrained optimum is far from the unconstrained one, i.e., that the hypothesis is incompatible with the data." _n
 					}
 				}
 			}
@@ -561,7 +563,9 @@ program define _boottest, rclass sortpreserve
 				}
 				cap confirm matrix `cimat'
 				if _rc mat `_plotmat' = `plotmat'
-					else mata st_matrix("`_plotmat'", st_matrix("`plotmat'") \ ((st_matrix("`cimat'")[,1] \ st_matrix("`cimat'")[,2]), J(2*`=rowsof(`cimat')', 1, 1-`level'/100)))
+				else {
+					mata st_matrix("`_plotmat'", st_matrix("`plotmat'") \ ((st_matrix("`cimat'")[,1] \ st_matrix("`cimat'")[,2]), J(2*`=rowsof(`cimat')', 1, 1-`level'/100)))
+				}
 				mat colnames `_plotmat' = `X' `Y'
 				qui svmat `_plotmat', names(col)
 				label var `Y' " " // in case user turns on legend
@@ -609,7 +613,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.6.1 Fixed AR test crash. Dropped nowarning in favor of capture because commands such as poisson don't accept it. Changed left and right lower and upper. Fixed bugs.
+* 1.6.2 Fixed ado bug in 1.6.1
+* 1.6.1 Fixed AR test crash. Dropped nowarning in favor of capture because commands such as poisson don't accept it. Changed left and right to lower and upper. Fixed bugs.
 *       Suppressed non-concavity warning when imposing null after ML that was incorrectly triggered by omitted factor variables.
 * 1.6.0 Added left and right p value types. Added cmdline option. Added nowarning option to ml, iter(0) call to suppress non-convergence warning.
 * 1.5.7 renamed _selectindex() to boottest_selectindex() to reduce conflicts with old cmp versions
