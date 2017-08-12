@@ -497,7 +497,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_i, _e, eUZVR0wt, ID1, Ystar, _beta, betaEnd
@@ -790,7 +789,7 @@ void boottestModel::boottest() {
 
 				for (c=1; c<=length(clust); c++) {
 					if (!Nclust | clust[c].N==Nobs) { // het-only robust
-						SeuZVR0 = (clust[c].N==Nobs? U : u) :* eZVR0 :* *pwt
+						SeuZVR0 = (Nclust>1? U : u) :* eZVR0 :* *pwt
 						if (!scoreBS) SeuZVR0 = SeuZVR0 - (*pXEx :* (*pwt :* pM->ZVR0)) * betadevEx - (*_pXEnd :* (*pwt :* pM->ZVR0)) * betadevEnd // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					} else if (c == 1) { // cluster we're bootstrapping on?
 						SeuZVR0 = u :* _panelsum(eZVR0, *pwt, clust.info)
