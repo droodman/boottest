@@ -287,8 +287,9 @@ value, such as N/(N-1), so that the place of the test statistic in the simulated
 used in the estimation.
 
 {phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. It is relevant only with multi-way clustering. If the option 
-includes more than one variable, then for the bootstrap observations are grouped by all the variables in the option. The default is to group the bootstrap on all
-the {cmd:cl:uster()} variables.
+includes more than one variable, then for the bootstrap observations are grouped by all the variables in the option. The default is to cluster the bootstrap on all
+the {cmd:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (2017) tend to favor clustering the bootstrap just on the one variable with the smallest
+number of clusters.
 
 {phang}{opt ar} requests the Anderson-Rubin test. It applies only to instrumental variables estimation. If the null is specified explicitly, it must fix
 all parameters on instrumented variables, and no others.
@@ -425,6 +426,7 @@ inference. {it:Journal of Human Resources} 50(2): 317-72.{p_end}
 {p 4 8 2}Fisher, N.I., and P. Hall. 1990. On bootstrap hypothesis testing. {it:Australian Journal of Statistics} 32(2): 177-90.{p_end}
 {p 4 8 2}Kline, P., and Santos, A. 2012. A score based approach to wild bootstrap 
 inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
+{p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2017. Bootstrap and asymptotic inference with multiway clustering. Queen's Economics Department Working Paper No. 1386.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of
 estimation. {it:Proc. Cambridge Philos. Soc.} 44: 50-57.{p_end}
