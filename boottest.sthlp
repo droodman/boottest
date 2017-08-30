@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.1 10 July 2017}{...}
+{* *! version 1.7.0 30 August 2017}{...}
 {boottest:help boottest}
 {hline}{...}
 
@@ -57,7 +57,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt sm:all}}request finite-sample corrections, overriding estimation setting {p_end}
 {synopt:{opt r:obust}}request tests robust to heteroskedasticity only, overriding estimation setting{p_end}
 {synopt:{opt cl:uster(varlist)}}request tests robust to (multi-way) clustering, overriding estimation setting{p_end}
-{synopt:{opt bootcl:uster(varname)}}sets cluster variable to boostrap on; allowed and required only with multi-way clustering{p_end}
+{synopt:{opt bootcl:uster(varname)}}sets cluster variable(s) to boostrap on; default is all {cmdab:cl:uster()} variables{p_end}
 {synopt:{opt ar}}request Anderson-Rubin test{p_end}
 {synopt:{opt seed(#)}}initialize random number seed to {it:#}{p_end}
 {synopt:{opt qui:etly}}suppress display of null-imposed estimate; relevant after ML estimation{p_end}
@@ -286,8 +286,9 @@ value, such as N/(N-1), so that the place of the test statistic in the simulated
 {phang}{opt r:obust} and {opt cl:uster(varlist)} have the traditional meanings, but serve an nontraditional function, which is to override the settings
 used in the estimation.
 
-{phang}{opt bootcl:uster(varname)} specifies which clustering variable to boostrap on. It is allowed and required only with multi-way clustering. Normally
-it should be the variable with the fewest clusters.
+{phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. It is relevant only with multi-way clustering. If the option 
+includes more than one variable, then for the bootstrap observations are grouped by all the variables in the option. The default is to group the bootstrap on all
+the {cmd:cl:uster()} variables.
 
 {phang}{opt ar} requests the Anderson-Rubin test. It applies only to instrumental variables estimation. If the null is specified explicitly, it must fix
 all parameters on instrumented variables, and no others.
@@ -388,7 +389,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest tenure, nograph ar} // same, but Anderson-Rubin (faster){p_end}
 
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
-{phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmax(1)} // multi-way-clustered test after estimation command not offering such{p_end}
+{phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)} // multi-way-clustered test after estimation command not offering such{p_end}
 
 {phang}. {stata probit c_city tenure wage ttl_exp collgrad, cluster(industry)}{p_end}
 {phang}. {stata boottest tenure}{space 25} // score bootstrap, Rademacher weights, null imposed, 1000 replications{p_end}

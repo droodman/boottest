@@ -1,4 +1,4 @@
-*! boottest 1.6.1 10 July 2017
+*! boottest 1.7.0 30 August 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("01.05.00")
+string scalar      boottestVersion() return("01.07.00")
 
 struct smatrix {
 	real matrix M
@@ -47,7 +47,8 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 }
 
 class boottestModel {
-	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, Nclust, robust, weights, REst, multiplier, quietly, sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p
+	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, ///
+		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI
@@ -196,7 +197,7 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 		pV = &(rows(invH)? invH : invsym(*pH))
 	VR0 = *pV * *parent->pR0'
 
-	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->Nclust==1))) {
+	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->NClust==1))) {
 		if (K) {
 			AVR0 = A * VR0
 			ZVR0 = *parent->pZExcl * AVR0[|parent->kEx+1,.\.,.|]; if (parent->kEx) ZVR0 = ZVR0 + *parent->pXEx * AVR0[|.,.\parent->kEx,.|]
@@ -341,13 +342,14 @@ void boottest_set_null    (class boottestModel scalar M, real scalar null    ) {
 void boottest_set_wttype  (class boottestModel scalar M, string scalar wttype) {
 	M.wttype = wttype; M.set_dirty(1)
 }
-void boottest_set_ID      (class boottestModel scalar M, real matrix ID      ) {
-	M.pID = &ID; M.set_dirty(1)
+void boottest_set_ID      (class boottestModel scalar M, real matrix ID, | real scalar NBootClust) {
+	_editmissing(NBootClust, 1)
+	M.pID = &ID; M.NBootClust = NBootClust; M.set_dirty(1)
 	if (cols(ID)) M.robust = 1
 }
 void boottest_set_robust  (class boottestModel scalar M, real scalar robust  ) {
 	M.robust = robust
-	if (robust==0) boottest_set_ID(M, J(0,0,0))
+	if (robust==0) boottest_set_ID(M, J(0,0,0), 1)
 	M.set_dirty(1)
 }
 void boottest_set_R (class boottestModel scalar M, real matrix R , real colvector r ) {
@@ -529,8 +531,12 @@ void boottestModel::boottest() {
 			pwt = &(sumwt = 1)
 		_Nobs = weights & wttype=="fweight"? sumwt : Nobs
 
-		if (Nclust = cols(*pID)) {
-			combs = combs(1..Nclust)
+		if (NClust = cols(*pID)) {
+			combs = combs(1..NClust)
+			if (NClust > NBootClust) { // move bootstrapping combination of clustering vars to 1st position in list of combos
+				i = 2^(NClust - NBootClust)
+				combs = combs[i,] \ combs[|.,.\i-1,.|] \ combs[|i+1,.\.,.|]
+			}
 			clust = boottest_clust(rows(combs)-1) // leave out no-cluster combination
 			for (c=1; c<=length(clust); c++) {
 				clust[c].cols         = boottest_selectindex(combs[c,]:<.)
@@ -539,7 +545,7 @@ void boottestModel::boottest() {
 				  if (!allof( combs[|c, min(boottest_selectindex(combs[c,] :!= combs[c-1,])) \ c,.|], .))
 						_collate(*pID, clust[c].order = order(*pID, clust[c].cols))
 
-				clust[c].info         = c==1 & (Nclust > 1 | WREnonAR)? _panelsetup(*pID, clust[c].cols, ID1) : _panelsetup(*pID, clust[c].cols)  // in some cases, save originally ordered ID marker for bootstrapping cluster var
+				clust[c].info         = c==1 & (NClust > 1 | WREnonAR)? _panelsetup(*pID, clust[c].cols, ID1) : _panelsetup(*pID, clust[c].cols)  // in some cases, save originally ordered ID marker for bootstrapping cluster var
 				clust[c].N            = rows(clust[c].info)
 				clust[c].multiplier   = mod(cols(clust[c].cols),2)? 1 : -1
 				if (small)
@@ -550,9 +556,9 @@ void boottestModel::boottest() {
 			clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
 			clust.N = Nobs
 		}
-		
+
 		if (scoreBS)
-			if (Nclust)
+			if (NClust)
 				for (c=length(clust); c; c--)
 					clust[c].ClustShare = weights? _panelsum(*pwt, clust[c].info)/sumwt : (clust[c].info[,2]-clust[c].info[,1]:+ 1)/Nobs // share of observations by group 
 			else
@@ -577,7 +583,7 @@ void boottestModel::boottest() {
 			u[,1] = J(clust.N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
 		}
 
-		if (Nclust + WREnonAR > 1) U = u[ID1,] // for multi-way clustering and clustered WRE, also explode to one row per observation instead of per bootstrapping cluster
+		if (NClust + WREnonAR > 1) U = u[ID1,] // for multi-way clustering and clustered WRE, also explode to one row per observation instead of per bootstrapping cluster
 
 		if (!ML) {
 			if (REst) {
@@ -645,7 +651,7 @@ void boottestModel::boottest() {
 		}
 
 		df = rows(*pR0)
-		df_r = Nclust? clust[Nclust].N - 1 : _Nobs - k
+		df_r = NClust? clust[NClust].N - 1 : _Nobs - k
 
 		if (df==1) set_sqrt(1) // work with t/z stats instead of F/chi2
 
@@ -676,7 +682,7 @@ void boottestModel::boottest() {
 	if (WREnonAR) {
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
 		Dist = J(cols(u), 1, .)
-		pu = Nclust? &U : &u
+		pu = NClust? &U : &u
 		Ystar = *M_DGP.pY :+ _e :* *pu
 		XExYstar   = cross(*pXEx  , *pwt, Ystar)
 		ZExclYstar = cross(*pZExcl, *pwt, Ystar)
@@ -696,7 +702,7 @@ void boottestModel::boottest() {
 				ZExclXEndstar[j].M = cross(*pZExcl, *pwt, XEndstar[j].M)
 			}
 
-		if (Nclust) {
+		if (NClust) {
 			XZi = eZi = smatrix(clust.N)
 			for (i=clust.N; i; i--) {
 				Subscripts = clust.info[i,]', (.\.)
@@ -708,7 +714,7 @@ void boottestModel::boottest() {
 		}
 
 		for (j=cols(u); j; j--) { // WRE bootstrap
-			pXEndstar      = &( XEndstar.M  [,j])
+			pXEndstar      = &(   XEndstar.M  [,j])
 			pXExXEndstar   = &(XExXEndstar.M  [,j])
 			pZExclXEndstar = &(ZExclXEndstar.M[,j])
 			for (i=2; i<d; i++) {
@@ -724,9 +730,9 @@ void boottestModel::boottest() {
 			numer = *pR0 * pM_Repl->beta - *pr0
 
 			if (robust) { // Compute denominator for this WRE test stat
-				if (Nclust != 1) eZVR0 = pM_Repl->e :* pM_Repl->ZVR0
+				if (NClust != 1) eZVR0 = pM_Repl->e :* pM_Repl->ZVR0
 				for (c=1; c<=length(clust); c++) {
-					if (c==1 & Nclust) {
+					if (c==1 & NClust) {
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 
 						SeuZVR0 = (_beta'XZi[clust.N].M + betaEnd'eZi[clust.N].M * u[clust.N,j]) * AVR0 // R0 * V * Z_i'estar_i
@@ -738,7 +744,7 @@ void boottestModel::boottest() {
 						if (clust.multiplier!=1) denom = denom * clust[c].multiplier
 					} else {
 						if (rows(clust[c].order)) _collate(eZVR0, clust[c].order) // non-bootstrapping cluster
-						pSeZVR0 = !Nclust | clust[c].N==Nobs? (weights? &(eZVR0 :* *pwt) : &eZVR0) : &_panelsum(eZVR0, *pwt, clust[c].info)
+						pSeZVR0 = !NClust | clust[c].N==Nobs? (weights? &(eZVR0 :* *pwt) : &eZVR0) : &_panelsum(eZVR0, *pwt, clust[c].info)
 						t = cross(*pSeZVR0, *pSeZVR0); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom = c==1? t : denom + t
 					}
 				}
@@ -758,12 +764,12 @@ void boottestModel::boottest() {
 		}
 
 		if (scoreBS)
-			numer = cross(Nclust? _panelsum(eZVR0, *pwt, clust.info) : (weights? eZVR0:* *pwt : eZVR0), u)
+			numer = cross(NClust? _panelsum(eZVR0, *pwt, clust.info) : (weights? eZVR0:* *pwt : eZVR0), u)
 		else {
 			pewt = weights? &(pM->e:* *pwt) : &pM->e
 			betadenom = K? (*pM->pV * pM->A ') : *pM->pV // in IV/GMM, this is actually not denominator (V) but V * X'Z(Z'Z)^-1
-			betanumer = cross( Nclust? _panelsum(*pXEx  , *pewt, clust.info) : *pXEx   :* *pewt , u) \ 
-			            cross( Nclust? _panelsum(*pZExcl, *pewt, clust.info) : *pZExcl :* *pewt , u)
+			betanumer = cross( NClust? _panelsum(*pXEx  , *pewt, clust.info) : *pXEx   :* *pewt , u) \ 
+			            cross( NClust? _panelsum(*pZExcl, *pewt, clust.info) : *pZExcl :* *pewt , u)
 			numer = (*pR0)[|.,.\.,kEx|] * (betadevEx = betadenom[|.,.\kEx,.|] * betanumer)
 
 			if (K | AR)
@@ -778,18 +784,18 @@ void boottestModel::boottest() {
 		// Compute denominators and then test stats
 		if (robust) {
 			if (df == 1) {  // special, optimized for one null constraint
-				if (Nclust > 1) {
+				if (NClust > 1) {
 					peZVR0wt  = weights? &(eZVR0 :* *pwt) : &eZVR0
 					eUZVR0wt = U :* *peZVR0wt
 					if (!scoreBS) {
-						XExZVR0wt  = *pXEx   :* *peZVR0wt
+						XExZVR0wt  =  *pXEx  :* *peZVR0wt
 						XEndZVR0wt = *_pXEnd :* *peZVR0wt
 					}
 				}
 
 				for (c=1; c<=length(clust); c++) {
-					if (!Nclust | clust[c].N==Nobs) { // het-only robust
-						SeuZVR0 = (Nclust>1? U : u) :* eZVR0 :* *pwt
+					if (!NClust | clust[c].N==Nobs) { // het-only robust
+						SeuZVR0 = (NClust>1? U : u) :* eZVR0 :* *pwt
 						if (!scoreBS) SeuZVR0 = SeuZVR0 - (*pXEx :* (*pwt :* pM->ZVR0)) * betadevEx - (*_pXEnd :* (*pwt :* pM->ZVR0)) * betadevEnd // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					} else if (c == 1) { // cluster we're bootstrapping on?
 						SeuZVR0 = u :* _panelsum(eZVR0, *pwt, clust.info)
@@ -815,7 +821,7 @@ void boottestModel::boottest() {
 				if (!scoreBS) ZVR0wt = pM->ZVR0 :* *pwt
 
 				for (c=1; c<=length(clust); c++) {
-					if (!Nclust) // het-only robust
+					if (!NClust) // het-only robust
 						SeZVR0 = eZVR0 :* *pwt
 					else if (c == 1) // cluster we're bootstrapping on?
 						SeZVR0 = _panelsum(eZVR0, *pwt, clust.info)
@@ -1085,7 +1091,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	string scalar plotname, string scalar peakname, real scalar level, real scalar ML, real scalar LIML, real scalar Fuller, 
 	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar wildtype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
 	string scalar XExnames, string scalar XEndnames, real scalar cons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
-	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, 
+	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClust, 
 	string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, real scalar small, string scalar distname, ///
 	real scalar gridmin, real scalar gridmax, real scalar gridpoints) {
 
@@ -1115,7 +1121,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	boottest_set_Y (M, Y)
 	boottest_set_ZExcl(M, ZExcl)
 	boottest_set_wt (M, wt)
-	boottest_set_ID(M, ID)
+	boottest_set_ID(M, ID, NBootClust)
 	boottest_set_R (M, R , r )
 	boottest_set_R0(M, R0, r0)
 	boottest_set_null(M, null)

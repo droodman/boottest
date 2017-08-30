@@ -1,4 +1,4 @@
-*! boottest 1.6.2 11 July 2017
+*! boottest 1.7.0 30 August 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -31,7 +31,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.05.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.07.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -328,31 +328,27 @@ program define _boottest, rclass sortpreserve
 
 		if `:word count `clustvars'' > 1 {
 			if `"`bootcluster'"' == "" {
-				if `reps' {
-					di as err "{cmdab:bootcl:uster()} option required after multi-way clustered estimation."
+				local bootcluster `clustvars'
+				di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
+			}
+			else {
+				confirm var `bootcluster'
+				if `"`:list bootcluster - clustvars'"' != "" {
+					di as txt "{cmdab:bootcl:uster()} option includes variables not among the estimate's clustering variables."
 					exit 198
 				}
-				else local bootcluster: word 1 of `clustvars'
-			}
-			cap confirm var `bootcluster'
-			if _rc {
-				di as err `"`bootcluster' not found."'
-				exit 198
-			}
-			if `"`:list clustvars & bootcluster'"' == "" {
-				di as txt "`bootcluster'" as err " not among the estimate's clustering variables."
-				exit 198
 			}
 			
-			local clustvars `bootcluster' `:list clustvars - bootcluster'
+			local clustvars `bootcluster' `:list clustvars - bootcluster' // sort, by bootstrapping clusters first
 		}
+		else local bootcluster `clustvars'
 
 		sort `clustvars', stable
 
 		foreach clustvar in `clustvars' {
 			cap confirm numeric var `clustvar'
 			if _rc {
-				tempname IDname
+				tempvar IDname
 				qui egen long `IDname' = group(`clustvar') if e(sample)
 				local _clustvars `_clustvars' `IDname'
 			}
@@ -519,7 +515,7 @@ program define _boottest, rclass sortpreserve
 
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'",  "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`dist'", ///
+												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
 
 		_estimates unhold `hold'
@@ -613,6 +609,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.7.0 Made bootcluster() accept more than one variable. Fixed error causing it to always bootstrap on combination of all vars in multi-way clustered models.
 * 1.6.2 Fixed ado bug in 1.6.1
 * 1.6.1 Fixed AR test crash. Dropped nowarning in favor of capture because commands such as poisson don't accept it. Changed left and right to lower and upper. Fixed bugs.
 *       Suppressed non-concavity warning when imposing null after ML that was incorrectly triggered by omitted factor variables.
