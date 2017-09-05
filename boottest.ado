@@ -1,4 +1,4 @@
-*! boottest 1.7.0 30 August 2017
+*! boottest 1.7.1 2 September 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -329,7 +329,7 @@ program define _boottest, rclass sortpreserve
 		if `:word count `clustvars'' > 1 {
 			if `"`bootcluster'"' == "" {
 				local bootcluster `clustvars'
-				di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
+				if `reps' di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
 			}
 			else {
 				confirm var `bootcluster'
@@ -609,6 +609,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.7.1 Changed residual dof for multi-way clustered, small-sample-corrected models to smallest number of groups across grouping variables
 * 1.7.0 Made bootcluster() accept more than one variable. Fixed error causing it to always bootstrap on combination of all vars in multi-way clustered models.
 * 1.6.2 Fixed ado bug in 1.6.1
 * 1.6.1 Fixed AR test crash. Dropped nowarning in favor of capture because commands such as poisson don't accept it. Changed left and right to lower and upper. Fixed bugs.
