@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0 30 August 2017}{...}
+{* *! version 1.8.0 5 September 2017}{...}
 {boottest:help boottest}
 {hline}{...}
 
@@ -385,7 +385,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata cmp (wage = tenure collgrad) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)}{p_end}
 {phang}. {stata boottest tenure} // reasonable match on test statistic and p value{p_end}
 
-{phang}. {stata ivreg2 wage collgrad (tenure = collgrad ttl_exp), cluster(industry) fuller(1)}{p_end}
+{phang}. {stata ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)}{p_end}
 {phang}. {stata boottest tenure, nograph} // Wald test, WRE bootstrap, Rademacher weights, 1000 replications{p_end}
 {phang}. {stata boottest tenure, nograph ar} // same, but Anderson-Rubin (faster){p_end}
 
@@ -399,7 +399,6 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit} // same probit estimate as previous{p_end}
 {phang}. {stata boottest tenure}{space 67} // requires Stata 14.0 or later {p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 16} // requires Stata 14.0 or later{p_end}
-{phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit}
 
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
 {phang}. {stata 	args lnf theta}{p_end}

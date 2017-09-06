@@ -1,4 +1,4 @@
-*! boottest 1.7.1 2 September 2017
+*! boottest 1.8.0 5 September 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -609,6 +609,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.8.0 Reworked multiway clustering to first collapse data to one obs per all-cluster-var intersections.
+*       Reworked test stat computation for df>1 to mostly iterate over constraints rather than replications. Speeds AR test too.
 * 1.7.1 Changed residual dof for multi-way clustered, small-sample-corrected models to smallest number of groups across grouping variables
 * 1.7.0 Made bootcluster() accept more than one variable. Fixed error causing it to always bootstrap on combination of all vars in multi-way clustered models.
 * 1.6.2 Fixed ado bug in 1.6.1
