@@ -49,7 +49,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, ///
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster
-	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx
+	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx, pG
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, G
 	string scalar wttype, madjtype
@@ -58,6 +58,8 @@ class boottestModel {
 	struct boottest_clust colvector clust
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
+	struct smatrix matrix denom
+	struct smatrix colvector eUZVR0, XExZVR0, XEndZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
@@ -495,8 +497,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplodeU, Ystar, _beta, betaEnd, wt
@@ -504,9 +504,6 @@ void boottestModel::boottest() {
 	real matrix betadevEx, betadevEnd, betanumer, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, betadenom, eZVR0, eu, VR0, infoAll, IDCollapse
 	real scalar i, j, l, c, minN
 	pointer (real matrix) scalar _pR0, pewt, pSeZVR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, pinfo
-	pointer (real matrix) colvector pG
-	struct smatrix colvector XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, eUZVR0, XExZVR0, XEndZVR0 
-	struct smatrix matrix denom
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplodeU; pragma unused M_WRE
 
@@ -560,7 +557,6 @@ void boottestModel::boottest() {
 				}
 
 				clust[c].N            = rows(clust[c].info)
-
 				if (small) {
 				  clust[c].multiplier = clust[c].multiplier * clust[c].N/(clust[c].N-1)
 					if (minN > clust[c].N) minN = clust[c].N
@@ -678,6 +674,15 @@ void boottestModel::boottest() {
 
 		if (!null) M_DGP.beta = J(0,1,0) // in case model re-dirtied and we're not imposing null, Estimate() will know to recompute beta for first r0 value tried, then stop
 
+		denom = smatrix(df,df)
+		if (WREnonAR) {
+			XEndstar = XExXEndstar = ZExclXEndstar = smatrix(d-1)
+			if (NClust)
+				XZi = eZi = smatrix(clust[BootCluster].N)
+		} else if (robust) {
+			eUZVR0 = XExZVR0 = XEndZVR0 = smatrix(df); pG = J(df, 1, NULL)
+		}
+
 		initialized = 1
 	} // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
 
@@ -700,7 +705,6 @@ void boottestModel::boottest() {
 		Ystar = *M_DGP.pY :+ _e :* *pu
 		XExYstar   = cross(*pXEx  , *pwt, Ystar)
 		ZExclYstar = cross(*pZExcl, *pwt, Ystar)
-		XEndstar = XExXEndstar = ZExclXEndstar = smatrix(d-1)
 		
 		if (LIML | !robust)
 			YstarYstar = weights? cross(*pwt, Ystar:*Ystar) : colsum(Ystar:*Ystar)
@@ -716,8 +720,7 @@ void boottestModel::boottest() {
 				ZExclXEndstar[j].M = cross(*pZExcl, *pwt, XEndstar[j].M)
 			}
 
-		if (NClust) {
-			XZi = eZi = smatrix(clust[BootCluster].N)
+		if (NClust)
 			for (i=clust[BootCluster].N; i; i--) {
 				Subscripts = clust[BootCluster].info[i,]', (.\.)
 				Zi = (*pXEx)[|Subscripts|] , (*pZExcl)[|Subscripts|] // inefficient?
@@ -725,7 +728,6 @@ void boottestModel::boottest() {
 				XZi[i].M = cross((*pXEx)[|Subscripts|], Zi) \ cross((*pXEnd)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
 				eZi[i].M =                                    cross(M_DGP.e2[|Subscripts|], Zi) \ cross(   _e[|Subscripts|], Zi)
 			}
-		}
 
 		for (j=cols(u); j; j--) { // WRE bootstrap
 			pXEndstar      = &(   XEndstar.M  [,j])
@@ -800,24 +802,15 @@ void boottestModel::boottest() {
 		else if (!null) numer[,1] = *pR0 * (ML? beta : pM->beta) - *pr0 // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 
 		// Compute denominators and then test stats
-		denom = smatrix(df,df)
 		if (robust) {
-			eUZVR0 = XExZVR0 = XEndZVR0 = smatrix(df); pG = J(df, 1, NULL)
-			
-			if (!scoreBS) // move code up?
+			if (!scoreBS)
 				for (i=df;i;i--) {
 					t = pM->ZVR0[,i]
-					 XExZVR0[i].M =  *pXEx  :* t
-					XEndZVR0[i].M = *_pXEnd :* t
+					XExZVR0[i].M  = _panelsum( *pXEx  :* t, *pwt, clust.info)
+					XEndZVR0[i].M = _panelsum(*_pXEnd :* t, *pwt, clust.info)
 				}
-			if (clust.N < Nobs) { // collapse data to all-cluster-var intersections
-				eZVR0             = _panelsum(eZVR0   , *pwt, clust.info)
-				if (!scoreBS)
-					for (i=df;i;i--) {
-				    XExZVR0[i].M  = _panelsum( XExZVR0[i].M, *pwt, clust.info)
-				    XEndZVR0[i].M = _panelsum(XEndZVR0[i].M, *pwt, clust.info)
-					}
-			}
+
+			eZVR0 = _panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 			pu = rows(U)? &U : &u
 			for (i=df;i;i--)
 				eUZVR0[i].M = *pu :* eZVR0[,i]
@@ -833,12 +826,11 @@ void boottestModel::boottest() {
 					}
 				for (i=df;i;i--) {
 					pG[i] = &_panelsum(eUZVR0[i].M, clust[c].info) // if c==1, clust.info refers to original data. but _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0
-					if (!scoreBS) // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
+					if (scoreBS) {
+						if (null)
+							pG[i] = &(*pG[i] :- clust[c].ClustShare*colsum(*pG[i])) // recenter variance if not already done. Horowitz (2001), (3.29)
+					} else if (reps) // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						pG[i] = &(*pG[i] - _panelsum(XExZVR0[i].M, clust[c].info) * betadevEx - _panelsum(XEndZVR0[i].M, clust[c].info) * betadevEnd)
-					if (weights & NClust == 0) // if robust, non-cluster, work in weights here
-						pG[i] = &(*pG[i] :* *pwt)
-					if (scoreBS)
-						pG[i] = &(*pG[i] :- clust[c].ClustShare*colsum(*pG[i])) // recenter variance if not already done. Horowitz (2001), (3.29)
 					for (j=i;j<=df;j++) {
 						t = colsum(*pG[i] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,i].M = c==1? t : denom[j,i].M + t
 					}
@@ -852,12 +844,10 @@ void boottestModel::boottest() {
 				for (l=cols(u); l; l--) {
 					for (i=df;i;i--)
 						for (j=i;j<=df;j++)
-							 t[j,i] = t[i,j] = denom[j,i].M[l]
-					t = invsym(t)
-					if (all(diagonal(t))) {
-						numer_l = numer[,l]
-						Dist[l] = cross(numer_l, t * numer_l)
-					}
+							 t[j,i] = denom[j,i].M[l]
+					_makesymmetric(t)
+					numer_l = numer[,l]
+					Dist[l] = cross(numer_l, invsym(t) * numer_l)
 				}
 			}
 		} else { // non-robust
@@ -930,7 +920,7 @@ real matrix _panelsum(real matrix X, real matrix arg2, | real matrix arg3) {
 			return(X)
 	} else
 		if (rows(arg3)==0 | rows(arg3)==rows(X))
-			return(X :* arg2)
+			return(arg2==1? arg2 : X :* arg2)
 
 	if (stataversion() >= 1300)
 		return (__panelsum(X, arg2, arg3))

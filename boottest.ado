@@ -621,7 +621,7 @@ end
 * 1.5.6 Fixed crash on waldtest after ML
 * 1.5.5 Fixed bug in determining confidence intervals when some test results is missing.
 * 1.5.4 Fixed two bugs causing crashes after GMM estimation
-* 1.5.3 Simplify _selectindex(). Switch from invt() to invttail() since invt() added in Stata 13. Work around Mata garbage-cleaning bug.
+* 1.5.3 Simplify _selectindex(). Switch from invt() to invttail() since invt() added in Stata 13. Work around Mata garbage-collecting bug.
 * 1.5.2 Switch from "[]" to "{}" in multiple hypothesis syntax. Prevent crashes if hypothesis applies to constrained/dropped parameter, or in non-robust ML.
 * 1.5.1 Make wrapper accept level() and graphname(). Handle graphopt() options relevant for format of line.
 * 1.5.0 Added Anderson-Rubin test, new null hypothesis syntax, multiple hypothesis testing and corrections thereof
