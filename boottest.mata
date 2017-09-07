@@ -1,4 +1,4 @@
-*! boottest 1.8.0 5 September 2017
+*! boottest 1.8.0 6 September 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -49,7 +49,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, ///
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster
-	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx, pG
+	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, G
 	string scalar wttype, madjtype
@@ -499,13 +499,13 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 // main routine
 void boottestModel::boottest() {
-	real colvector rAll, numer_l, _e, IDExplodeU, Ystar, _beta, betaEnd, wt
+	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt
 	real rowvector val, YstarYstar
 	real matrix betadevEx, betadevEnd, betanumer, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, betadenom, eZVR0, eu, VR0, infoAll, IDCollapse
 	real scalar i, j, l, c, minN
-	pointer (real matrix) scalar _pR0, pewt, pSeZVR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, pinfo
+	pointer (real matrix) scalar _pR0, pewt, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0
 	class AnalyticalModel scalar M_WRE
-	pragma unset vec; pragma unset val; pragma unset IDExplodeU; pragma unused M_WRE
+	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
 		kEx = cols(*pXEx)
@@ -533,14 +533,10 @@ void boottestModel::boottest() {
 			combs = combs(NClust) // represent all clustering combinations. First is intersection of all vars.
 			clust = boottest_clust(rows(combs)-1) // leave out no-cluster combination
 
-			if (WREnonAR) // WRE code below not adapted to save time by collapsing data
-				(void) _panelsetup(IDCollapse = *pID, 1..NBootClust, IDExplodeU)
-			else {
-				infoAll = _panelsetup(*pID, 1..NClust) // info for grouping by intersections of all clustering vars
-				IDCollapse = NClust==1 | rows(infoAll)==Nobs? *pID : (*pID)[infoAll[,1],] // version of ID matrix with one row for each all-cluster var intersection instead of 1 row for each obs
-				if (NClust > NBootClust)
-					(void) _panelsetup(IDCollapse, 1..NBootClust, IDExplodeU) // index vector to explode wild weights to one per all-cluster var intersection
-			}
+			infoAll = _panelsetup(*pID, 1..NClust) // info for grouping by intersections of all clustering vars
+			IDCollapse = NClust==1 | rows(infoAll)==Nobs? *pID : (*pID)[infoAll[,1],] // version of ID matrix with one row for each all-cluster var intersection instead of 1 row for each obs
+			if (NClust > NBootClust)
+				(void) _panelsetup(IDCollapse, 1..NBootClust, IDExplode) // index vector to explode wild weights to one per all-cluster var intersection
 
 			for (c=1; c<=length(clust); c++) {
 				clust[c].cols         = boottest_selectindex(combs[c,])
@@ -574,6 +570,16 @@ void boottestModel::boottest() {
 				clust.ClustShare = weights? *pwt/sumwt : 1/_Nobs
 		}
 
+		if (WREnonAR)
+				pinfoExplode = &_panelsetup(*pID, 1..NBootClust, IDExplode)
+		else if (NClust)
+			if (NClust > 1) // bootstrap cluster grouping defs rel to original data
+				pinfoExplode = &_panelsetup(*pID, 1..NBootClust)
+			else
+				pinfoExplode = &clust.info
+		else
+			pinfoExplode = &J(0,0,0) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
+
 		if (reps & wildtype==0 & clust[BootCluster].N*ln(2) < ln(reps)+1e-6) {
 			if (!quietly) printf("\nWarning: with %g clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", clust[BootCluster].N, reps, clust[BootCluster].N, 2^clust[BootCluster].N)
 			u = J(clust[BootCluster].N,1,1), count_binary(clust[BootCluster].N, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
@@ -593,7 +599,7 @@ void boottestModel::boottest() {
 			u[,1] = J(clust[BootCluster].N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
 		}
 
-		U = WREnonAR | NClust > NBootClust? u[IDExplodeU,] : J(0,0,0)
+		U = WREnonAR | NClust > NBootClust? u[IDExplode,] : J(0,0,0)
 
 		if (!ML) {
 			if (REst) {
@@ -722,7 +728,7 @@ void boottestModel::boottest() {
 
 		if (NClust)
 			for (i=clust[BootCluster].N; i; i--) {
-				Subscripts = clust[BootCluster].info[i,]', (.\.)
+				Subscripts = (*pinfoExplode)[i,]', (.\.)
 				Zi = (*pXEx)[|Subscripts|] , (*pZExcl)[|Subscripts|] // inefficient?
 				if (weights) Zi = Zi :* (*pwt)[|Subscripts|]
 				XZi[i].M = cross((*pXEx)[|Subscripts|], Zi) \ cross((*pXEnd)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
@@ -747,23 +753,23 @@ void boottestModel::boottest() {
 
 			if (robust) { // Compute denominator for this WRE test stat
 				denom = smatrix()
-				if (NClust != 1) eZVR0 = pM_Repl->e :* pM_Repl->ZVR0
+				if (NClust != 1) // collapse meat+sandwich  to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
+					peZVR0 = &_panelsum(pM_Repl->ZVR0, weights? *pwt :* pM_Repl->e : pM_Repl->e, clust.info)  // really eZAVR0, where e is wildized residual, not residual from replication fit (estar)
 				for (c=1; c<=length(clust); c++) {
-					if (c==1 & NClust) {
+					if (NClust != 1 & rows(clust[c].order))
+						_collate(*peZVR0, clust[c].order)
+					if (c==BootCluster & NClust) {
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
-
-						G = (_beta'XZi[clust[BootCluster].N].M + betaEnd'eZi[clust[BootCluster].N].M * u[clust[BootCluster].N,j]) * AVR0 // R0 * V * Z_i'estar_i
-						denom.M = cross(G, G)
-						for (i=clust[BootCluster].N-1; i; i--) {
-							G = (_beta'XZi[i].M + betaEnd'eZi[i].M * u[i,j]) * AVR0 // R0 * V * Z_i'estar_i
-							denom.M = cross(G, G) + denom.M
+						pragma unset t
+						for (i=1; i<=clust[BootCluster].N; i++) {
+							pG = &((_beta'XZi[i].M + betaEnd'eZi[i].M * u[i,j]) * AVR0) // R0 * V * Z_i'estar_i
+							t = i==1? cross(*pG,*pG) : t + cross(*pG,*pG)
 						}
-						if (clust[c].multiplier!=1) denom.M = denom.M * clust[c].multiplier
 					} else {
-						if (rows(clust[c].order)) _collate(eZVR0, clust[c].order) // non-bootstrapping cluster
-						pSeZVR0 = !NClust | clust[c].N==Nobs? (weights? &(eZVR0 :* *pwt) : &eZVR0) : &_panelsum(eZVR0, *pwt, clust[c].info)
-						t = cross(*pSeZVR0, *pSeZVR0); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom.M = c==1? t : denom.M + t
+						pG = &_panelsum(*peZVR0, clust[c].info)
+						t = cross(*pG,*pG)
 					}
+					if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom.M = c==1? t : denom.M + t
 				}
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
@@ -780,15 +786,13 @@ void boottestModel::boottest() {
 				eZVR0 = pM->e :* pM->ZVR0
 		}
 
-		if (NClust) 
-			pinfo = BootCluster>1? &(clust.info[clust[BootCluster].info[,1],1],clust.info[clust[BootCluster].info[,2],2]) : &clust[BootCluster].info // bootstrap cluster grouping defs rel to original data
 		if (scoreBS)
-			numer = NClust? cross(_panelsum(eZVR0, *pwt, *pinfo), u) : (weights? cross(eZVR0, *pwt, u) : cross(eZVR0, u))
+			numer = cross(_panelsum(eZVR0, *pwt, *pinfoExplode), u)
 		else {
 			pewt = weights? &(pM->e:* *pwt) : &pM->e
 			betadenom = K? (*pM->pV * pM->A ') : *pM->pV // in IV/GMM, this is actually not denominator (V) but V * X'Z(Z'Z)^-1
-			betanumer = cross( NClust? _panelsum(*pXEx  , *pewt, *pinfo) : *pXEx   :* *pewt , u) \ 
-			            cross( NClust? _panelsum(*pZExcl, *pewt, *pinfo) : *pZExcl :* *pewt , u)
+			betanumer = cross(_panelsum(*pXEx  , *pewt, *pinfoExplode), u) \ 
+			            cross(_panelsum(*pZExcl, *pewt, *pinfoExplode), u)
 			betadevEx = betadenom[|.,.\kEx,.|] * betanumer
 			numer = (*pR0)[|.,.\.,kEx|] * betadevEx
 			if (K | AR) {
@@ -806,14 +810,14 @@ void boottestModel::boottest() {
 			if (!scoreBS)
 				for (i=df;i;i--) {
 					t = pM->ZVR0[,i]
-					XExZVR0[i].M  = _panelsum( *pXEx  :* t, *pwt, clust.info)
-					XEndZVR0[i].M = _panelsum(*_pXEnd :* t, *pwt, clust.info)
+					XExZVR0[i].M  = _panelsum( *pXEx , weights? t :* *pwt : t, clust.info)
+					XEndZVR0[i].M = _panelsum(*_pXEnd, weights? t :* *pwt : t, clust.info)
 				}
 
-			eZVR0 = _panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
+			peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 			pu = rows(U)? &U : &u
 			for (i=df;i;i--)
-				eUZVR0[i].M = *pu :* eZVR0[,i]
+				eUZVR0[i].M = *pu :* *peZVR0[,i]
 
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
