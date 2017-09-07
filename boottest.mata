@@ -817,7 +817,7 @@ void boottestModel::boottest() {
 			peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 			pu = rows(U)? &U : &u
 			for (i=df;i;i--)
-				eUZVR0[i].M = *pu :* *peZVR0[,i]
+				eUZVR0[i].M = *pu :* (*peZVR0)[,i]
 
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
