@@ -124,7 +124,7 @@ program define _boottest, rclass sortpreserve
 	if `"`robust'`cluster'"' != "" {
 		local hasrobust 1
 		local clustvars `cluster'
-		confirm var `clustvars'
+		if `"`clustvars'"'!="" confirm var `clustvars'
 		local override 1
 		di as txt _n "Overriding estimator's cluster/robust settings with " as res `"`=cond("`clustvars'"=="", "robust", "cluster(`clustvars')")'"'
 	}

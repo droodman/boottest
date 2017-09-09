@@ -600,7 +600,6 @@ void boottestModel::boottest() {
 		}
 
 		U = WREnonAR | NClust > NBootClust? u[IDExplode,] : J(0,0,0)
-
 		if (!ML) {
 			if (REst) {
 				symeigensystem(*pR ' invsym(*pR * *pR') * (*pR), vec, val) // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
@@ -814,6 +813,7 @@ void boottestModel::boottest() {
 					XEndZVR0[i].M = _panelsum(*_pXEnd, weights? t :* *pwt : t, clust.info)
 				}
 
+
 			peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 			pu = rows(U)? &U : &u
 			for (i=df;i;i--)
@@ -924,7 +924,7 @@ real matrix _panelsum(real matrix X, real matrix arg2, | real matrix arg3) {
 			return(X)
 	} else
 		if (rows(arg3)==0 | rows(arg3)==rows(X))
-			return(arg2==1? arg2 : X :* arg2)
+			return(arg2==1? X : X :* arg2)
 
 	if (stataversion() >= 1300)
 		return (__panelsum(X, arg2, arg3))
