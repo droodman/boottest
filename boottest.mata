@@ -49,7 +49,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, ///
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster
-	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, _pXEnd, pXEx, pG, pinfoExplode
+	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, G
 	string scalar wttype, madjtype
@@ -59,7 +59,7 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom
-	struct smatrix colvector eUZVR0, XExZVR0, XEndZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
+	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
@@ -194,10 +194,8 @@ void AnalyticalModel::InitEstimate() {
 void AnalyticalModel::InitTestDenoms(real matrix S) {
 	real matrix AVR0
 
-	if (rows(S))
-		pV = &(S * invsym(S ' (*pH) * S) * S')
-	else
-		pV = &(rows(invH)? invH : invsym(*pH))
+	pV = rows(S)? &(S * invsym(S ' (*pH) * S) * S') : ///
+	              &(rows(invH)? invH : invsym(*pH))
 	VR0 = *pV * *parent->pR0'
 
 	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->NClust==1))) {
@@ -205,9 +203,9 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 			AVR0 = A * VR0
 			ZVR0 = *parent->pZExcl * AVR0[|parent->kEx+1,.\.,.|]; if (parent->kEx) ZVR0 = ZVR0 + *parent->pXEx * AVR0[|.,.\parent->kEx,.|]
 		} else if (AR) {
-			ZVR0 = *parent->pZExcl * VR0[|cols(*parent->pXEx)+1,.\.,.|]
+			ZVR0 = *parent->pZExcl * VR0[|parent->kEx+1,.\.,.|]
 			if (cols(*parent->pXEx))
-				ZVR0 = ZVR0 + *parent->pXEx * VR0[|.,.\cols(*parent->pXEx),.|]
+				ZVR0 = ZVR0 + *parent->pXEx * VR0[|.,.\parent->kEx,.|]
 		} else
 			ZVR0 = *parent->pXEx * VR0
 	}
@@ -497,13 +495,15 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt
 	real rowvector val, YstarYstar
-	real matrix betadevEx, betadevEnd, betanumer, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, betadenom, eZVR0, eu, VR0, infoAll, IDCollapse
+	real matrix betadev, betadevZ, betanumer, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse
 	real scalar i, j, l, c, minN
-	pointer (real matrix) scalar _pR0, pewt, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0
+	pointer (real matrix) scalar _pR0, pewt, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
 
@@ -658,11 +658,8 @@ void boottestModel::boottest() {
 				k = el
 				K = 0
 				pM = pM_Repl
-				_pXEnd = pZExcl // in AR test, instruments supplant instrumented on RHS
-			} else {
+			} else
 				pM = &M_DGP
-				_pXEnd = pXEnd // relevant for score bootstrap of IV/GMM
-			}
 		}
 
 		df = rows(*pR0)
@@ -685,7 +682,7 @@ void boottestModel::boottest() {
 			if (NClust)
 				XZi = eZi = smatrix(clust[BootCluster].N)
 		} else if (robust) {
-			eUZVR0 = XExZVR0 = XEndZVR0 = smatrix(df); pG = J(df, 1, NULL)
+			eUZVR0 = XExZVR0 = ZExclZVR0 = smatrix(df); pG = J(df, 1, NULL)
 		}
 
 		initialized = 1
@@ -789,19 +786,12 @@ void boottestModel::boottest() {
 			numer = cross(_panelsum(eZVR0, *pwt, *pinfoExplode), u)
 		else {
 			pewt = weights? &(pM->e:* *pwt) : &pM->e
-			betadenom = K? (*pM->pV * pM->A ') : *pM->pV // in IV/GMM, this is actually not denominator (V) but V * X'Z(Z'Z)^-1
-			betanumer = cross(_panelsum(*pXEx  , *pewt, *pinfoExplode), u) \ 
-			            cross(_panelsum(*pZExcl, *pewt, *pinfoExplode), u)
-			betadevEx = betadenom[|.,.\kEx,.|] * betanumer
-			numer = (*pR0)[|.,.\.,kEx|] * betadevEx
-			if (K | AR) {
-				betadevEnd = betadenom[|kEx+1,.\.,.|] * betanumer
-				numer = numer + (*pR0)[|.,kEx+1\.,.|] * betadevEnd
-			} else
-				betadevEnd = J(0,cols(u),0)
+			pt = &_panelsum(*pXEx, *pewt, *pinfoExplode); if (AR) pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoExplode))
+			betadev = cross(*pt * *pM->pV, u)
+			numer = *pR0 * betadev
 		}
 
-		if      (AR)    numer[,1] = pM->beta[|kEx+1\.|]    // coefficients on excluded instruments in AR OLS
+		if      (AR)    numer[,1] = pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
 		else if (!null) numer[,1] = *pR0 * (ML? beta : pM->beta) - *pr0 // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 
 		// Compute denominators and then test stats
@@ -809,10 +799,9 @@ void boottestModel::boottest() {
 			if (!scoreBS)
 				for (i=df;i;i--) {
 					t = pM->ZVR0[,i]
-					XExZVR0[i].M  = _panelsum( *pXEx , weights? t :* *pwt : t, clust.info)
-					XEndZVR0[i].M = _panelsum(*_pXEnd, weights? t :* *pwt : t, clust.info)
+					  XExZVR0[i].M = _panelsum(*pXEx  , weights? t :* *pwt : t, clust.info)
+					ZExclZVR0[i].M = _panelsum(*pZExcl, weights? t :* *pwt : t, clust.info)
 				}
-
 
 			peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 			pu = rows(U)? &U : &u
@@ -822,10 +811,10 @@ void boottestModel::boottest() {
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
 					for (i=df;i;i--) {
-						_collate  (  eUZVR0[i].M, clust[c].order)
+						_collate  (   eUZVR0[i].M, clust[c].order)
 						if (!scoreBS) {
-							_collate( XExZVR0[i].M, clust[c].order)
-							_collate(XEndZVR0[i].M, clust[c].order)
+							_collate(  XExZVR0[i].M, clust[c].order)
+							_collate(ZExclZVR0[i].M, clust[c].order)
 						}
 					}
 				for (i=df;i;i--) {
@@ -833,8 +822,10 @@ void boottestModel::boottest() {
 					if (scoreBS) {
 						if (null)
 							pG[i] = &(*pG[i] :- clust[c].ClustShare*colsum(*pG[i])) // recenter variance if not already done. Horowitz (2001), (3.29)
-					} else if (reps) // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-						pG[i] = &(*pG[i] - _panelsum(XExZVR0[i].M, clust[c].info) * betadevEx - _panelsum(XEndZVR0[i].M, clust[c].info) * betadevEnd)
+					} else if (reps) { // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
+						pt = &_panelsum(XExZVR0[i].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[i].M, clust[c].info))
+						pG[i] = &(*pG[i] - *pt * betadev)
+					}
 					for (j=i;j<=df;j++) {
 						t = colsum(*pG[i] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,i].M = c==1? t : denom[j,i].M + t
 					}
@@ -863,7 +854,7 @@ void boottestModel::boottest() {
 				else {
 					             eu = u :* pM->e
 					if (scoreBS) eu = eu :- (weights? cross(clust.ClustShare, eu) : colsum(eu) * clust.ClustShare)  // Center variance if needed
-					  else       eu = eu  - *pXEx * betadevEx - *_pXEnd * betadevEnd // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
+					  else       eu = eu  - (*pXEx, *pZExcl) * betadev // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					t = weights? cross(*pwt, eu :* eu) : colsum(eu :* eu)
 					Dist = (Dist  :/ (sqrt? sqrt(t) : t))'
 				}
@@ -877,7 +868,7 @@ void boottestModel::boottest() {
 					if (!(ML | LIML)) {
 						             eu = u[,l] :* pM->e
 						if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * clust.ClustShare // Center variance if needed
-						  else       eu = eu  - *pXEx * betadevEx[,l] - *_pXEnd * betadevEnd[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
+						  else       eu = eu  - *pXEx * betadev[,l] - *pZExcl * betadevZ[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						
 						Dist[l] = Dist[l] / cross(eu, *pwt, eu)
 					}
