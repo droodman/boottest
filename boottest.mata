@@ -818,7 +818,7 @@ void boottestModel::boottest() {
 						}
 					}
 				for (i=df;i;i--) {
-					pG[i] = &_panelsum(eUZVR0[i].M, clust[c].info) // if c==1, clust.info refers to original data. but _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0
+					pG[i] = &_panelsum(eUZVR0[i].M, clust[c].info) // if c==1, _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0[i].M
 					if (scoreBS) {
 						if (null)
 							pG[i] = &(*pG[i] :- clust[c].ClustShare*colsum(*pG[i])) // recenter variance if not already done. Horowitz (2001), (3.29)
