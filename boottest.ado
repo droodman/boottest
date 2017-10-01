@@ -1,4 +1,4 @@
-*! boottest 1.8.0 5 September 2017
+*! boottest 1.8.1 1 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -197,7 +197,6 @@ program define _boottest, rclass sortpreserve
 
 	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW
 	mat `b' = e(b)
-	mat `V' = e(V)
 	local k = colsof(`b')
 
 	if "`e(wtype)'" != "" {
@@ -437,7 +436,7 @@ program define _boottest, rclass sortpreserve
 				if !`rc' {
 					tempname b0
 					mat `b0' = e(b)
-					cap `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' `max'
+					/*cap*/ `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' `max'
 					local rc = _rc
 				}
 				if `rc' {
@@ -449,12 +448,13 @@ program define _boottest, rclass sortpreserve
 					tempname t
 					mata st_numscalar("`t'", !all(diagonal(st_matrix("e(V)")) :| st_matrix("r(omit)")'))
 					if `t' {
-						di _n as res "\n{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable.\n"
+						di _n as res _n "{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable." _n
 						di "This may indicate that the constrained optimum is far from the unconstrained one, i.e., that the hypothesis is incompatible with the data." _n
 					}
 				}
 			}
-			else mat `V' = e(V`=cond("`e(V_modelbased)'"!="", "_modelbased", "")')
+			
+			mat `V' = e(V`=cond("`e(V_modelbased)'"!="", "_modelbased", "")')
 
 			tempvar sc
 			cap noi predict double `sc'* if e(sample), score
@@ -609,6 +609,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.8.1 Fixed bug after ML: was using V from unconstrained instead of constrained fit
 * 1.8.0 Reworked multiway clustering to first collapse data to one obs per all-cluster-var intersections.
 *       Reworked test stat computation for df>1 to mostly iterate over constraints rather than replications. Speeds AR test too.
 * 1.7.1 Changed residual dof for multi-way clustered, small-sample-corrected models to smallest number of groups across grouping variables
