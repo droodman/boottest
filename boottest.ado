@@ -1,4 +1,4 @@
-*! boottest 1.8.1 1 October 2017
+*! boottest 1.8.2 1 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -609,7 +609,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.8.1 Fixed bug after ML: was using V from unconstrained instead of constrained fit
+* 1.8.2 Fixed bug after ML: was using V from unconstrained instead of constrained fit
+* 1.8.1 Fixed bugs in handling robust non-cluster
 * 1.8.0 Reworked multiway clustering to first collapse data to one obs per all-cluster-var intersections.
 *       Reworked test stat computation for df>1 to mostly iterate over constraints rather than replications. Speeds AR test too.
 * 1.7.1 Changed residual dof for multi-way clustered, small-sample-corrected models to smallest number of groups across grouping variables
