@@ -1,4 +1,4 @@
-*! boottest 1.8.0 6 September 2017
+*! boottest 1.8.3 11 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("01.07.00")
+string scalar      boottestVersion() return("01.08.03")
 
 struct smatrix {
 	real matrix M
@@ -383,13 +383,15 @@ void boottest_set_wildtype(class boottestModel scalar M, string scalar wildtype)
 	M.set_dirty(1)
 }
 
-real colvector boottestModel::get_dist() {
+real colvector boottestModel::get_dist(| string scalar diststat) {
 	if (dirty) boottest()
-	make_DistCDR()
+	make_DistCDR(diststat)
 	return(DistCDR)
 }
-void boottestModel::make_DistCDR() {
-	if (!rows(DistCDR))
+void boottestModel::make_DistCDR(| string scalar diststat) {
+	if (diststat == "numer")
+		_sort( DistCDR = numer[|2\.|]' :+ (numer[1] + *pr0) , 1)
+	else if (!rows(DistCDR))
 		if (rows(Dist)>1)
 			_sort( DistCDR=Dist[|2\.|] , 1)
 		else
@@ -452,9 +454,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 	} else
 		st_view(V, i, j, selectvar)
 }
-
-
-
 
 
 
@@ -1102,7 +1101,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar wildtype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
 	string scalar XExnames, string scalar XEndnames, real scalar cons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClust, 
-	string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, real scalar small, string scalar distname, ///
+	string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, real scalar small, string scalar diststat, string scalar distname, ///
 	real scalar gridmin, real scalar gridmax, real scalar gridpoints) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, sc, XEnd, XEx
@@ -1163,7 +1162,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	st_numscalar(padjname, M.get_padj())
 	st_numscalar(dfname  , M.get_df  ())
 	st_numscalar(dfrname , M.get_df_r())
-	if (distname != "") st_matrix(distname, M.get_dist())
+	if (distname != "") st_matrix(distname, M.get_dist(diststat))
 	if (plotname != "") {
 		M.plot(level)
 		st_matrix(plotname, (M.plotX,M.plotY))

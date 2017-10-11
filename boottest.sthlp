@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0 5 September 2017}{...}
+{* *! version 1.8.3 11 October 2017}{...}
 {boottest:help boottest}
 {hline}{...}
 
@@ -53,7 +53,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
 {synopt:{opt l:evel(#)}}override default confidence level used for confidence set{p_end}
-{synopt:{opt svm:at}}request the bootstrapped quasi-t/z distribution be saved in return value {cmd:r(dist)}{p_end}
+{synopt:{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)]}}request the bootstrapped quasi-t/z distribution, or numerators thereof, be saved in return value {cmd:r(dist)}{p_end}
 {synopt:{opt sm:all}}request finite-sample corrections, overriding estimation setting {p_end}
 {synopt:{opt r:obust}}request tests robust to heteroskedasticity only, overriding estimation setting{p_end}
 {synopt:{opt cl:uster(varlist)}}request tests robust to (multi-way) clustering, overriding estimation setting{p_end}
@@ -276,8 +276,10 @@ if the confidence level is 95, then the symmetric p value is less than 0.05 if t
 distribution. The equal-tail p value is less than 0.05 if the test statistic is in the top or bottom 2.5 centiles. In addition, {it:lower} and {it:upper} allow
 one-sided tests.
 
-{phang}{opt svm:at}} request that the bootstrapped quasi-t/z distribution be saved in return value {cmd:r(dist)}. This can be diagnostically useful,
-since it allows scrutiny of the simulated distribution that is inferred from. An example is below.
+{phang}{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)}] request that the bootstrapped quasi-t/z distribution be saved in return value {cmd:r(dist)}. This 
+can be diagnostically useful, since it allows scrutiny of the simulated distribution that is inferred from. An example is below. Or, 
+if {cmd:svmat(numer)} is specified, over-riding the default, only the numerators are returned. If the null hypothesis is that a coefficient is zero, then these numerators
+are the estiamtes of that coefficient in all the bootstrap replications.
 
 {phang}{opt sm:all} requests finite-sample corrections even after estimates that did not make them, which includes essentially all ML-based Stata 
 commands. Its impact on bootstrap-based tests is merely cosmetic because it scales the test statistic and all the replicated test statistics by the same

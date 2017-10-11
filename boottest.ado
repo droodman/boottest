@@ -1,4 +1,4 @@
-*! boottest 1.8.2 1 October 2017
+*! boottest 1.8.3 1 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -31,7 +31,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.07.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.08.03" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -70,6 +70,16 @@ program define _boottest, rclass sortpreserve
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) *]
 
 	if `reps'==0 local svmat
+		else {
+			local _svmat = cond("`svmat'"=="", "", "t")
+			local 0, `options'
+			syntax, [SVMat(string) *]
+			if !inlist(`"`svmat'"', "numer", "t", "") {
+				di as err "option " as inp "svmat(" `svmat' ")" as err " not allowed"
+				error 198
+			}
+			if "`svmat'" == "" local svmat `_svmat'
+		}
 
 	if `"`options'"' != "" {
 		if `"`options'"'=="ci" di as err "Option {cmd:ci} is obsolete, because it is now the default."
@@ -515,7 +525,7 @@ program define _boottest, rclass sortpreserve
 
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`dist'", ///
+												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
 
 		_estimates unhold `hold'
@@ -609,6 +619,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.8.3 Added svmat(numer) option
 * 1.8.2 Fixed bug after ML: was using V from unconstrained instead of constrained fit
 * 1.8.1 Fixed bugs in handling robust non-cluster
 * 1.8.0 Reworked multiway clustering to first collapse data to one obs per all-cluster-var intersections.
