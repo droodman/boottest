@@ -1,4 +1,4 @@
-*! boottest 1.8.3 1 October 2017
+*! boottest 1.9.0 1 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,8 @@ program define boottest
 	cap noi _boottest `0'
 	local rc = _rc
 	constraint drop `anythingh0'
-	cap mata mata drop _boottestp
-	cap mata mata drop _boottestC
+*	cap mata mata drop _boottestp
+*	cap mata mata drop _boottestC
 	exit `rc'
 end
 
@@ -31,7 +31,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.08.03" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.09.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -47,7 +47,7 @@ program define _boottest, rclass sortpreserve
 		di as err "Doesn't work after {cmd:svy}."
 		exit 198
 	}
-	if inlist(`"`cmd'"', "xtreg", "areg", "mvreg", "sureg") {
+	if inlist(`"`cmd'"', "xtreg", "mvreg", "sureg") {
 		di as err "Doesn't work after {cmd:`e(cmd)'}."
 		exit 198
 	}
@@ -202,6 +202,8 @@ program define _boottest, rclass sortpreserve
 		}
 	}
 	local scoreBS = "`boottype'"=="score"
+	
+	if "`e(cmd)'" == "areg" local FEname `e(absvar)'
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -278,7 +280,6 @@ program define _boottest, rclass sortpreserve
 			local cons = "`:list Xnames_exog & _cons'"!=""
 			local Xnames_exog: list Xnames_exog - _cons
 		}
-		
 		local _cons = cond(`cons', "_cons", "")
 
 		local GMM = ("`cmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm")
@@ -291,6 +292,12 @@ program define _boottest, rclass sortpreserve
 		}
 
 		mata _boottestp = order(tokens("`:colnames e(b)'")', 1)[invorder(order(tokens("`_cons' `Xnames_exog' `Xnames_endog'")', 1))] \ `=`k'+1'
+		if "`FEname'"!="" {
+			mata _boottestp = _boottestp[|2\.|]
+			local cons 0
+			local _cons
+		}
+		
 		cap mata st_matrix("`C'" , st_matrix("`C'" )[.,_boottestp])
 		if `cons' {
 			mat `keepC' = 1
@@ -319,7 +326,6 @@ program define _boottest, rclass sortpreserve
 			}
 			local `varlist' `_revarlist'
 		}
-
 		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+1')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 
@@ -384,7 +390,15 @@ program define _boottest, rclass sortpreserve
 		if _rc exit 111
 		_estimates unhold `hold'
 		if `k_autoCns' mat `C0' = `C0'[`k_autoCns'+1...,1...]
+		if "`FEname'" != "" {
+			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`C0'"),st_matrixcolstripe("`C0'")[,2]':=="_cons"))))
 
+			if `rc' {
+				di as err "In fixed-effect models, null hypotheses may not involve constant term."
+				exit 111
+			}
+		}
+		
 		local plotmat
 		local peakmat
 		local cimat
@@ -515,17 +529,12 @@ program define _boottest, rclass sortpreserve
 					exit 198
 				}			
 			}
-			mata _boottestC = st_matrix("`C0'")[,(st_matrix("`keepC'"),`=`k'+1')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C0'", _boottestC)
-			cap confirm matrix `C0'
-			if _rc {
-				di as err "Hypothesis refers to constrained parameter."
-				exit 111
-			}
 		}
 
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`svmat'", "`dist'", ///
+												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', ///
+												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
 
 		_estimates unhold `hold'
