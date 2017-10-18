@@ -65,13 +65,14 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom
-	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, wtZVR0
+	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, FECorrFact, SwtZVR0
 	pointer (struct structFE scalar) scalar FEs
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
 	real matrix combs(), count_binary(), crosstab()
 	real colvector get_dist()
+	pointer(real matrix) scalar clone()
 }
 
 void AnalyticalModel::new()
@@ -496,17 +497,17 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
 	real rowvector val, YstarYstar
-	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, SE
+	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, SE, wtZVR0
 	real scalar i, j, l, c, r, minN
-	pointer (real matrix) scalar _pR0, pewt, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt
+	pointer (real matrix) scalar _pR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
 	pointer (struct structFE scalar) scalar next
+	pointer (real colvector) scalar pe, pewt
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
 		kEx = cols(*pXEx)
@@ -690,6 +691,19 @@ void boottestModel::boottest() {
 				pM = pM_Repl
 			} else
 				pM = &M_DGP
+				
+			if (!WREnonAR) pM->InitTestDenoms(AR? SAR : S)
+
+			if (NFE & !scoreBS & robust) { // move into InitTestDenoms?
+				SwtZVR0 = smatrix(df)
+				wtZVR0 = wtFE :* pM->ZVR0
+				for (c=1; c<=length(clust); c++) {
+					if (rows(clust[c].order))
+						_collate(wtZVR0, clust[c].order)
+					for (r=df;r;r--)
+						SwtZVR0[r].M = crosstab(c, wtZVR0[,r])
+				}
+			}
 		}
 
 		df = rows(*pR0)
@@ -715,7 +729,6 @@ void boottestModel::boottest() {
 		} else if (robust) {
 			eUZVR0 = XExZVR0 = ZExclZVR0 = smatrix(df); pG = J(df, 1, NULL)
 		}
-		if (NFE) wtZVR0 = smatrix(df)
 		
 		initialized = 1
 	} // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
@@ -809,9 +822,20 @@ void boottestModel::boottest() {
 		if (ML)
 			eZVR0 = *pSc * (VR0 = *pV * *pR0')
 		else {
-			pM->InitTestDenoms(AR? SAR : S)
 			if (scoreBS | robust)
 				eZVR0 = pM->e :* pM->ZVR0
+				
+			if (NFE & !scoreBS & robust) {
+				FECorrFact = smatrix(df)
+				pe = length(clust)>1? clone(pM->e) : &(pM->e)
+				for (c=1; c<=length(clust); c++) {
+					if (rows(clust[c].order))
+						_collate(*pe   , clust[c].order)
+					SE = crosstab(c, *pe)
+					for (r=df;r;r--)
+						FECorrFact[r].M = cross(SE, crosstab(c, SwtZVR0[r].M))
+				}
+			}
 		}
 
 		if (scoreBS)
@@ -840,13 +864,6 @@ void boottestModel::boottest() {
 			for (r=df;r;r--)
 				eUZVR0[r].M = *pu :* (*peZVR0)[,r]
 
-			if (NFE) {
-				wtZVR0 = smatrix(df)
-				t = wtFE :* pM->ZVR0
-				for (r=df;r;r--)
-					wtZVR0[r].M = t[,r]
-			}
-
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
 					for (r=df;r;r--) {
@@ -857,8 +874,6 @@ void boottestModel::boottest() {
 						}
 					}
 
-				if (!scoreBS & NFE) SE = crosstab(c, pM->e)
-
 				for (r=df;r;r--) {
 					pG[r] = &_panelsum(eUZVR0[r].M, clust[c].info) // if c==1, clust.info refers to original data. but _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0
 
@@ -868,7 +883,7 @@ void boottestModel::boottest() {
 					} else if (reps) { // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						pt = &_panelsum(XExZVR0[r].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[r].M, clust[c].info))
 						pG[r] = &(*pG[r] - *pt * betadev)
-						if (NFE) pG[r] = &( *pG[r] - cross(cross(SE, crosstab(c,wtZVR0[r].M)), u) )
+						if (NFE) pG[r] = &( *pG[r] - cross(FECorrFact[r].M, u) )
 					}
 
 					for (j=r;j<=df;j++) {
@@ -1027,8 +1042,8 @@ real matrix boottestModel::crosstab(real scalar c, real colvector v) {
 	real matrix retval; real scalar i, j, t; real colvector _FEID, _v
 	retval = J(NFE, clust[c].N, 0)
 	for (i=clust[c].N;i;i--) {
-		_FEID = panelsubmatrix(*pFEID, i, clust[c].info)
-		_v    = panelsubmatrix(v     , i, clust[c].info)
+		_FEID = panelsubmatrix(*(pFEID), i, clust[c].info)
+		_v    = panelsubmatrix(v       , i, clust[c].info)
 		for (j=rows(_FEID);j;j--) {
 			t = _FEID[j] 
 			retval[t,i] = retval[t,i] + _v[j]
@@ -1171,6 +1186,11 @@ real matrix boottestModel::combs(real scalar d) {
 	for (i=d;i;i--)
 		retval = retval, J(2^(d-i),1,1) # (1\0) # J(2^(i-1),1,1) 
 	return (retval)
+}
+
+pointer (real matrix) scalar boottestModel::clone(real matrix X) {
+	real matrix Y
+	return(&(Y = X))
 }
 
 // Stata interface

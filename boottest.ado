@@ -333,7 +333,7 @@ program define _boottest, rclass sortpreserve
 			fvrevar ``varlist'' if e(sample)
 			local revarlist `r(varlist)'
 			local _revarlist
-			forvalues i = 1/`:word count `revarlist'' {
+			forvalues i=1/`:word count `revarlist'' {
 				local var: word `i' of ``varlist''
 				_ms_parse_parts `var'
 				if !r(omit) {
@@ -351,7 +351,8 @@ program define _boottest, rclass sortpreserve
 			local `varlist' `_revarlist'
 		}
 
-		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+`')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
+		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+1')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
+
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 
 		if `cons' local Xnames_exog `hold' `Xnames_exog' // add constant term
