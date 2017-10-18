@@ -1,4 +1,4 @@
-*! boottest 1.8.3 11 October 2017
+*! boottest 1.9.0 18 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -65,12 +65,12 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom
-	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
+	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, wtZVR0
 	pointer (struct structFE scalar) scalar FEs
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
-	real matrix combs(), count_binary()
+	real matrix combs(), count_binary(), crosstab()
 	real colvector get_dist()
 }
 
@@ -118,7 +118,7 @@ void AnalyticalModel::SetS(real matrix S) {
 void AnalyticalModel::InitEndog(pointer (real colvector) scalar _pY, pointer (real matrix) scalar _pXEnd, | ///
 		pointer (real colvector) scalar _pZExclY, pointer (real rowvector) scalar _pXExY, real scalar _YY, pointer (real matrix) scalar _pZExclXEnd, pointer (real matrix) scalar _pXExXEnd) {
 
-	pY = demean(_pY); pXEnd = demean(_pXEnd) // demean of pY needed?
+	pY = demean(_pY); pXEnd = demean(_pXEnd)
 	
 	pXExY = _pXExY==NULL? &cross(*parent->pXEx, *parent->pwt, *parent->pY) : _pXExY
 	if (K | AR)
@@ -499,13 +499,14 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 // main routine
 void boottestModel::boottest() {
-	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt
+	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
 	real rowvector val, YstarYstar
-	real matrix betadev, betadevZ, betanumer, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse
+	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, SE
 	real scalar i, j, l, c, r, minN
 	pointer (real matrix) scalar _pR0, pewt, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
+	pointer (struct structFE scalar) scalar next
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
 		kEx = cols(*pXEx)
@@ -571,31 +572,32 @@ void boottestModel::boottest() {
 		}
 
 		if (cols(*pFEID)) {
-			real colvector sortID; real colvector o; pointer (struct structFE scalar) scalar next
-			
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
-			NFE = 1; j = Nobs; wtFE = J(Nobs, 1, .)
-			for (i=Nobs-1;i;i--)
+			NFE = 1; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
+			for (i=Nobs-1;i;i--) {
 				if (sortID[i] != sortID[i+1]) {
 					NFE++
 					next = FEs; (FEs = &(structFE()))->next = next  // add new FE to linked list
 					FEs->is = o[|i+1\j|]
 					if (weights) {
-						FEs->wt  = wt[FEs->is]
+						FEs->wt  = (*pwt)[FEs->is]
 						FEs->wt = FEs->wt / colsum(FEs->wt)
 					} else
 						FEs->wt = J(j-i,1,1/(j-i))
 					wtFE[FEs->is] = FEs->wt
 					j = i
 				}
+				_FEID[o[i]] = NFE
+			}
 			next = FEs; (FEs = &(structFE()))->next = next
 			FEs->is = FEs->is = o[|.\j|]
 			if (weights) {
-				FEs->wt  = wt[FEs->is]
+				FEs->wt  = (*pwt)[FEs->is]
 				FEs->wt = FEs->wt / colsum(FEs->wt)
 			} else
 				FEs->wt = J(j-i,1,1/(j-i))
 			wtFE[FEs->is] = FEs->wt
+			pFEID = &_FEID // ordinal fixed effect ID
 		}
 		
 		if (WREnonAR)
@@ -691,6 +693,7 @@ void boottestModel::boottest() {
 		}
 
 		df = rows(*pR0)
+
 		if (small) df_r = NClust? minN - 1 : _Nobs - k - NFE
 
 		if (df==1) set_sqrt(1) // work with t/z stats instead of F/chi2
@@ -712,7 +715,8 @@ void boottestModel::boottest() {
 		} else if (robust) {
 			eUZVR0 = XExZVR0 = ZExclZVR0 = smatrix(df); pG = J(df, 1, NULL)
 		}
-
+		if (NFE) wtZVR0 = smatrix(df)
+		
 		initialized = 1
 	} // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
 
@@ -836,7 +840,6 @@ void boottestModel::boottest() {
 			for (r=df;r;r--)
 				eUZVR0[r].M = *pu :* (*peZVR0)[,r]
 
-struct smatrix wtZVR0; real colvector _E, _IDFE, _wtZVR0; real matrix SE, SwtZVR0
 			if (NFE) {
 				wtZVR0 = smatrix(df)
 				for (r=df;r;r--)
@@ -853,17 +856,7 @@ struct smatrix wtZVR0; real colvector _E, _IDFE, _wtZVR0; real matrix SE, SwtZVR
 						}
 					}
 
-				if (NFE) {
-					SE = J(NFE, clust[c].N, 0)
-					for (i=clust[c].N;i;i--) {
-						_IDFE    = panelsubmatrix(*pFEID, i, clust[c].info)
-						_E       = panelsubmatrix( pM->e, i, clust[c].info)
-						for (j=rows(_IDFE);j;j--) {
-							t = _IDFE[j] 
-							SE[t,i] = SE[t,i] + _E[j]
-						}
-					}
-				}
+				if (NFE) SE = crosstab(c, pM->e)
 
 				for (r=df;r;r--) {
 					pG[r] = &_panelsum(eUZVR0[r].M, clust[c].info) // if c==1, clust.info refers to original data. but _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0
@@ -875,18 +868,7 @@ struct smatrix wtZVR0; real colvector _E, _IDFE, _wtZVR0; real matrix SE, SwtZVR
 						pG[r] = &(*pG[r] - *pt * betadev)
 					}
 
-					if (NFE) {
-						SwtZVR0 = J(NFE, clust[c].N, 0)
-						for (i=clust[c].N;i;i--) {
-							_IDFE    = panelsubmatrix(*pFEID     , i, clust[c].info)
-							_wtZVR0  = panelsubmatrix(wtZVR0[r].M, i, clust[c].info)
-							for (j=rows(_IDFE);j;j--) {
-								t = _IDFE[j] 
-								SwtZVR0[t,i] = SwtZVR0[t,i] + _wtZVR0[j]
-							}
-						}
-						pG[r] = &(*pG[r] - cross(cross(SE,SwtZVR0), u))
-					}
+					if (NFE) pG[r] = &( *pG[r] - cross(cross(SE,crosstab(c, wtZVR0[r].M)), u) )
 
 					for (j=r;j<=df;j++) {
 						t = colsum(*pG[r] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,r].M = c==1? t : denom[j,r].M + t
@@ -931,8 +913,7 @@ struct smatrix wtZVR0; real colvector _E, _IDFE, _wtZVR0; real matrix SE, SwtZVR
 					if (!(ML | LIML)) {
 						             eu = u[,l] :* pM->e
 						if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * clust.ClustShare // Center variance if needed
-						  else       eu = eu  - *pXEx * betadev[,l] - *pZExcl * betadevZ[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-						
+						  else       eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						Dist[l] = Dist[l] / cross(eu, *pwt, eu)
 					}
 				}
@@ -1023,6 +1004,7 @@ real matrix boottestModel::count_binary(real scalar N, real scalar lo, real scal
 	return (J(1, cols(t), lo), J(1, cols(t), hi) \ t, t)
 }
 
+// partial fixed effects out of a data matrix
 pointer(real matrix) scalar AnalyticalModel::demean(pointer(real matrix) scalar pIn) {
 	if (parent->NFE & pIn!=NULL) {
 		real matrix Out, t; pointer (struct structFE scalar) scalar thisFE
@@ -1035,6 +1017,21 @@ pointer(real matrix) scalar AnalyticalModel::demean(pointer(real matrix) scalar 
 		return(&Out)
 	}
 	return (pIn)
+}
+
+// cross-tab sum of a column vector w.r.t. clustering var c and fixed-effect var
+real matrix boottestModel::crosstab(real scalar c, real colvector v) {
+	real matrix retval; real scalar i, j, t; real colvector _FEID, _v
+	retval = J(NFE, clust[c].N, 0)
+	for (i=clust[c].N;i;i--) {
+		_FEID = panelsubmatrix(*pFEID, i, clust[c].info)
+		_v    = panelsubmatrix(v     , i, clust[c].info)
+		for (j=rows(_FEID);j;j--) {
+			t = _FEID[j] 
+			retval[t,i] = retval[t,i] + _v[j]
+		}
+	}
+	return(retval)
 }
 
 // given a pre-configured boottest linear model with one-degree null imposed, compute distance from target p value of boostrapped one associated with given value of r0

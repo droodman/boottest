@@ -1,4 +1,4 @@
-*! boottest 1.9.0 1 October 2017
+*! boottest 1.9.0 18 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,8 @@ program define boottest
 	cap noi _boottest `0'
 	local rc = _rc
 	constraint drop `anythingh0'
-*	cap mata mata drop _boottestp
-*	cap mata mata drop _boottestC
+	cap mata mata drop _boottestp
+	cap mata mata drop _boottestC
 	exit `rc'
 end
 
@@ -42,20 +42,29 @@ program define _boottest, rclass sortpreserve
 	}
 
 	local cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
-
+	local ivcmd = cond("`cmd'"=="reghdfe", "`e(subcmd)'", "`cmd'")
+	
 	if "`e(prefix)'" == "svy" {
 		di as err "Doesn't work after {cmd:svy}."
 		exit 198
 	}
-	if inlist(`"`cmd'"', "xtreg", "mvreg", "sureg") {
+	if inlist("`cmd'", "mvreg", "sureg") {
 		di as err "Doesn't work after {cmd:`e(cmd)'}."
 		exit 198
 	}
-	if inlist(`"`cmd'"', "sem", "gsem") & c(stata_version) < 14 {
+	if "`cmd'"=="xtreg" & "`e(model)'"!="fe" {
+		di as err "Doesn't work after {xtreg, `e(model)'}."
+		exit 198
+	}
+	if "`cmd'"=="reghdfe" & `:word count `e(absvars)''>1 {
+		di as err "Doesn't work after {cmd:reghdfe) with more than one set of fixed effects."
+		exit 198
+	}
+	if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
 		di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
 		exit 198
 	}
-	if "`cmd'"=="ivreg2" & e(partial_ct)>0 & e(partial_ct)<. {
+	if ("`ivcmd'"=="ivreg2") & e(partial_ct)>0 & e(partial_ct)<. {
 		di as err "Doesn't work after {cmd:ivreg2} with the {cmd:partial()} option."
 		exit 198
 	}
@@ -179,8 +188,8 @@ program define _boottest, rclass sortpreserve
 	}
 
 	local ML = e(converged) != .
-	local IV = "`e(instd)'" != ""
-	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")
+	local IV = "`e(instd)'`e(endogvars)'" != ""
+	local LIML = ("`ivcmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = e(df_r) != . | "`small'" != ""
 
@@ -203,7 +212,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-	if "`e(cmd)'" == "areg" local FEname `e(absvar)'
+	local FEname `e(absvar)'`e(absvars)'
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -260,7 +269,7 @@ program define _boottest, rclass sortpreserve
 	cap _estimates drop `hold'
 
 	if !`ML' {
-		if ("`cmd'"=="ivreg2" & !inlist("`e(model)'", "ols", "iv", "gmm2s", "liml")) |  ("`cmd'"=="ivregress" & !inlist("`e(estimator)'", "liml", "2sls", "gmm")) {
+		if ("`ivcmd'"=="ivreg2" & !inlist("`e(model)'", "ols", "iv", "gmm2s", "liml")) | ("`ivcmd'"=="ivregress" & !inlist("`e(estimator)'", "liml", "2sls", "gmm")) {
 			di as err "Only for use with OLS, 2SLS, single-equation GMM, and ML-based estimators."
 			exit 198
 		}
@@ -268,7 +277,7 @@ program define _boottest, rclass sortpreserve
 		local Ynames `e(depvar)'
 
 		if `IV' {
-			local Xnames_exog = cond("`cmd'"=="ivreg2", "`e(inexog)'", "`e(exogr)'")
+			local Xnames_exog = cond("`ivcmd'"=="ivreg2", "`e(inexog)'", "`e(exogr)'")
 			local Xnames_endog `e(instd)'
 			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress")
 			local ZExclnames `e(insts)'
@@ -282,9 +291,9 @@ program define _boottest, rclass sortpreserve
 		}
 		local _cons = cond(`cons', "_cons", "")
 
-		local GMM = ("`cmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm")
+		local GMM = ("`ivcmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm")
 		if `GMM' {
-			if `reps' di as txt _n "Bootstrapping purely with final GMM weight matrix."
+			if `reps' di as txt _n "Bootstrapping purely with final GMM moment weighting matrix."
 			tempname W
 			mat `W' = e(W)
 			mata _boottestp = order(tokens("`:colnames `W''")', 1)[invorder(order(tokens("`_cons' `Xnames_exog' `ZExclnames'")', 1))]
@@ -292,13 +301,14 @@ program define _boottest, rclass sortpreserve
 		}
 
 		mata _boottestp = order(tokens("`:colnames e(b)'")', 1)[invorder(order(tokens("`_cons' `Xnames_exog' `Xnames_endog'")', 1))] \ `=`k'+1'
-		if "`FEname'"!="" {
+
+		if "`FEname'"!="" & `cons' {
 			mata _boottestp = _boottestp[|2\.|]
 			local cons 0
 			local _cons
 		}
 		
-		cap mata st_matrix("`C'" , st_matrix("`C'" )[.,_boottestp])
+		cap mata st_matrix("`C'" , st_matrix("`C'" )[,_boottestp])
 		if `cons' {
 			mat `keepC' = 1
 			mat `keepW' = 1
@@ -326,6 +336,7 @@ program define _boottest, rclass sortpreserve
 			}
 			local `varlist' `_revarlist'
 		}
+
 		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+1')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 
@@ -515,7 +526,8 @@ program define _boottest, rclass sortpreserve
 			cap _estimates drop `hold'
 			_est hold `hold', restore
 
-			mata st_matrix("`C0'", st_matrix("`C0'")[.,_boottestp]) // ensure constraint matrix in order cons-other exog-endog
+			mata st_matrix("`C0'", st_matrix("`C0'")[,_boottestp]) // ensure constraint matrix in order cons-other exog-endog
+			mata st_matrix("`C0'", st_matrix("`C0'" )[,(st_matrix("`keepC'"),`=colsof(`C0')')]) // drop columns for 0-variance vars
 
 			if `ar' {
 				if !`IV' | `GMM' {
@@ -523,6 +535,7 @@ program define _boottest, rclass sortpreserve
 					exit 198
 				}
 				local kEnd: word count `Xnames_endog'
+
 				mata st_numscalar("`p'", rows(st_matrix("`C0'"))!=`kEnd' | (`k'==`kEnd'? 0 : any(st_matrix("`C0'")[|.,.\.,`k'-`kEnd'|])))
 				if `p' {
 					di as err "For Anderson-Rubin test, null hypothesis must constrain all the instrumented variables and no others."
@@ -628,6 +641,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.0 Added FE support
 * 1.8.3 Added svmat(numer) option
 * 1.8.2 Fixed bug after ML: was using V from unconstrained instead of constrained fit
 * 1.8.1 Fixed bugs in handling robust non-cluster

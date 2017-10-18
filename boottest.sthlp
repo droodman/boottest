@@ -403,8 +403,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 16} // requires Stata 14.0 or later{p_end}
 
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
-{phang}. {stata {space 2}args lnf theta}{p_end}
-{phang}. {stata {space 2}quietly replace `lnf' = lnnormal((2*$ML_y1-1) * `theta')}{p_end}
+{phang}. {stata 	args lnf theta}{p_end}
+{phang}. {stata 	quietly replace `lnf' = lnnormal((2*$ML_y1-1) * `theta')}{p_end}
 {phang}. {stata end}{p_end}
 {phang}. {stata sysuse auto}{p_end}
 {phang}. {stata ml model lf myprobit (foreign = mpg weight)} // define model{p_end}
