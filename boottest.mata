@@ -842,8 +842,9 @@ void boottestModel::boottest() {
 
 			if (NFE) {
 				wtZVR0 = smatrix(df)
+				t = wtFE :* pM->ZVR0
 				for (r=df;r;r--)
-					wtZVR0[r].M = wtFE :* pM->ZVR0[,r] // consolidate into 1 matrix?
+					wtZVR0[r].M = t[,r]
 			}
 
 			for (c=1; c<=length(clust); c++) {
@@ -856,19 +857,19 @@ void boottestModel::boottest() {
 						}
 					}
 
-				if (NFE) SE = crosstab(c, pM->e)
+				if (!scoreBS & NFE) SE = crosstab(c, pM->e)
 
 				for (r=df;r;r--) {
 					pG[r] = &_panelsum(eUZVR0[r].M, clust[c].info) // if c==1, clust.info refers to original data. but _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0
+
 					if (scoreBS) {
 						if (null)
 							pG[r] = &(*pG[r] :- clust[c].ClustShare*colsum(*pG[r])) // recenter variance if not already done. Horowitz (2001), (3.29)
 					} else if (reps) { // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						pt = &_panelsum(XExZVR0[r].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[r].M, clust[c].info))
 						pG[r] = &(*pG[r] - *pt * betadev)
+						if (NFE) pG[r] = &( *pG[r] - cross(cross(SE, crosstab(c,wtZVR0[r].M)), u) )
 					}
-
-					if (NFE) pG[r] = &( *pG[r] - cross(cross(SE,crosstab(c, wtZVR0[r].M)), u) )
 
 					for (j=r;j<=df;j++) {
 						t = colsum(*pG[r] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,r].M = c==1? t : denom[j,r].M + t
@@ -890,7 +891,9 @@ void boottestModel::boottest() {
 					Dist[l] = cross(numer_l, invsym(t) * numer_l)
 				}
 			}
+
 		} else { // non-robust
+
 			pVR0 = ML? &VR0 : &(pM->VR0)
 			if (df == 1) {  // optimize for one null constraint
 				Dist = sqrt? numer / sqrt(*pR0 * *pVR0) : (numer:*numer) / (*pR0 * *pVR0)

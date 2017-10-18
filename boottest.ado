@@ -42,7 +42,7 @@ program define _boottest, rclass sortpreserve
 	}
 
 	local cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
-	local ivcmd = cond("`cmd'"=="reghdfe", "`e(subcmd)'", "`cmd'")
+	local ivcmd = cond("`cmd'"=="reghdfe", "`e(subcmd)'", cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
 	
 	if "`e(prefix)'" == "svy" {
 		di as err "Doesn't work after {cmd:svy}."
@@ -52,8 +52,12 @@ program define _boottest, rclass sortpreserve
 		di as err "Doesn't work after {cmd:`e(cmd)'}."
 		exit 198
 	}
-	if "`cmd'"=="xtreg" & "`e(model)'"!="fe" {
-		di as err "Doesn't work after {xtreg, `e(model)'}."
+	if inlist("`cmd'", "xtreg", "xtivreg") & "`e(model)'"!="fe" {
+		di as err "Doesn't work after {`cmd', `e(model)'}."
+		exit 198
+	}
+	if "`cmd'"=="xtivreg2" & "`e(xtmodel)'"!="fe" {
+		di as err "Doesn't work after {`cmd', `e(xtmodel)'}."
 		exit 198
 	}
 	if "`cmd'"=="reghdfe" & `:word count `e(absvars)''>1 {
@@ -196,6 +200,11 @@ program define _boottest, rclass sortpreserve
 	local fuller `e(fuller)' // "" if missing
 	local K = e(kclass) // "." if missing
 
+	if `ar' & !`IV' {
+		di as err "Anderson-Rubin test is only for IV models."
+		exit 198
+	}
+
 	if "`boottype'"'=="" local boottype = cond(`ML', "score", "wild")
 	else {
 		local 0, `boottype'
@@ -212,13 +221,13 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-	local FEname `e(absvar)'`e(absvars)'
+	local FEname = cond(inlist("`cmd'","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
 
 	if `"`seed'"'!="" set seed `seed'
 
 	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW
 	mat `b' = e(b)
-	local k = colsof(`b')
+	local k = colsof(`b') // column count before possible removal of _cons term in FE models
 
 	if "`e(wtype)'" != "" {
 		tempname wtname
@@ -276,9 +285,12 @@ program define _boottest, rclass sortpreserve
 
 		local Ynames `e(depvar)'
 
+		local colnames: colnames e(b)
+		local _cons _cons
+		local colnames: list colnames - _cons
 		if `IV' {
-			local Xnames_exog = cond("`ivcmd'"=="ivreg2", "`e(inexog)'", "`e(exogr)'")
 			local Xnames_endog `e(instd)'
+			local Xnames_exog: list colnames - Xnames_endog
 			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress")
 			local ZExclnames `e(insts)'
 			local ZExclnames `:list ZExclnames - Xnames_exog'
@@ -289,18 +301,20 @@ program define _boottest, rclass sortpreserve
 			local cons = "`:list Xnames_exog & _cons'"!=""
 			local Xnames_exog: list Xnames_exog - _cons
 		}
-		local _cons = cond(`cons', "_cons", "")
+		if !`cons' local _cons
 
 		local GMM = ("`ivcmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm")
 		if `GMM' {
 			if `reps' di as txt _n "Bootstrapping purely with final GMM moment weighting matrix."
 			tempname W
 			mat `W' = e(W)
-			mata _boottestp = order(tokens("`:colnames `W''")', 1)[invorder(order(tokens("`_cons' `Xnames_exog' `ZExclnames'")', 1))]
+			local colnamesW: colnames `W'
+			local colnamesW: list colnamesW - _cons
+			mata _boottestp = J(`cons',1,`k') \ order(tokens("`colnamesW'")', 1)[invorder(order(tokens("`Xnames_exog' `ZExclnames'")', 1))]
 			mata st_matrix("`W'", st_matrix("`W'")[_boottestp,_boottestp]) // ensure weight matrix in order cons-other included exog-excluded exog
 		}
 
-		mata _boottestp = order(tokens("`:colnames e(b)'")', 1)[invorder(order(tokens("`_cons' `Xnames_exog' `Xnames_endog'")', 1))] \ `=`k'+1'
+		mata _boottestp = J(`cons',1,`k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))] \ `k'+1
 
 		if "`FEname'"!="" & `cons' {
 			mata _boottestp = _boottestp[|2\.|]
@@ -337,7 +351,7 @@ program define _boottest, rclass sortpreserve
 			local `varlist' `_revarlist'
 		}
 
-		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+1')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
+		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+`')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 
 		if `cons' local Xnames_exog `hold' `Xnames_exog' // add constant term
@@ -449,13 +463,13 @@ program define _boottest, rclass sortpreserve
 				forvalues r=1/`=rowsof(`CC0')' {
 					local terms 0
 					local _constraint
-					forvalues c=1/`k' {
+					forvalues c=1/`=colsof(`CC0')-1' {
 						if `CC0'[`r',`c'] {
 							if `terms++' local _constraint `_constraint' +
 							local _constraint `_constraint' `=cond(`CC0'[`r',`c']!=1,"`=`CC0'[`r',`c']' * ","")' `=cond("`coleq'"=="","","[`:word `c' of `coleq'']")'`:word `c' of `colnames''
 						}
 					}
-					local _constraint `_constraint' = `=`CC0'[`r',`=`k'+1']'
+					local _constraint `_constraint' = `=`CC0'[`r',`=colsof(`CC0')']'
 					constraint free
 					local _constraints `_constraints' `r(free)'
 					constraint `r(free)' `_constraint'
@@ -535,8 +549,8 @@ program define _boottest, rclass sortpreserve
 					exit 198
 				}
 				local kEnd: word count `Xnames_endog'
-
-				mata st_numscalar("`p'", rows(st_matrix("`C0'"))!=`kEnd' | (`k'==`kEnd'? 0 : any(st_matrix("`C0'")[|.,.\.,`k'-`kEnd'|])))
+				local kEx : word count `Xnames_exog'
+				mata st_numscalar("`p'", rows(st_matrix("`C0'"))!=`kEnd' | (`kEx'? any(st_matrix("`C0'")[|.,.\.,`kEx'|]) : 0))
 				if `p' {
 					di as err "For Anderson-Rubin test, null hypothesis must constrain all the instrumented variables and no others."
 					exit 198

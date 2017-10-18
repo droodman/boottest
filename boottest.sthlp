@@ -1,6 +1,6 @@
 {smcl}
 {* *! version 1.8.3 11 October 2017}{...}
-{boottest:help boottest}
+{help boottest:boottest}
 {hline}{...}
 
 {title:Title}
