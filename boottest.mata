@@ -631,7 +631,9 @@ void boottestModel::boottest() {
 		}
 
 		U = WREnonAR | NClust > NBootClust? u[IDExplode,] : J(0,0,0)
-		if (!ML) {
+		if (ML) 
+			df = rows(*pR0)
+		else {
 			if (REst) {
 				symeigensystem(*pR ' invsym(*pR * *pR') * (*pR), vec, val) // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
 				L = vec[|.,.\.,rows(*pR)|] // eigenvectors not in kernel of projection onto R
@@ -694,6 +696,8 @@ void boottestModel::boottest() {
 				
 			if (!WREnonAR) pM->InitTestDenoms(AR? SAR : S)
 
+			df = rows(*pR0)
+
 			if (NFE & !scoreBS & robust) { // move into InitTestDenoms?
 				SwtZVR0 = smatrix(df)
 				wtZVR0 = wtFE :* pM->ZVR0
@@ -705,8 +709,6 @@ void boottestModel::boottest() {
 				}
 			}
 		}
-
-		df = rows(*pR0)
 
 		if (small) df_r = NClust? minN - 1 : _Nobs - k - NFE
 
@@ -833,7 +835,7 @@ void boottestModel::boottest() {
 						_collate(*pe   , clust[c].order)
 					SE = crosstab(c, *pe)
 					for (r=df;r;r--)
-						FECorrFact[r].M = cross(SE, crosstab(c, SwtZVR0[r].M))
+						FECorrFact[r].M = cross(SE, SwtZVR0[r].M)
 				}
 			}
 		}
