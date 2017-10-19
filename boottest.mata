@@ -691,10 +691,10 @@ void boottestModel::boottest() {
 				k = el
 				K = 0
 				pM = pM_Repl
-			} else
+			} else {
+				M_DGP.InitTestDenoms(S)
 				pM = &M_DGP
-				
-			if (!WREnonAR) pM->InitTestDenoms(AR? SAR : S)
+			}
 
 			df = rows(*pR0)
 
@@ -744,6 +744,7 @@ void boottestModel::boottest() {
 			pM_Repl->InitEndog(&(*pY - *pXEnd * *pr0), NULL, &(*M_DGP.pZExclY - *M_DGP.pZExclXEnd * *pr0), &(*M_DGP.pXExY - *M_DGP.pXExXEnd * *pr0))
 			pM_Repl->InitEstimate()
 			pM_Repl->Estimate(sAR)
+			pM_Repl->InitTestDenoms(SAR)
 		}
 	}
 
