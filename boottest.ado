@@ -193,7 +193,7 @@ program define _boottest, rclass sortpreserve
 
 	local ML = e(converged) != .
 	local IV = "`e(instd)'`e(endogvars)'" != ""
-	local LIML = ("`ivcmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")
+	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| ("`cmd'"=="reghdfe" & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = e(df_r) != . | "`small'" != ""
 

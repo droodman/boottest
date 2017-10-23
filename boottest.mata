@@ -57,7 +57,7 @@ class boottestModel {
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
-	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, G
+	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI
 	string scalar wttype, madjtype
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE
 	real rowvector peak
@@ -159,7 +159,7 @@ void AnalyticalModel::InitEstimate() {
 	pointer (real matrix) scalar pbetadenom
 	pragma unset vec; pragma unset val
 
-	if (LIML)
+ 	if (LIML)
 		if (parent->el == k) // exactly identified LIML = 2SLS
 			K = 1
 		else {
@@ -208,7 +208,7 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 	              &(rows(invH)? invH : invsym(*pH))
 	VR0 = *pV * *parent->pR0'
 
-	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->NClust==1))) {
+	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->NClust==1 & !parent->NFE))) {
 		if (K) {
 			AVR0 = A * VR0
 			ZVR0 = *parent->pZExcl * AVR0[|parent->kEx+1,.\.,.|]; if (parent->kEx) ZVR0 = ZVR0 + *parent->pXEx * AVR0[|.,.\parent->kEx,.|]
@@ -225,36 +225,34 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 void AnalyticalModel::Estimate(real colvector s) {
 	real matrix invZMeZ; real colvector negZeinvee
 
-	if (parent->null | !rows(beta)) { // don't need to recompute if we're not actually imposing the null
-		beta = rows(s)? beta0 + dbetads * s : beta0
+	beta = rows(s)? beta0 + dbetads * s : beta0
 
-		if (AR) {
-			e = *pY - *parent->pZExcl * beta[|cols(*parent->pXEx)+1\.|]
-			if (cols(*parent->pXEx))
-				e =  e - *parent->pXEx * beta[|.\cols(*parent->pXEx)|]
-		} else if (parent->IV)
-			if (parent->kEx == k)
-				e = *pY - *pXEnd * beta[|parent->kEx+1\.|]
-			else
-				e = *pY - *pXEnd * beta[|parent->kEx+1\.|] - *parent->pXEx * beta[|.\parent->kEx|]
+	if (AR) {
+		e = *pY - *parent->pZExcl * beta[|cols(*parent->pXEx)+1\.|]
+		if (cols(*parent->pXEx))
+			e =  e - *parent->pXEx * beta[|.\cols(*parent->pXEx)|]
+	} else if (parent->IV)
+		if (parent->kEx == 0)
+			e = *pY - *pXEnd * beta[|parent->kEx+1\.|]
 		else
-				e = *pY                                    - *parent->pXEx * beta[|.\parent->kEx|]
+			e = *pY - *pXEnd * beta[|parent->kEx+1\.|] - *parent->pXEx * beta[|.\parent->kEx|]
+	else
+			e = *pY                                    - *parent->pXEx * beta[|.\parent->kEx|]
 
-		if (!(parent->robust | parent->scoreBS) | (DGP==NULL & LIML)) // useful in non-robust, residual-based bootstrap, and in computing e2 in LIML (just below)
-			ee = YY - 2 * *pXY ' beta + beta ' (*pXX) * beta
-		if (!(parent->robust | parent->scoreBS))
-			eec = parent->cons? ee : ee - (parent->weights? cross(e, *parent->pwt) : sum(e))^2 / parent->_Nobs // sum of squares after centering, N * Var
+	if (!(parent->robust | parent->scoreBS) | (DGP==NULL & LIML)) // useful in non-robust, residual-based bootstrap, and in computing e2 in LIML (just below)
+		ee = YY - 2 * *pXY ' beta + beta ' (*pXX) * beta
+	if (!(parent->robust | parent->scoreBS))
+		eec = parent->cons? ee : ee - (parent->weights? cross(e, *parent->pwt) : sum(e))^2 / parent->_Nobs // sum of squares after centering, N * Var
 
-		if (DGP==NULL & LIML) {
-			Ze = ZY - ZX * beta
-			negZeinvee = Ze / -ee
-			invZMeZ = invsym(ZZ + negZeinvee * Ze')
-			pi = (invZMeZ * negZeinvee) * (YXEnd - beta ' XXEnd) + invZMeZ * ZXEnd  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
+	if (DGP==NULL & LIML) {
+		Ze = ZY - ZX * beta
+		negZeinvee = Ze / -ee
+		invZMeZ = invsym(ZZ + negZeinvee * Ze')
+		pi = (invZMeZ * negZeinvee) * (YXEnd - beta ' XXEnd) + invZMeZ * ZXEnd  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
 
-			e2 = *pXEnd - *parent->pZExcl * pi[|parent->kEx+1,.\.,.|]; if (parent->kEx) e2 = e2 - *parent->pXEx * pi[|.,.\parent->kEx,.|]
-			if (parent->AR)
-				Ze2 = ZXEnd - ZZ * pi
-		}
+		e2 = *pXEnd - *parent->pZExcl * pi[|parent->kEx+1,.\.,.|]; if (parent->kEx) e2 = e2 - *parent->pXEx * pi[|.,.\parent->kEx,.|]
+		if (parent->AR)
+			Ze2 = ZXEnd - ZZ * pi
 	}
 }
 
@@ -497,11 +495,14 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
+
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
 	real rowvector val, YstarYstar
-	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, SE, wtZVR0
+	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, SE, wtZVR0, XExi
 	real scalar i, j, l, c, r, minN
 	pointer (real matrix) scalar _pR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt
 	class AnalyticalModel scalar M_WRE
@@ -510,8 +511,8 @@ void boottestModel::boottest() {
 	pointer (real colvector) scalar pe, pewt
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
-		kEx = cols(*pXEx)
 		Nobs = rows(*pXEx)
+		kEx = cols(*pXEx)
 		if (!cols(*pZExcl)) pZExcl = &J(Nobs,0,0)
 		if (!cols(*pXEnd)) pXEnd = &J(Nobs,0,0)
 		d = cols(*pXEnd) + 1
@@ -665,7 +666,7 @@ void boottestModel::boottest() {
 			if (WRE) {
 				pM_Repl = &(M_WRE = M_DGP)
 				pM_Repl->SetDGP(M_DGP)
-				  M_DGP.SetLIMLFullerK(1, 0, 1)
+				M_DGP.SetLIMLFullerK(1, 0, 1)
 				if (!AR) pM_Repl->SetLIMLFullerK(LIML, Fuller, K)
 				pM_Repl->SetAR(AR)
 				pM_Repl->SetS(AR? SAR : S)
@@ -698,7 +699,7 @@ void boottestModel::boottest() {
 
 			df = rows(*pR0)
 
-			if (NFE & !scoreBS & robust) { // move into InitTestDenoms?
+			if (NFE & !scoreBS & robust & !WREnonAR) { // move into InitTestDenoms?
 				SwtZVR0 = smatrix(df)
 				wtZVR0 = wtFE :* pM->ZVR0
 				for (c=1; c<=length(clust); c++) {
@@ -735,18 +736,17 @@ void boottestModel::boottest() {
 		initialized = 1
 	} // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
 
-	if (!ML) { // GMM, 2SLS, analytical LIML
-		rAll = null? *pr0 : J(0, 1, 0); if (REst) rAll =  *pr \ rAll // constant terms of model + null constraints
-		sAll = rows(rAll) ? LAll_invRAllLAll * rAll : J(0,1,0)
-		M_DGP.Estimate(sAll)
-
+	if (!ML) // GMM, 2SLS, analytical LIML
 		if (AR) {
 			pM_Repl->InitEndog(&(*pY - *pXEnd * *pr0), NULL, &(*M_DGP.pZExclY - *M_DGP.pZExclXEnd * *pr0), &(*M_DGP.pXExY - *M_DGP.pXExXEnd * *pr0))
 			pM_Repl->InitEstimate()
 			pM_Repl->Estimate(sAR)
 			pM_Repl->InitTestDenoms(SAR)
+		} else if (null | !rows(M_DGP.beta)) { // don't need to recompute if we're not actually imposing the null
+			rAll = null? *pr0 : J(0, 1, 0); if (REst) rAll =  *pr \ rAll // constant terms of model + null constraints
+			sAll = rows(rAll) ? LAll_invRAllLAll * rAll : J(0,1,0)
+			M_DGP.Estimate(sAll)
 		}
-	}
 
 	if (WREnonAR) {
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
@@ -756,11 +756,11 @@ void boottestModel::boottest() {
 		XExYstar   = cross(*pXEx  , *pwt, Ystar)
 		ZExclYstar = cross(*pZExcl, *pwt, Ystar)
 		
-		if (LIML | !robust)
+		if ((LIML | !robust) & !NFE)
 			YstarYstar = weights? cross(*pwt, Ystar:*Ystar) : colsum(Ystar:*Ystar)
 
 		if (d==2) {
-				XEndstar.M         = *pXEnd :+ M_DGP.e2 :* *pu
+				XEndstar.M         =  *pXEnd      :+ M_DGP.e2     :* *pu
 				XExXEndstar.M      = cross(*pXEx  , *pwt, XEndstar.M)
 				ZExclXEndstar.M    = cross(*pZExcl, *pwt, XEndstar.M)
 		} else
@@ -770,13 +770,14 @@ void boottestModel::boottest() {
 				ZExclXEndstar[j].M = cross(*pZExcl, *pwt, XEndstar[j].M)
 			}
 
-		if (NClust)
+		if (NClust & !NFE) // prep for optimized computation for bootstrapping cluster when no FE
 			for (i=clust[BootCluster].N; i; i--) {
 				Subscripts = (*pinfoExplode)[i,]', (.\.)
-				Zi = (*pXEx)[|Subscripts|] , (*pZExcl)[|Subscripts|] // inefficient?
+				XExi = kEx? (*pXEx)[|Subscripts|] : J((*pinfoExplode)[i,2]-(*pinfoExplode)[i,1]+1,0,0)
+				Zi = XExi , (*pZExcl)[|Subscripts|] // inefficient?
 				if (weights) Zi = Zi :* (*pwt)[|Subscripts|]
-				XZi[i].M = cross((*pXEx)[|Subscripts|], Zi) \ cross((*pXEnd)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
-				eZi[i].M =                                    cross(M_DGP.e2[|Subscripts|], Zi) \ cross(   _e[|Subscripts|], Zi)
+				XZi[i].M = cross(XExi, Zi) \ cross((*pXEnd)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
+				eZi[i].M =                   cross(M_DGP.e2[|Subscripts|], Zi) \ cross(   _e[|Subscripts|], Zi)
 			}
 
 		for (j=cols(u); j; j--) { // WRE bootstrap
@@ -789,7 +790,7 @@ void boottestModel::boottest() {
 				pZExclXEndstar = &(*pZExclXEndstar, ZExclXEndstar[i].M[,j])
 			}
 
-			pM_Repl->InitEndog(&(Ystar[,j]), pXEndstar, &(ZExclYstar[,j]), &(XExYstar[,j]), (LIML | !robust? YstarYstar[j] : .), pZExclXEndstar, pXExXEndstar)
+			pM_Repl->InitEndog(&(Ystar[,j]), pXEndstar, &(ZExclYstar[,j]), &(XExYstar[,j]), (cols(YstarYstar)? YstarYstar[j] : .), pZExclXEndstar, pXExXEndstar)
 			pM_Repl->InitEstimate()
 			pM_Repl->InitTestDenoms(S) // prepare for replication regressions, null not imposed
 			pM_Repl->Estimate(s)
@@ -797,12 +798,12 @@ void boottestModel::boottest() {
 
 			if (robust) { // Compute denominator for this WRE test stat
 				denom = smatrix()
-				if (NClust != 1) // collapse meat+sandwich  to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
+				if (NClust != 1 | NFE) // collapse meat+sandwich  to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 					peZVR0 = &_panelsum(pM_Repl->ZVR0, weights? *pwt :* pM_Repl->e : pM_Repl->e, clust.info)  // really eZAVR0, where e is wildized residual, not residual from replication fit (estar)
 				for (c=1; c<=length(clust); c++) {
 					if (NClust != 1 & rows(clust[c].order))
 						_collate(*peZVR0, clust[c].order)
-					if (c==BootCluster & NClust) {
+					if (c==BootCluster & NClust & !NFE) { // optimized computation for bootstrapping cluster when no FE
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						pragma unset t
 						for (i=1; i<=clust[BootCluster].N; i++) {
@@ -820,6 +821,7 @@ void boottestModel::boottest() {
 
 			Dist[j] = sqrt? numer/sqrt(denom.M) : cross(numer, invsym(denom.M) * numer)
 		}
+
 	} else { // non-WRE
 
 		if (ML)
@@ -833,7 +835,7 @@ void boottestModel::boottest() {
 				pe = length(clust)>1? clone(pM->e) : &(pM->e)
 				for (c=1; c<=length(clust); c++) {
 					if (rows(clust[c].order))
-						_collate(*pe   , clust[c].order)
+						_collate(*pe, clust[c].order)
 					SE = crosstab(c, *pe)
 					for (r=df;r;r--)
 						FECorrFact[r].M = cross(SE, SwtZVR0[r].M)
@@ -1273,7 +1275,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 		if (level<100 & ciname != "") st_matrix(ciname, M.CI) // also makes plotX & plotY
 	}
 
-	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but that suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak
+	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak
 }
 
 mata mlib create lboottest, dir("`c(sysdir_plus)'l") replace

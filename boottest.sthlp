@@ -382,9 +382,9 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata scoretest tenure} // Rao/LM test of same{p_end}
 {phang}. {stata waldtest tenure} // Wald test of same{p_end}
 
-{phang}. {stata ivregress liml wage collgrad (tenure = collgrad ttl_exp), cluster(industry)}{p_end}
+{phang}. {stata ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, noci} // WRE bootstrap, Rademacher weights, 1000 replications{p_end}
-{phang}. {stata cmp (wage = tenure collgrad) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)}{p_end}
+{phang}. {stata cmp (wage = tenure) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)}{p_end}
 {phang}. {stata boottest tenure} // reasonable match on test statistic and p value{p_end}
 
 {phang}. {stata ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)}{p_end}
