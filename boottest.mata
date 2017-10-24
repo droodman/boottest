@@ -65,14 +65,13 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom, SZVR0
-	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
+	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, SWE
 	pointer (struct structFE scalar) scalar FEs
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
 	real matrix combs(), count_binary(), crosstab()
 	real colvector get_dist()
-	pointer(real matrix) scalar clone()
 }
 
 void AnalyticalModel::new()
@@ -497,6 +496,7 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID, WE
@@ -508,6 +508,7 @@ void boottestModel::boottest() {
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
 	pointer (struct structFE scalar) scalar next
 	pointer (real colvector) scalar pewt
+	struct smatrix colvector _SZVR0
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
 		Nobs = rows(*pXEx)
@@ -626,10 +627,11 @@ void boottestModel::boottest() {
 			}	else {
 				u = runiform(clust[BootCluster].N, reps+1) :>= .5; u = u + u :- (1 + WREnonAR) // Rademacher
 			}
-
 			u[,1] = J(clust[BootCluster].N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
 		}
 		U = WREnonAR | NClust > NBootClust? u[IDExplode,] : J(0,0,0)
+external real matrix _u
+_u = u
 
 		if (ML) 
 			df = rows(*pR0)
@@ -700,14 +702,19 @@ void boottestModel::boottest() {
 
 			if (NFE & robust & !WREnonAR) { // move into InitTestDenoms?
 				SZVR0 = smatrix(length(clust), df)
-				pZVR0 = NClust>1? clone(pM->ZVR0) : &(pM->ZVR0)
-				if (weights) pZVR0 = &(*pZVR0 :* *pwt)
-				for (c=1; c<=length(clust); c++) {
-					if (rows(clust[c].order))
-						_collate(*pZVR0, clust[c].order)
-					for (r=df;r;r--)
-						SZVR0[c,r].M = crosstab(c, (*pZVR0)[,r])
+				pZVR0 = &(weights? pM->ZVR0 :* *pwt : pM->ZVR0)
+				for (r=df;r;r--)
+					SZVR0[1,r].M = crosstab((*pZVR0)[,r])
+				if (NClust > 1) {
+					_SZVR0 = SZVR0[1,]
+					for (c=2; c<=length(clust); c++)
+						for (r=df;r;r--) {
+							if (rows(clust[c].order))
+								_collate(_SZVR0[r].M, clust[c].order)
+							SZVR0[c,r].M = panelsum(_SZVR0[r].M, clust[c].info)
+						}
 				}
+				SWE = smatrix(df)
 			}
 		}
 
@@ -827,7 +834,7 @@ void boottestModel::boottest() {
 		if (ML)
 			eZVR0 = *pSc * (VR0 = *pV * *pR0')
 		else if (scoreBS | robust)
-				eZVR0 = pM->e :* pM->ZVR0
+			eZVR0 = pM->e :* pM->ZVR0
 
 		if (scoreBS)
 			numer = cross(_panelsum(eZVR0, *pwt, *pinfoExplode), u)
@@ -855,7 +862,11 @@ void boottestModel::boottest() {
 			for (r=df;r;r--)
 				eUZVR0[r].M = *pu :* (*peZVR0)[,r]
 
-			if (NFE) WE = wtFE :* pM->e
+			if (NFE) {
+				WE = wtFE :* pM->e
+				for (r=df;r;r--)
+					SWE[r].M = _panelsum(crosstab(WE[,r]), clust[BootCluster].info)
+			}
 
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
@@ -877,11 +888,9 @@ void boottestModel::boottest() {
 						pt = &_panelsum(XExZVR0[r].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[r].M, clust[c].info))
 						pG[r] = &(*pG[r] - *pt * betadev)
 					}
-					if (NFE) {
-						if (rows(clust[c].order))
-							_collate(WE, clust[c].order)
-						pG[r] = &( *pG[r] - cross(cross(crosstab(c, WE), SZVR0[c,r].M), u) )
-					}
+
+					if (NFE)
+						pG[r] = &( *pG[r] - cross(SWE[r].M * SZVR0[c,r].M', u) )
 
 					for (j=r;j<=df;j++) {
 						t = colsum(*pG[r] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,r].M = c==1? t : denom[j,r].M + t
@@ -1034,16 +1043,16 @@ pointer(real matrix) scalar AnalyticalModel::demean(pointer(real matrix) scalar 
 	return (pIn)
 }
 
-// cross-tab sum of a column vector w.r.t. clustering var c and fixed-effect var
-real matrix boottestModel::crosstab(real scalar c, real colvector v) {
+// cross-tab sum of a column vector w.r.t. intersection-of-clustering-vars and fixed-effect var
+real matrix boottestModel::crosstab(real colvector v) {
 	real matrix retval; real scalar i, j, t; real colvector _FEID, _v
-	retval = J(NFE, clust[c].N, 0)
-	for (i=clust[c].N;i;i--) {
-		_FEID = panelsubmatrix(*(pFEID), i, clust[c].info)
-		_v    = panelsubmatrix(v       , i, clust[c].info)
+	retval = J(clust.N, NFE, 0)
+	for (i=clust.N;i;i--) {
+		_FEID = panelsubmatrix(*(pFEID), i, clust.info)
+		_v    = panelsubmatrix(v       , i, clust.info)
 		for (j=rows(_FEID);j;j--) {
 			t = _FEID[j] 
-			retval[t,i] = retval[t,i] + _v[j]
+			retval[i,t] = retval[i,t] + _v[j]
 		}
 	}
 	return(retval)
@@ -1183,11 +1192,6 @@ real matrix boottestModel::combs(real scalar d) {
 	for (i=d;i;i--)
 		retval = retval, J(2^(d-i),1,1) # (1\0) # J(2^(i-1),1,1) 
 	return (retval)
-}
-
-pointer (real matrix) scalar boottestModel::clone(real matrix X) {
-	real matrix Y
-	return(&(Y = X))
 }
 
 // Stata interface
