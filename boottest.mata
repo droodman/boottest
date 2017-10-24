@@ -701,6 +701,7 @@ void boottestModel::boottest() {
 			if (NFE & robust & !WREnonAR) { // move into InitTestDenoms?
 				SZVR0 = smatrix(length(clust), df)
 				pZVR0 = NClust>1? clone(pM->ZVR0) : &(pM->ZVR0)
+				if (weights) pZVR0 = &(*pZVR0 :* *pwt)
 				for (c=1; c<=length(clust); c++) {
 					if (rows(clust[c].order))
 						_collate(*pZVR0, clust[c].order)
