@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
 string scalar      boottestVersion() return("01.09.00")
@@ -497,7 +497,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
@@ -888,8 +887,8 @@ void boottestModel::boottest() {
 					} else if (reps) { // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						pt = &_panelsum(XExZVR0[r].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[r].M, clust[c].info))
 						pG[r] = &(*pG[r] - *pt * betadev)
-						if (NFE) pG[r] = &( *pG[r] - cross(FECorrFact[r].M, u) )
 					}
+					if (NFE) pG[r] = &( *pG[r] - cross(FECorrFact[r].M, u) )
 
 					for (j=r;j<=df;j++) {
 						t = colsum(*pG[r] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,r].M = c==1? t : denom[j,r].M + t
