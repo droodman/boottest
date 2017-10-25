@@ -27,7 +27,7 @@ struct smatrix {
 }
 
 struct boottest_clust {
-	real scalar N, multiplier
+	real scalar N, multiplier, FEadj
 	real rowvector cols
 	real colvector ClustShare, order, ID
 	real matrix info
@@ -53,7 +53,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 }
 
 class boottestModel {
-	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, ///
+	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, FEbootID, ///
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
@@ -256,7 +256,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = 0
+	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = FEbootID = 0
 	twotailed = null = dirty = 1
 	cuepoint = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pFEID = pR = pR0 = pwt = &J(0,0,0)
@@ -362,6 +362,9 @@ void boottest_set_ID      (class boottestModel scalar M, real matrix ID, | real 
 }
 void boottest_set_FEID      (class boottestModel scalar M, real matrix ID) {
 	M.pFEID = &ID; M.set_dirty(1)
+}
+void boottest_set_FEbootID  (class boottestModel scalar M, real rowvector ID) { // ID should be a scalar or a 0-length row vector
+	if (length(ID)) M.FEbootID = ID; M.set_dirty(1)
 }
 void boottest_set_robust  (class boottestModel scalar M, real scalar robust  ) {
 	M.robust = robust
@@ -494,9 +497,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
-
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID, WE
@@ -544,7 +544,9 @@ void boottestModel::boottest() {
 			for (c=1; c<=length(clust); c++) {
 				clust[c].cols         = boottest_selectindex(combs[c,])
 				clust[c].multiplier   = 2 * mod(cols(clust[c].cols),2) - 1
-
+				if (FEbootID)
+				  clust[c].FEadj      = !combs[c,FEbootID] // if this bootstrapping cluster combo include FE var, denominator term needs no FE adjustment 
+				
 				if (c > 1) { // for all-cluster intersections, record group defs rel to data set; for rest, rel to collapsed data
 					if (any( combs[|c, min(boottest_selectindex(combs[c,] :!= combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
 						_collate(IDCollapse, clust[c].order = order(IDCollapse, clust[c].cols))
@@ -630,8 +632,6 @@ void boottestModel::boottest() {
 			u[,1] = J(clust[BootCluster].N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
 		}
 		U = WREnonAR | NClust > NBootClust? u[IDExplode,] : J(0,0,0)
-external real matrix _u
-_u = u
 
 		if (ML) 
 			df = rows(*pR0)
@@ -700,7 +700,7 @@ _u = u
 
 			df = rows(*pR0)
 
-			if (NFE & robust & !WREnonAR) { // move into InitTestDenoms?
+			if (NFE & robust & !WREnonAR & (NClust>1 | !FEbootID)) { // move into InitTestDenoms?
 				SZVR0 = smatrix(length(clust), df)
 				pZVR0 = &(weights? pM->ZVR0 :* *pwt : pM->ZVR0)
 				for (r=df;r;r--)
@@ -711,7 +711,8 @@ _u = u
 						for (r=df;r;r--) {
 							if (rows(clust[c].order))
 								_collate(_SZVR0[r].M, clust[c].order)
-							SZVR0[c,r].M = panelsum(_SZVR0[r].M, clust[c].info)
+							if (clust[c].FEadj) // need FE adjustment for this cluster combo?
+								SZVR0[c,r].M = panelsum(_SZVR0[r].M, clust[c].info)
 						}
 				}
 				SWE = smatrix(df)
@@ -862,7 +863,7 @@ _u = u
 			for (r=df;r;r--)
 				eUZVR0[r].M = *pu :* (*peZVR0)[,r]
 
-			if (NFE) {
+			if (NFE & (NClust>1 | !FEbootID)) {
 				WE = wtFE :* pM->e
 				for (r=df;r;r--)
 					SWE[r].M = _panelsum(crosstab(WE[,r]), clust[BootCluster].info)
@@ -889,7 +890,7 @@ _u = u
 						pG[r] = &(*pG[r] - *pt * betadev)
 					}
 
-					if (NFE)
+					if (NFE & clust[c].FEadj)
 						pG[r] = &( *pG[r] - cross(SWE[r].M * SZVR0[c,r].M', u) )
 
 					for (j=r;j<=df;j++) {
@@ -1015,6 +1016,7 @@ real matrix _panelsum(real matrix X, real matrix arg2, | real matrix arg3) {
 // if v = 0 (so can't tell if row or col vector), returns rowvector J(1, 0, 0) 
 real vector boottest_selectindex(real vector v) {
 	real scalar rows
+	if (v==0) return(J(1,0,0))
 	rows = rows(v)
 	return(select(rows>1? 1::rows : 1..cols(v), v))
 }
@@ -1232,6 +1234,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	boottest_set_wt (M, wt)
 	boottest_set_ID(M, ID, NBootClust)
 	boottest_set_FEID(M, FEID)
+	boottest_set_FEbootID(M, boottest_selectindex(FEname:==IDnames)) // identify whether FE var is also a clustering var, and which one
 	boottest_set_R (M, R , r )
 	boottest_set_R0(M, R0, r0)
 	boottest_set_null(M, null)
