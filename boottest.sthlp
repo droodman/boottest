@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.3 11 October 2017}{...}
+{* *! version 1.9.0 25 October 2017}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -7,7 +7,7 @@
 
 {pstd}
 Test linear hypotheses using wild or score bootstrap or Rao or Wald test for OLS, 2SLS, LIML, Fuller, k-class, linear GMM, or general ML estimation with classical, heteroskedasticity-robust, 
-or (multi-way-) clustered standard errors{p_end}
+or (multi-way-) clustered standard errors and optional fixed effects{p_end}
 
 {title:Syntax}
 
@@ -138,9 +138,10 @@ provided by {help test}. {cmd:waldtest} adds value by allowing you to incorporat
 after estimation commands that do not support those adjustments.
 
 {pstd}
-In general, the tests are available after OLS, constrained OLS, 2SLS, LIML, and GMM estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
+The tests are available after OLS, constrained OLS, 2SLS, LIML, and GMM estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
 {stata ssc describe cmp:ivreg2}. The
-program works with Fuller LIML and k-class estimates done with {stata ssc describe cmp:ivreg2} (WRE bootstrap only). And it works after most Stata 
+program works with Fuller LIML and k-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
+effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; or {help reghdfe:reghdfe}. And it works after most Stata 
 ML-based estimation commands, including {help probit}, {help glm}, {stata ssc describe cmp:cmp}, and, in Stata 14.0 or later, 
 {help sem} and {help gsem} (score bootstrap only). A 
 notable ML exception is {help tobit}. (To work with {cmd:boottest}, an iterative optimization command must accept
@@ -151,7 +152,7 @@ the {opt const:raints()}, {opt iter:ate()}, {opt from()}, and {opt sc:ore} optio
 parameters. {cmd:boottest} deviates in syntax from {help test} in the specification of the null hypothesis. In fact, it offers two syntaxes for specifying hypotheses, both
 different from the syntax of {help test}. In the first syntax, now deprecated, one first expresses the null in 
 one or more {help estimation options##constraints():constraints}, which are then listed by number in {cmd:boottest}'s {opt h0()} option. All constraints are tested 
-jointly. In the second, modern syntax one places the constraint expressions directly in the {cmd:boottest} command line before the comma. Each expression must conform to the syntax
+jointly. In the second, modern syntax, one places the constraint expressions directly in the {cmd:boottest} command line before the comma. Each expression must conform to the syntax
 of {help constraint:constraint define}, meaning a list of parameters (all of which are implicitly hypothesized to equal zero) or an equation in the form 
 {it:{help exp}} {cmd:=} {it:{help exp}}. To jointly test several such expressions, list them all, placing each in parentheses. To independently test several such hypotheses, or joint groups
 of hypotheses, list them all, placing each in braces. Omitting both syntaxes implies {cmd:h0(1)}, unless {opt ar} is specified, in which case {cmd:boottest}
@@ -258,7 +259,7 @@ one-costraint hypothesis after OLS/2SLS/GMM/LIML, for only then is the confidenc
 default is controlled by {help level:set level} and is usually 95. Setting it to 100 suppresses computation and plotting of the confidence 
 set while still allowing plotting of the confidence curve.
 
-{phang}{opt gridmin(#)}, {opt gridmax(#)}, {opt gridpoints(#)} over-ride the default lower and upper bounds and the resolution of the initial grid search
+{phang}{opt gridmin(#)}, {opt gridmax(#)}, {opt gridpoints(#)} override the default lower and upper bounds and the resolution of the initial grid search
 that begins the process of determining bounds for confidence sets, as described above. By default, {cmd:boottest} estimates the lower and upper bounds by working
 with the bootstrapped distribution, and uses 25 grid points.
 
@@ -393,6 +394,11 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)} // multi-way-clustered test after estimation command not offering such{p_end}
+
+{phang}. {stata areg wage ttl_exp collgrad tenure [aw=hours], cluster(age) absorb(industry)}{p_end}
+{phang}. {stata boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph} // override estimate's clustering{p_end}
+{phang}. {stata reg wage ttl_exp collgrad tenure i.industry [aw=hours], cluster(age)}{p_end}
+{phang}. {stata boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph} // should match previous result{p_end}
 
 {phang}. {stata probit c_city tenure wage ttl_exp collgrad, cluster(industry)}{p_end}
 {phang}. {stata boottest tenure}{space 25} // score bootstrap, Rademacher weights, null imposed, 1000 replications{p_end}

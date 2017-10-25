@@ -1,4 +1,4 @@
-*! boottest 1.9.0 18 October 2017
+*! boottest 1.9.0 25 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -397,7 +397,7 @@ program define _boottest, rclass sortpreserve
 		}
 		local clustvars `_clustvars'
 	}
-
+	
 	forvalues h=1/`N_h0s' { // loop over multiple independent constraints
 		_estimates hold `hold', restore
 		ereturn post `b'
@@ -656,7 +656,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.9.0 Added FE support
+* 1.9.0 Added fixed effect support
 * 1.8.3 Added svmat(numer) option
 * 1.8.2 Fixed bug after ML: was using V from unconstrained instead of constrained fit
 * 1.8.1 Fixed bugs in handling robust non-cluster
