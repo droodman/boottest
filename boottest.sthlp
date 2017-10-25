@@ -395,9 +395,9 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)} // multi-way-clustered test after estimation command not offering such{p_end}
 
-{phang}. {stata areg wage ttl_exp collgrad tenure [aw=hours], cluster(age) absorb(industry)}{p_end}
+{phang}. {stata areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)}{p_end}
 {phang}. {stata boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph} // override estimate's clustering{p_end}
-{phang}. {stata reg wage ttl_exp collgrad tenure i.industry [aw=hours], cluster(age)}{p_end}
+{phang}. {stata reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)}{p_end}
 {phang}. {stata boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph} // should match previous result{p_end}
 
 {phang}. {stata probit c_city tenure wage ttl_exp collgrad, cluster(industry)}{p_end}
@@ -408,11 +408,11 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest tenure}{space 67} // requires Stata 14.0 or later {p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 16} // requires Stata 14.0 or later{p_end}
 
+{phang}. {stata sysuse auto}{p_end}
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
 {phang}. {stata 	args lnf theta}{p_end}
 {phang}. {stata 	quietly replace `lnf' = lnnormal((2*$ML_y1-1) * `theta')}{p_end}
 {phang}. {stata end}{p_end}
-{phang}. {stata sysuse auto}{p_end}
 {phang}. {stata ml model lf myprobit (foreign = mpg weight)} // define model{p_end}
 {phang}. {stata ml max} // estimate{p_end}
 {phang}. {stata boottest mpg, cmdline(ml model lf myprobit (foreign = mpg weight))} // score bootstrap; pass the model definition since {cmd:ml} doesn't save it in {cmd:e(cmdline)}{p_end}
