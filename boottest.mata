@@ -57,7 +57,7 @@ class boottestModel {
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
-	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI
+	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, SWE
 	string scalar wttype, madjtype
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE
 	real rowvector peak
@@ -65,7 +65,7 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom, SZVR0
-	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, SWE
+	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
 	pointer (struct structFE scalar) scalar FEs
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
@@ -494,9 +494,12 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
+
+
 // main routine
 void boottestModel::boottest() {
-	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID, WE
+	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
 	real rowvector val, YstarYstar
 	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi
 	real scalar i, j, l, c, r, minN
@@ -709,7 +712,6 @@ void boottestModel::boottest() {
 							SZVR0[c,r].M = panelsum(_SZVR0[r].M, clust[c].info)
 						}
 				}
-				SWE = smatrix(df)
 			}
 		}
 
@@ -857,11 +859,8 @@ void boottestModel::boottest() {
 			for (r=df;r;r--)
 				eUZVR0[r].M = *pu :* (*peZVR0)[,r]
 
-			if (NFE & !FEboot) {
-				WE = wtFE :* pM->e
-				for (r=df;r;r--)
-					SWE[r].M = _panelsum(crosstab(WE[,r]), clust[BootCluster].info)
-			}
+			if (NFE & !FEboot)
+				SWE = _panelsum(crosstab(wtFE :* pM->e), clust[BootCluster].info)
 
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
@@ -885,7 +884,7 @@ void boottestModel::boottest() {
 					}
 
 					if (NFE & !FEboot)
-						pG[r] = &( *pG[r] - cross(SWE[r].M * SZVR0[c,r].M', u) )
+						pG[r] = &( *pG[r] - cross(SWE * SZVR0[c,r].M', u) )
 
 					for (j=r;j<=df;j++) {
 						t = colsum(*pG[r] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,r].M = c==1? t : denom[j,r].M + t
