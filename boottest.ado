@@ -1,4 +1,4 @@
-*! boottest 1.9.0 25 October 2017
+*! boottest 1.9.1 30 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -656,6 +656,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.1 Fixed crash with FE and df>1. Stopped waldtest and scoretest ignoring small.
 * 1.9.0 Added fixed effect support
 * 1.8.3 Added svmat(numer) option
 * 1.8.2 Fixed bug after ML: was using V from unconstrained instead of constrained fit

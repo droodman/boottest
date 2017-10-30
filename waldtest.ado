@@ -26,5 +26,5 @@ program define waldtest
 	local 0 `*'
 
 	syntax, [h0(passthru) BOOTCLuster(passthru)  CLuster(passthru) Robust QUIetly NOCI NOGRaph SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru)]	
-	boottest `h0s', nonull reps(0) boottype(score) `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `nograph' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphopt' `graphname'
+	boottest `h0s', nonull reps(0) boottype(score) `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `nograph' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphopt' `graphname'
 end
