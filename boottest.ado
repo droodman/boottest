@@ -1,4 +1,4 @@
-*! boottest 1.9.1 30 October 2017
+*! boottest 1.9.2 31 October 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -351,7 +351,7 @@ program define _boottest, rclass sortpreserve
 			local `varlist' `_revarlist'
 		}
 
-		cap mata _boottestC = st_matrix("`C'" )[,(st_matrix("`keepC'"),`=`k'+1')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
+		cap mata _boottestC = st_matrix("`C'")[,(st_matrix("`keepC'"),`=colsof(`C')')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
 
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 
@@ -507,7 +507,7 @@ program define _boottest, rclass sortpreserve
 			mat `V' = e(V`=cond("`e(V_modelbased)'"!="", "_modelbased", "")')
 
 			tempvar sc
-			cap noi predict double `sc'* if e(sample), score
+			cap predict double `sc'* if e(sample), score
 			if _rc {
 				di as err "Could not generate scores from `e(cmd)' with {cmd:predict}."
 				exit _rc
@@ -636,6 +636,7 @@ program define _boottest, rclass sortpreserve
 				mata st_numscalar("`t'", anyof(st_matrix("`cimat'"), .))
 				if `t' di "(A confidence interval could not be bounded. Try widening the search range with the {cmd:gridmin()} and {cmd:gridmax()} options.)"
 			}
+			mat colnames `cimat' = lo hi
 			return matrix CI`_h' = `cimat'
 		}
 		
@@ -656,7 +657,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.9.1 Fixed crash with FE and df>1. Stopped waldtest and scoretest ignoring small.
+* 1.9.2 Fixed crash with FE and omitted dummies for other vars
+* 1.9.1 Fixed crash with FE and df>1. Stopped waldtest and scoretest ignoring small
 * 1.9.0 Added fixed effect support
 * 1.8.3 Added svmat(numer) option
 * 1.8.2 Fixed bug after ML: was using V from unconstrained instead of constrained fit
