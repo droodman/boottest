@@ -274,7 +274,10 @@ program define _boottest, rclass sortpreserve
 
 	makecns
 	local k_autoCns = r(k_autoCns)
-	if "`e(Cns)'" != "" mat `C' = e(Cns)
+	if "`e(Cns)'" != "" {
+		local hascns 1
+		mat `C' = e(Cns)
+	}
 	cap _estimates drop `hold'
 
 	if !`ML' {
@@ -322,7 +325,8 @@ program define _boottest, rclass sortpreserve
 			local _cons
 		}
 		
-		cap mata st_matrix("`C'" , st_matrix("`C'" )[,_boottestp])
+		if 0`hascns' mata st_matrix("`C'" , st_matrix("`C'" )[,_boottestp])
+
 		if `cons' {
 			mat `keepC' = 1
 			mat `keepW' = 1
@@ -351,7 +355,7 @@ program define _boottest, rclass sortpreserve
 			local `varlist' `_revarlist'
 		}
 
-		cap mata _boottestC = st_matrix("`C'")[,(st_matrix("`keepC'"),`=colsof(`C')')]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
+		if 0`hascns' mata _boottestC = st_matrix("`C'")[,(st_matrix("`keepC'"),cols(st_matrix("`C'")))]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
 
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 
@@ -380,7 +384,7 @@ program define _boottest, rclass sortpreserve
 				}
 			}
 			
-			local clustvars `bootcluster' `:list clustvars - bootcluster' // sort, by bootstrapping clusters first
+			local clustvars `bootcluster' `:list clustvars - bootcluster' // put bootstrapping clusters first
 		}
 		else local bootcluster `clustvars'
 
