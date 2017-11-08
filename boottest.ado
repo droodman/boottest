@@ -1,4 +1,4 @@
-*! boottest 1.9.2 31 October 2017
+*! boottest 1.9.2 8 November 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -13,6 +13,8 @@
 
 * You should have received a copy of the GNU General Public License
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+*! Version history at bottom
 
 cap program drop boottest
 program define boottest
@@ -661,7 +663,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.9.2 Fixed crash with FE and omitted dummies for other vars
+* 1.9.2 Fixed crash with FE and omitted dummies for other vars. Fixed 1.9.0 crash in old Stata versions.
 * 1.9.1 Fixed crash with FE and df>1. Stopped waldtest and scoretest ignoring small
 * 1.9.0 Added fixed effect support
 * 1.8.3 Added svmat(numer) option

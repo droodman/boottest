@@ -1,4 +1,4 @@
-*! boottest 1.9.0 25 October 2017
+*! boottest 1.9.2 8 November 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
 string scalar      boottestVersion() return("01.09.00")
@@ -710,7 +710,7 @@ void boottestModel::boottest() {
 						for (d=df;d;d--) {
 							if (rows(clust[c].order))
 								_CT_ZVR0[d].M = _CT_ZVR0[d].M[clust[c].order,]
-							CT_ZVR0[c,d].M = panelsum(_CT_ZVR0[d].M, clust[c].info)
+							CT_ZVR0[c,d].M = _panelsum(_CT_ZVR0[d].M, clust[c].info)
 						}
 				}
 			}
@@ -897,7 +897,7 @@ void boottestModel::boottest() {
 						pQ[c,d] = &(*pQ[c,d] - *pt * SewtXV)
 					}
 					if (NFE & !FEboot)
-						pQ[c,d] = &(*pQ[c,d] - _panelsum(CT_ZVR0[d].M, clust[c].info) * CT_WE)
+						pQ[c,d] = &(*pQ[c,d] - _panelsum(CT_ZVR0[c,d].M, clust[c].info) * CT_WE)
 				}
 			}
 
