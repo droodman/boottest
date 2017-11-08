@@ -1,4 +1,4 @@
-*! waldtest 1.6.1 10 July 2016
+*! waldtest 1.9.2 8 November 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
