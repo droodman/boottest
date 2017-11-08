@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
 string scalar      boottestVersion() return("01.09.00")
@@ -54,19 +54,20 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, FEboot, ///
-		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, d, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE
+		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
-	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, SWE
+	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE
 	string scalar wttype, madjtype
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE
 	real rowvector peak
 	struct boottest_clust colvector clust
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
-	struct smatrix matrix denom, SZVR0
-	struct smatrix colvector eUZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
+	struct smatrix matrix denom, CT_ZVR0
+	struct smatrix colvector CT_eZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi
 	pointer (struct structFE scalar) scalar FEs
+	pointer (real matrix) matrix pQ
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
@@ -433,29 +434,29 @@ real scalar boottestModel::get_p(|real scalar analytical) {
 				p = 1 - p
 		}
 	}
-	return (p)
+	return(p)
 }
 
 real scalar boottestModel::get_padj(|real scalar analytical) {
 	(void) get_p(analytical)
 	if (madjtype=="bonferroni") return(min((1, NumH0s*p)))
 	if (madjtype=="sidak"     ) return(1 - (1 - p)^NumH0s)
-	return (p)
+	return(p)
 }
 
 real scalar boottestModel::get_stat() {
 	if (dirty) boottest()
-	return (Dist[1])
+	return(Dist[1])
 }
 
 real scalar boottestModel::get_df() {
 	if (dirty) boottest()
-	return (df)
+	return(df)
 }
 
 real scalar boottestModel::get_df_r() {
 	if (dirty) boottest()
-	return (df_r)
+	return(df_r)
 }
 
 void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string scalar selectvar) {
@@ -496,26 +497,25 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
 	real rowvector val, YstarYstar
-	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi
-	real scalar i, j, l, c, r, minN
+	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi, QQ, SewtXV
+	real scalar i, j, l, c, d, minN
 	pointer (real matrix) scalar _pR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt, pZVR0
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
 	pointer (struct structFE scalar) scalar next
-	pointer (real colvector) scalar pewt
-	struct smatrix colvector _SZVR0
+	pointer (real colvector) scalar pewt, pe
+	struct smatrix colvector _CT_ZVR0
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
 		Nobs = rows(*pXEx)
 		kEx = cols(*pXEx)
 		if (!cols(*pZExcl)) pZExcl = &J(Nobs,0,0)
 		if (!cols(*pXEnd)) pXEnd = &J(Nobs,0,0)
-		d = cols(*pXEnd) + 1
+		D = cols(*pXEnd) + 1
 		k  = cols(*pR0)
 		REst = rows(*pR) // base model contains restrictions?
 		if (pZExcl != NULL) el = cols(*pZExcl) + kEx
@@ -547,7 +547,7 @@ void boottestModel::boottest() {
 				
 				if (c > 1) { // for all-cluster intersections, record group defs rel to data set; for rest, rel to collapsed data
 					if (any( combs[|c, min(boottest_selectindex(combs[c,] :!= combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-						_collate(IDCollapse, clust[c].order = order(IDCollapse, clust[c].cols))
+						IDCollapse = IDCollapse[ clust[c].order = order(IDCollapse, clust[c].cols), ]
 				  clust[c].info       = _panelsetup(IDCollapse, clust[c].cols)
 				} else {
 				  clust.   info       = _panelsetup(*pID      , clust.cols   )
@@ -568,6 +568,7 @@ void boottestModel::boottest() {
 			clust = boottest_clust()
 			clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
 			clust.N = Nobs
+			clust.info = J(Nobs, 0, 0) // signals _panelsum not to aggregate
 			BootCluster = 1
 			if (scoreBS)
 				clust.ClustShare = weights? *pwt/sumwt : 1/_Nobs
@@ -698,18 +699,18 @@ void boottestModel::boottest() {
 
 			df = rows(*pR0)
 
-			if (NFE & robust & !WREnonAR & !FEboot) { // move into InitTestDenoms?
-				SZVR0 = smatrix(length(clust), df)
+			if (NFE & robust & !WREnonAR & !FEboot) {
+				CT_ZVR0 = smatrix(length(clust), df)
 				pZVR0 = &(weights? pM->ZVR0 :* *pwt : pM->ZVR0)
-				for (r=df;r;r--)
-					SZVR0[1,r].M = crosstab((*pZVR0)[,r])
+				for (d=df;d;d--)
+					CT_ZVR0[1,d].M = crosstab((*pZVR0)[,d])
 				if (NClust > 1) {
-					_SZVR0 = SZVR0[1,]
+					_CT_ZVR0 = CT_ZVR0[1,]
 					for (c=2; c<=length(clust); c++)
-						for (r=df;r;r--) {
+						for (d=df;d;d--) {
 							if (rows(clust[c].order))
-								_collate(_SZVR0[r].M, clust[c].order)
-							SZVR0[c,r].M = panelsum(_SZVR0[r].M, clust[c].info)
+								_CT_ZVR0[d].M = _CT_ZVR0[d].M[clust[c].order,]
+							CT_ZVR0[c,d].M = panelsum(_CT_ZVR0[d].M, clust[c].info)
 						}
 				}
 			}
@@ -730,11 +731,12 @@ void boottestModel::boottest() {
 
 		denom = smatrix(df,df)
 		if (WREnonAR) {
-			XEndstar = XExXEndstar = ZExclXEndstar = smatrix(d-1)
+			XEndstar = XExXEndstar = ZExclXEndstar = smatrix(D-1)
 			if (NClust)
 				XZi = eZi = smatrix(clust[BootCluster].N)
 		} else if (robust) {
-			eUZVR0 = XExZVR0 = ZExclZVR0 = smatrix(df); pG = J(df, 1, NULL)
+			XExZVR0 = ZExclZVR0 = CT_eZVR0 = smatrix(df)
+			pQ = J(length(clust), df, NULL)
 		}
 		
 		initialized = 1
@@ -763,12 +765,12 @@ void boottestModel::boottest() {
 		if ((LIML | !robust) & !NFE)
 			YstarYstar = weights? cross(*pwt, Ystar:*Ystar) : colsum(Ystar:*Ystar)
 
-		if (d==2) {
+		if (D==2) {
 				XEndstar.M         =  *pXEnd      :+ M_DGP.e2     :* *pu
 				XExXEndstar.M      = cross(*pXEx  , *pwt, XEndstar.M)
 				ZExclXEndstar.M    = cross(*pZExcl, *pwt, XEndstar.M)
 		} else
-			for (j=d-1; j; j--) {
+			for (j=D-1; j; j--) {
 				XEndstar[j].M      = (*pXEnd)[,j] :+ M_DGP.e2[,j] :* *pu
 				XExXEndstar  [j].M = cross(*pXEx  , *pwt, XEndstar[j].M)
 				ZExclXEndstar[j].M = cross(*pZExcl, *pwt, XEndstar[j].M)
@@ -788,7 +790,7 @@ void boottestModel::boottest() {
 			pXEndstar      = &(   XEndstar.M  [,j])
 			pXExXEndstar   = &(XExXEndstar.M  [,j])
 			pZExclXEndstar = &(ZExclXEndstar.M[,j])
-			for (i=2; i<d; i++) {
+			for (i=2; i<D; i++) {
 				pXEndstar      = &(*pXEndstar     , XEndstar     [i].M[,j])
 				pXExXEndstar   = &(*pXExXEndstar  , XExXEndstar  [i].M[,j])
 				pZExclXEndstar = &(*pZExclXEndstar, ZExclXEndstar[i].M[,j])
@@ -806,7 +808,7 @@ void boottestModel::boottest() {
 					peZVR0 = &_panelsum(pM_Repl->ZVR0, weights? *pwt :* pM_Repl->e : pM_Repl->e, clust.info)  // really eZAVR0, where e is wildized residual, not residual from replication fit (estar)
 				for (c=1; c<=length(clust); c++) {
 					if (NClust != 1 & rows(clust[c].order))
-						_collate(*peZVR0, clust[c].order)
+						peZVR0 = &((*peZVR0)[clust[c].order,])
 					if (c==BootCluster & NClust & !NFE) { // optimized computation for bootstrapping cluster when no FE
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						pragma unset t
@@ -833,64 +835,81 @@ void boottestModel::boottest() {
 		else if (scoreBS | robust)
 			eZVR0 = pM->e :* pM->ZVR0
 
+		pe = ML? pSc : &pM->e; pewt = weights? &(*pe:* *pwt) : pe
+		pt = &_panelsum(*pXEx, *pewt, *pinfoExplode); if (AR & !scoreBS) pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoExplode))
+		SewtXV =  *pM->pV * (*pt)'
+		if (!robust)
+			betadev = SewtXV * u
+		numer = (*pR0 * SewtXV) * u
+
 		if (scoreBS)
-			numer = cross(_panelsum(eZVR0, *pwt, *pinfoExplode), u)
-		else {
-			pewt = weights? &(pM->e:* *pwt) : &pM->e
-			pt = &_panelsum(*pXEx, *pewt, *pinfoExplode); if (AR) pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoExplode))
-			betadev = cross(*pt * *pM->pV, u)
-			numer = *pR0 * betadev
-		}
+			SewtXV = _panelsum(*pewt, clust[BootCluster].info)' / (weights? sumwt : Nobs)
 
 		if      (AR)    numer[,1] = pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
 		else if (!null) numer[,1] = *pR0 * (ML? beta : pM->beta) - *pr0 // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 
 		// Compute denominators and test stats
 		if (robust) {
-			if (!scoreBS)
-				for (r=df;r;r--) {
-					t = pM->ZVR0[,r]
-					  XExZVR0[r].M = _panelsum(*pXEx  , weights? t :* *pwt : t, clust.info)
-					ZExclZVR0[r].M = _panelsum(*pZExcl, weights? t :* *pwt : t, clust.info)
+			if (reps)
+				for (d=df;d;d--) {
+					t = pM->ZVR0[,d]
+					if (scoreBS)
+							  XExZVR0[d].M = weights? _panelsum(t, *pwt, clust.info) : _panelsum(t, clust.info)
+					else {
+							  XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, clust.info)
+						if (AR)
+							ZExclZVR0[d].M = _panelsum(*pZExcl, weights? t :* *pwt : t, clust.info)
+					}
 				}
 
 			peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
-			pu = rows(U)? &U : &u
-			for (r=df;r;r--)
-				eUZVR0[r].M = *pu :* (*peZVR0)[,r]
 
 			if (NFE & !FEboot)
-				SWE = _panelsum(crosstab(wtFE :* pM->e), clust[BootCluster].info)
+					CT_WE = _panelsum(crosstab(wtFE :* pM->e), clust[BootCluster].info)'
+			if (BootCluster == 1) // construct crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
+				for (d=df;d;d--) // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
+					CT_eZVR0[d].M = diag((*peZVR0)[,d])
+			else
+				for (d=df;d;d--) {
+					CT_eZVR0[d].M = J(clust.N, clust[BootCluster].N, 0)
+					for (i=clust[BootCluster].N;i;i--) {
+						t = clust[BootCluster].info[i,]'
+						CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
+					}
+				}
 
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
-					for (r=df;r;r--) {
-						_collate  (   eUZVR0[r].M, clust[c].order)
-						if (!scoreBS) {
-							_collate(  XExZVR0[r].M, clust[c].order)
-							_collate(ZExclZVR0[r].M, clust[c].order)
+					for (d=df;d;d--) {
+						if (reps) {
+								XExZVR0  [d].M = XExZVR0  [d].M[clust[c].order,]
+							if (AR & !scoreBS)
+								ZExclZVR0[d].M = ZExclZVR0[d].M[clust[c].order,]
 						}
+						CT_eZVR0[d].M = CT_eZVR0[d].M[clust[c].order,]
 					}
 
-				for (r=df;r;r--) {
-					pG[r] = &_panelsum(eUZVR0[r].M, clust[c].info) // if c==1, clust.info refers to original data. but _panelsum() will recognize rows(eUZVR0)=rows(clust.info) and just return eUZVR0
+				for (d=df;d;d--) {
+					pQ[c,d] = &_panelsum(CT_eZVR0[d].M, clust[c].info) // when c=1, two args have same # of rows, & _panelsum() returns 1st arg by reference. Using & then prevents uncessary cloning.
 
-					if (scoreBS) {
-						if (null)
-							pG[r] = &(*pG[r] :- clust[c].ClustShare*colsum(*pG[r])) // recenter variance if not already done. Horowitz (2001), (3.29)
-					} else if (reps) { // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-						pt = &_panelsum(XExZVR0[r].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[r].M, clust[c].info))
-						pG[r] = &(*pG[r] - *pt * betadev)
+					if (reps) {
+						pt = &_panelsum(XExZVR0[d].M, clust[c].info); if (AR & !scoreBS) pt = &(*pt, _panelsum(ZExclZVR0[d].M, clust[c].info))
+						pQ[c,d] = &(*pQ[c,d] - *pt * SewtXV)
 					}
-
 					if (NFE & !FEboot)
-						pG[r] = &( *pG[r] - cross(SWE * SZVR0[c,r].M', u) )
-
-					for (j=r;j<=df;j++) {
-						t = colsum(*pG[r] :* *pG[j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[j,r].M = c==1? t : denom[j,r].M + t
-					}
+						pQ[c,d] = &(*pQ[c,d] - _panelsum(CT_ZVR0[d].M, clust[c].info) * CT_WE)
 				}
 			}
+
+			for (i=df;i;i--) // core computation loop
+				for (j=i;j;j--) {
+					c = length(clust)
+						QQ = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) QQ = QQ * clust[c].multiplier
+					for (c--;c;c--) {
+						 t = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) t  = t  * clust[c].multiplier; QQ = QQ + t
+					}
+					denom[i,j].M = colsum(u :* QQ * u)
+				}
 
 			if (df == 1)
 				Dist = (numer :/ sqrt(denom.M))'
@@ -899,8 +918,8 @@ void boottestModel::boottest() {
 				t = J(df,df,.)
 				for (l=cols(u); l; l--) {
 					for (i=df;i;i--)
-						for (j=i;j<=df;j++)
-							t[j,i] = denom[j,i].M[l]
+						for (j=i;j;j--)
+							t[i,j] = denom[i,j].M[l]
 					_makesymmetric(t)
 					numer_l = numer[,l]
 					Dist[l] = cross(numer_l, invsym(t) * numer_l)
@@ -999,7 +1018,7 @@ real matrix _panelsum(real matrix X, real matrix arg2, | real matrix arg3) {
 			retval[i,] = Xi * *pwt
 		else {
 			panelsubview(Wi, *pwt, i, *pinfo)
-			retval[i,] = cross(Xi, Wi)'
+			retval[i,] = cross(Wi, Xi)
 		}
 	}
 	return (retval)
@@ -1043,8 +1062,8 @@ real matrix boottestModel::crosstab(real colvector v) {
 	real matrix retval; real scalar i, j, t; real colvector _FEID, _v
 	retval = J(clust.N, NFE, 0)
 	for (i=clust.N;i;i--) {
-		_FEID = panelsubmatrix(*(pFEID), i, clust.info)
-		_v    = panelsubmatrix(v       , i, clust.info)
+		_FEID = panelsubmatrix(*pFEID, i, clust.info)
+		_v    = panelsubmatrix(v     , i, clust.info)
 		for (j=rows(_FEID);j;j--) {
 			t = _FEID[j] 
 			retval[i,t] = retval[i,t] + _v[j]
