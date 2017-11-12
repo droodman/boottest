@@ -630,7 +630,7 @@ void boottestModel::boottest() {
 			}
 			u[,1] = J(clust[BootCluster].N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
 		}
-		U = WREnonAR | NClust > NBootClust? u[IDExplode,] : J(0,0,0)
+		U = WREnonAR? u[IDExplode,] : J(0,0,0)
 
 		if (ML) 
 			df = rows(*pR0)
