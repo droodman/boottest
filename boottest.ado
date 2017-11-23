@@ -1,4 +1,4 @@
-*! boottest 1.9.2 8 November 2017
+*! boottest 1.9.3 22 November 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -663,6 +663,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.3 Tweaked to no longer explode wild weights in multiway clustering; not needed since 1.9.0
 * 1.9.2 Fixed crash with FE and omitted dummies for other vars. Fixed 1.9.0 crash in old Stata versions.
 * 1.9.1 Fixed crash with FE and df>1. Stopped waldtest and scoretest ignoring small
 * 1.9.0 Added fixed effect support
