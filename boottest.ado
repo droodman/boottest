@@ -1,4 +1,4 @@
-*! boottest 1.9.3 22 November 2017
+*! boottest 1.9.4 14 December 2017
 *! Copyright (C) 2015-17 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -201,6 +201,12 @@ program define _boottest, rclass sortpreserve
 
 	local fuller `e(fuller)' // "" if missing
 	local K = e(kclass) // "." if missing
+
+	local tz = cond(`small', "t", "z")
+	local symmetric 2 * min(Prob>|`tz'|, Prob<-|`tz'|)
+	local equaltail Prob>|`tz'|
+	local lower     Prob<`tz'
+	local upper     Prob>`tz'
 
 	if `ar' & !`IV' {
 		di as err "Anderson-Rubin test is only for IV models."
@@ -577,7 +583,6 @@ program define _boottest, rclass sortpreserve
 
 		if `df'==1 {
 			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
-			scalar `stat' = `stat' * `stat'
 		}
 		
 		di _n
@@ -590,15 +595,29 @@ program define _boottest, rclass sortpreserve
 			di as res "`:constraint `c''"
 		}
 
-		if `small' di _n as txt    "     " cond(`reps', "quasi-","      ")    "F(" %3.0f `df' "," %6.0f `df_r' ") = " as res %10.4f `stat' _n as txt "                Prob > F = " as res %10.4f `p'
-			else     di _n as txt "        " cond(`reps', "quasi-","      ") "chi2(" %3.0f `df'                  ") = " as res %10.4f `stat' _n as txt "            Prob > chi2 = "  as res %10.4f `p'
-		
+		if `df'==1 {
+			local line1 `tz'(`=`df_r'')
+			di _n as txt _col(`=45-strlen("`line1'")') "`line1' = " as res %10.4f `stat' _n _col(`=45-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
+			local `stat' = `stat' * `stat'
+		}
+		else {
+			if `small' {
+				local line1 F(`=`df'', `=`df_r'')
+				local line2 Prob > F
+			}
+			else {
+				local line1 chi2(`=`df'')
+				local line2 Prob > chi2
+			}
+			di _n as txt _col(`=21-strlen("`line1'")') "`line1' = " as res %10.4f `stat' _n as txt _col(`=21-strlen("`line2'")') "`line2' = " as res %10.4f `p'
+		}
+
 		if "`madjust'" != "" {
 			di _col(`=strlen("bonferroni")-strlen("`madjust'")+1') as txt strproper("`madjust'") "-adjusted prob = " as res %10.4f `padj'
 			return scalar padj`_h' = `padj'
 		}
 
-		if "`plotmat'"!="" {
+		if "`plotmat'" != "" {
 			tempvar X Y _plotmat
 			mat `_plotmat' = `plotmat'
 			return matrix plot`_h' = `plotmat'
@@ -663,6 +682,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.4 Cleaned up display of results for symmetric, equal-tail, etc.
 * 1.9.3 Tweaked to no longer explode wild weights in multiway clustering; not needed since 1.9.0
 * 1.9.2 Fixed crash with FE and omitted dummies for other vars. Fixed 1.9.0 crash in old Stata versions.
 * 1.9.1 Fixed crash with FE and df>1. Stopped waldtest and scoretest ignoring small
