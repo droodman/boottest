@@ -1,5 +1,5 @@
-*! boottest 1.9.3 22 November 2017
-*! Copyright (C) 2015-17 David Roodman
+*!  boottest 1.9.5 3 January 2018
+*! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ struct smatrix {
 struct boottest_clust {
 	real scalar N, multiplier
 	real rowvector cols
-	real colvector ClustShare, order, ID
+	real colvector order, ID
 	real matrix info
 }
 
@@ -59,7 +59,7 @@ class boottestModel {
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE
 	string scalar wttype, madjtype
-	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE
+	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare
 	real rowvector peak
 	struct boottest_clust colvector clust
 	class AnalyticalModel scalar M_DGP
@@ -507,7 +507,7 @@ void boottestModel::boottest() {
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
 	pointer (struct structFE scalar) scalar next
-	pointer (real colvector) scalar pewt, pe
+	pointer (real colvector) scalar pewt
 	struct smatrix colvector _CT_ZVR0
 
 	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
@@ -561,9 +561,9 @@ void boottestModel::boottest() {
 					if (minN > clust[c].N) minN = clust[c].N
 				}
 
-				if (scoreBS)
-					clust[c].ClustShare = _panelsum(wt, clust[c].info)/(weights? sumwt : Nobs) // share of observations by group 
 			}
+			if (scoreBS)
+				ClustShare = _panelsum(wt, clust.info)/(weights? sumwt : Nobs) // share of observations by group 
 		} else { // if no clustering, cast "robust" as clustering by observation
 			clust = boottest_clust()
 			clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
@@ -571,7 +571,7 @@ void boottestModel::boottest() {
 			clust.info = J(Nobs, 0, 0) // signals _panelsum not to aggregate
 			BootCluster = 1
 			if (scoreBS)
-				clust.ClustShare = weights? *pwt/sumwt : 1/_Nobs
+				ClustShare = weights? *pwt/sumwt : 1/_Nobs
 		}
 
 		if (cols(*pFEID)) { // fixed effect prep
@@ -699,7 +699,7 @@ void boottestModel::boottest() {
 
 			df = rows(*pR0)
 
-			if (NFE & robust & !WREnonAR & !FEboot) {
+			if (NFE & robust & !WREnonAR & !FEboot & !scoreBS) {
 				CT_ZVR0 = smatrix(length(clust), df)
 				pZVR0 = &(weights? pM->ZVR0 :* *pwt : pM->ZVR0)
 				for (d=df;d;d--)
@@ -835,40 +835,41 @@ void boottestModel::boottest() {
 		else if (scoreBS | robust)
 			eZVR0 = pM->e :* pM->ZVR0
 
-		pe = ML? pSc : &pM->e; pewt = weights? &(*pe:* *pwt) : pe
-		pt = &_panelsum(*pXEx, *pewt, *pinfoExplode); if (AR & !scoreBS) pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoExplode))
-		SewtXV =  *pM->pV * (*pt)'
-		if (!robust)
-			betadev = SewtXV * u
-		numer = (*pR0 * SewtXV) * u
-
 		if (scoreBS)
-			SewtXV = _panelsum(*pewt, clust[BootCluster].info)' / (weights? sumwt : Nobs)
+			numer = cross(NClust? _panelsum(eZVR0, *pwt, *pinfoExplode) : (weights? eZVR0:* *pwt : eZVR0), u)
+		else {
+			pewt = weights? &(pM->e :* *pwt) : &pM->e
+			pt = &_panelsum(*pXEx, *pewt, *pinfoExplode)
+			if (AR)
+				pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoExplode))
+			SewtXV = *pM->pV * (*pt)'
+			if (!robust)
+				betadev = SewtXV * u
+			numer = (*pR0 * SewtXV) * u
+		}
 
-		if      (AR)    numer[,1] = pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
+		if      ( AR  ) numer[,1] = pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
 		else if (!null) numer[,1] = *pR0 * (ML? beta : pM->beta) - *pr0 // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 
 		// Compute denominators and test stats
 		if (robust) {
-			if (reps)
+			if (reps & !scoreBS)
 				for (d=df;d;d--) {
 					t = pM->ZVR0[,d]
-					if (scoreBS)
-							  XExZVR0[d].M = weights? _panelsum(t, *pwt, clust.info) : _panelsum(t, clust.info)
-					else {
-							  XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, clust.info)
-						if (AR)
-							ZExclZVR0[d].M = _panelsum(*pZExcl, weights? t :* *pwt : t, clust.info)
-					}
+							XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, clust.info)
+					if (AR)
+						ZExclZVR0[d].M = _panelsum(*pZExcl, weights? t :* *pwt : t, clust.info)
 				}
 
 			peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 
-			if (NFE & !FEboot)
-					CT_WE = _panelsum(crosstab(wtFE :* pM->e), clust[BootCluster].info)'
+			if (NFE & !FEboot & !scoreBS)
+				CT_WE = _panelsum(crosstab(wtFE :* pM->e), clust[BootCluster].info)'
 			if (BootCluster == 1) // construct crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
-				for (d=df;d;d--) // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
-					CT_eZVR0[d].M = diag((*peZVR0)[,d])
+				for (d=df;d;d--) { // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
+					CT_eZVR0[d].M = diag(t = (*peZVR0)[,d])
+					if (scoreBS & reps) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * t' // for score bootstrap, recenter
+				}
 			else
 				for (d=df;d;d--) {
 					CT_eZVR0[d].M = J(clust.N, clust[BootCluster].N, 0)
@@ -876,12 +877,13 @@ void boottestModel::boottest() {
 						t = clust[BootCluster].info[i,]'
 						CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
 					}
+					if (scoreBS & reps) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 				}
-
+				
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
 					for (d=df;d;d--) {
-						if (reps) {
+						if (!scoreBS & reps) {
 								XExZVR0  [d].M = XExZVR0  [d].M[clust[c].order,]
 							if (AR & !scoreBS)
 								ZExclZVR0[d].M = ZExclZVR0[d].M[clust[c].order,]
@@ -892,19 +894,21 @@ void boottestModel::boottest() {
 				for (d=df;d;d--) {
 					pQ[c,d] = &_panelsum(CT_eZVR0[d].M, clust[c].info) // when c=1, two args have same # of rows, & _panelsum() returns 1st arg by reference. Using & then prevents uncessary cloning.
 
-					if (reps) {
-						pt = &_panelsum(XExZVR0[d].M, clust[c].info); if (AR & !scoreBS) pt = &(*pt, _panelsum(ZExclZVR0[d].M, clust[c].info))
-						pQ[c,d] = &(*pQ[c,d] - *pt * SewtXV)
+					if (!scoreBS) {
+						if (reps) {
+							pt = &_panelsum(XExZVR0[d].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[d].M, clust[c].info))
+							pQ[c,d] = &(*pQ[c,d] - *pt * SewtXV)
+						}
+						if (NFE & !FEboot)
+							pQ[c,d] = &(*pQ[c,d] - _panelsum(CT_ZVR0[c,d].M, clust[c].info) * CT_WE)
 					}
-					if (NFE & !FEboot)
-						pQ[c,d] = &(*pQ[c,d] - _panelsum(CT_ZVR0[c,d].M, clust[c].info) * CT_WE)
 				}
 			}
 
 			for (i=df;i;i--) // core computation loop
 				for (j=i;j;j--) {
 					c = length(clust)
-						QQ = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) QQ = QQ * clust[c].multiplier
+					QQ = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) QQ = QQ * clust[c].multiplier
 					for (c--;c;c--) {
 						 t = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) t  = t  * clust[c].multiplier; QQ = QQ + t
 					}
@@ -935,7 +939,7 @@ void boottestModel::boottest() {
 					Dist = Dist'
 				else {
 					             eu = u :* pM->e
-					if (scoreBS) eu = eu :- (weights? cross(clust.ClustShare, eu) : colsum(eu) * clust.ClustShare)  // Center variance if needed
+					if (scoreBS) eu = eu :- (weights? cross(ClustShare, eu) : colsum(eu) * ClustShare)  // Center variance if needed
 					  else       eu = eu  - (*pXEx, *pZExcl) * betadev // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					t = weights? cross(*pwt, eu :* eu) : colsum(eu :* eu)
 					Dist = (Dist  :/ (sqrt? sqrt(t) : t))'
@@ -949,7 +953,7 @@ void boottestModel::boottest() {
 					Dist[l] = cross(numer_l, denom.M * numer_l) 
 					if (!(ML | LIML)) {
 						             eu = u[,l] :* pM->e
-						if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * clust.ClustShare // Center variance if needed
+						if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare // Center variance if needed
 						  else       eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 						Dist[l] = Dist[l] / cross(eu, *pwt, eu)
 					}

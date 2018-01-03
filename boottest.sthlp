@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.0 25 October 2017}{...}
+{* *! version 1.9.5 3 January 2018}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -215,9 +215,9 @@ involves drawing pseudorandom numbers, the exact results depend on the starting 
 
 {pstd}
 When testing a single-constraint hypothesis after OLS, 2SLS, or LIML, {cmd:boottest} by default derives and plots a confidence curve and a confidence set for the 
-left-hand-side of the hypothesis. (This adds greatly to run time and can be prevented with the {opt noci} option.) For example,
+right-hand-side of the hypothesis. (This adds greatly to run time and can be prevented with the {opt noci} option.) For example,
 if the hypothesis is "X + Y = 1", meaning that the coefficients on X and Y sum to 1, then {cmd:boottest} will estimate the set of all potential values for this sum that cannot be rejected
-at, say, p = 0.05. In some cases, this set will consist of multiple disjoint pieces. The standard {opt l:evel(#)} option controls the coverage of the confidence set. By default, p value 
+at, say, p = 0.05. This set might consist of disjoint pieces. The standard {opt l:evel(#)} option controls the coverage of the confidence set. By default, p value 
 computation is symmetric; {opt ptype(equaltail)} overrides. For instance, if the level is 95, then the symmetric p value is less than 0.05 if the square (or 
 absolute value) of the test statistic is in the top 5 centiles of the corresponding bootstrapped distribution. The equal-tail p value is less than 0.05 if the test statistic is in the top or
 bottom 2.5 centiles of the (un-squared) distribution. Davidson and MacKinnon (2010) find that in estimation with weak instruments, when the estimator is often asymmetrically 

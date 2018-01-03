@@ -1,5 +1,5 @@
-*! boottest 1.9.4 14 December 2017
-*! Copyright (C) 2015-17 David Roodman
+*! boottest 1.9.5 3 January 2018
+*! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -186,7 +186,7 @@ program define _boottest, rclass sortpreserve
 		di as err "The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:lower}, or {cmd:upper}."
 		exit 198
 	}
-	if "`ptype'"'=="" local ptype symmetric
+	if "`ptype'"'=="" local ptype = cond(`reps', "symmetric", "equaltail")
 	else {
 		local 0, `ptype'
 		syntax, [SYMmetric EQualtail LOWer UPper]
@@ -527,18 +527,21 @@ program define _boottest, rclass sortpreserve
 
 			unab scnames: `sc'*
 			if `:word count `scnames'' == e(k_eq) { // generate score for each parameter from those for each equation
-				tempname beq
-				local coleq: coleq `b'
-				tokenize `:list uniq coleq'
-				qui forvalues eq = 1/`:word count `scnames'' {
-					mat `beq' = `b'[1, "``eq'':"]
-					foreach var in `:colnames `beq'' {
-						if "`var'" == "_cons" local _sc `_sc' `sc'`eq'
-						else {
-							tempvar t
-							gen double `t' = `sc'`eq' * `var' if e(sample)
-							local _sc `_sc' `t'
-						}
+				local colnames: colnames `b'
+				tokenize `:coleq `b''
+				local lasteq
+				local eq 0
+				qui forvalues i=1/`k' {
+					if "``i''" != "`lasteq'" | "``i''"=="/" {
+						local ++eq
+						local lasteq ``i''
+					}
+					local var: word `i' of `colnames'
+					if "`var'"=="_cons" | "``i''"=="/" local _sc `_sc' `:word `eq' of `scnames'' // constant term or free parameter
+					else {
+						tempvar t
+						gen double `t' = `:word `eq' of `scnames'' * `var' if e(sample)
+						local _sc `_sc' `t'
 					}
 				}
 				local scnames `_sc'
@@ -596,7 +599,7 @@ program define _boottest, rclass sortpreserve
 		}
 
 		if `df'==1 {
-			local line1 `tz'(`=`df_r'')
+			local line1 = cond(`small', "t(`=`df_r'')", "z")
 			di _n as txt _col(`=45-strlen("`line1'")') "`line1' = " as res %10.4f `stat' _n _col(`=45-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
 			local `stat' = `stat' * `stat'
 		}
