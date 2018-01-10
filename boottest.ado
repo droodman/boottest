@@ -1,4 +1,4 @@
-*! boottest 1.9.5 3 January 2018
+*! boottest 1.9.6 6 January 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -178,8 +178,8 @@ program define _boottest, rclass sortpreserve
 	if "`weighttype'"'=="" local weighttype rademacher
 	else {
 		local 0, `weighttype'
-		syntax, [RADemacher MAMmen NORmal WEBb]
-		local weighttype `rademacher'`mammen'`normal'`webb'
+		syntax, [RADemacher MAMmen NORmal WEBb GAMma]
+		local weighttype `rademacher'`mammen'`normal'`webb'`gamma'
 	}
 
 	if `:word count `ptype'' > 1 {
@@ -685,6 +685,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.6 Added Gamma(4, .5) - 2 wild weight distribution option per Liu (1988)
+* 1.9.5 Fixed score test bugs from 1.9.0, and bugs after ML estimation in Stata 15 because of new free parameter matrix label system
 * 1.9.4 Cleaned up display of results for symmetric, equal-tail, etc.
 * 1.9.3 Tweaked to no longer explode wild weights in multiway clustering; not needed since 1.9.0
 * 1.9.2 Fixed crash with FE and omitted dummies for other vars. Fixed 1.9.0 crash in old Stata versions.

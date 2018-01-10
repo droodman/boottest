@@ -47,7 +47,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopthdr}
 {synoptline}
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
-{synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)}}{p_end}
+{synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
 {synopt:{opt boott:type(wild | score)}}specify bootstrap type; after ML and GMM estimation, {it:score} is default and only option{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 1000; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
@@ -185,7 +185,7 @@ After GMM estimation, {cmd:boottest} bootstraps only with the final weight matri
 runs most efficiently in Stata version 13 or later.
 
 {pstd}
-The wild and score bootstraps multiply residuals or scores by weights drawn randomly for each replication. {cmd:boottest} offers four weight distributions:
+The wild and score bootstraps multiply residuals or scores by weights drawn randomly for each replication. {cmd:boottest} offers five weight distributions:
 
 {p 4 6 0}
 * The default Rademacher 
@@ -196,7 +196,7 @@ Rademacher weights have mean 0 and variance 1, multiplying E by them preserves t
 {p 4 6 0}
 * Mammen (1993)
 weights improve theoretically on Rademacher weights by having a third moment of 1, thus preserving skewness. They are--letting phi=(1+sqrt(5))/2, the 
-golden mean--1-phi with probability phi/sqrt(5) and phi otherwise.
+golden ratio--1-phi with probability phi/sqrt(5) and phi otherwise.
 
 {p 4 6 0}
 * A disadvantage of the Rademacher and Mammen distributions is that 
@@ -207,6 +207,14 @@ in the first four moments. The 6 values are +/-sqrt(3/2), +/-1, +/-sqrt(1/2).
 
 {p 4 6 0}
 * {cmd:boottest}'s fourth weight type is the normal distribution.
+
+{p 4 6 0}
+* The fifth weight type is the gamma distribution with shape parameter 4 and scale parameter 0.5, as suggested by Liu (1988). Much like the Mammen distribution, 
+it improves theoretically on the normal, having third moment equal to 1 as well.
+
+{pstd}
+Despite the seeming superiority of the asymmetric Mammen and gamma distributions, symmetric distributions such as the Rademacher and Webb have performed better
+in Monte Carlo simulations, in the sense of yielding tests of more accurate size (Davidson and Flachaire 2008; Kline and Santos 2012; Finlay and Magnusson 2014)
 
 {pstd}
 The {opt r:eps(#)} option sets the number of bootstrap replications. 1000 is the default but values of 10000 and higher are often feasible. Since bootstrapping
@@ -235,7 +243,7 @@ original point estimate. The graph may look coarse with only 25 grid points, but
 {marker options}{...}
 {title:Options}
 
-{phang}{opt weight:type(rademacher | mammen | webb | normal)} specifies the type of random weights to apply to the residuals or scores from the base regression, when
+{phang}{opt weight:type(rademacher | mammen | webb | normal | gamma)} specifies the type of random weights to apply to the residuals or scores from the base regression, when
 bootstrapping. The default is {it:rademacher}. However if the number of replications exceeds 2^(# of clusters)--that is, the number of possible
 Rademacher draws--{cmd:boottest} will take each possible draw once. It will not do that with Mammen weights even though the same issue arises. In all such cases,
 Webb weights are probably better.
@@ -428,11 +436,14 @@ testing. {it:Stata Journal} 7(4): 465-506.{p_end}
 {it:The Review of Economics and Statistics} 90(3): 414-27.{p_end}
 {p 4 8 2}Cameron, A.C., and D.L. Miller. 2015. A practitioner’s gtuide to cluster-robust
 inference. {it:Journal of Human Resources} 50(2): 317-72.{p_end}
+{p 4 8 2}Davidson, R., and E. Flachaire. 2008. The wild bootstrap, tamed at last. {it:Journal of Econometrics} 146: 162-69.{p_end}
 {p 4 8 2}Davidson, R., and J.G. MacKinnon. 1999. The size distortion of bootstrap tests. {it:Econometric Theory} 15: 361-76.{p_end}
 {p 4 8 2}Davidson, R., and J.G. MacKinnon. 2010. Wild bootstrap tests for IV regression. {it:Journal of Business & Economic Statistics} 28(1): 128-44.{p_end}
+{p 4 8 2}Finlay, K., and L. Magnusson. 2014. Bootstrap Methods for Inference with Cluster Sample IV Models. DOI: 10.2139/ssrn.2574521.{p_end}
 {p 4 8 2}Fisher, N.I., and P. Hall. 1990. On bootstrap hypothesis testing. {it:Australian Journal of Statistics} 32(2): 177-90.{p_end}
 {p 4 8 2}Kline, P., and Santos, A. 2012. A score based approach to wild bootstrap 
 inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
+{p 4 8 2}Liu, R. Y. 1988. Bootstrap procedures under some non-I.I.D. models. {ir:Annals of Statistics} 16: 1696-1708.{p_end}
 {p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2017. Bootstrap and asymptotic inference with multiway clustering. Queen's Economics Department Working Paper No. 1386.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of

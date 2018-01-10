@@ -1,4 +1,4 @@
-*!  boottest 1.9.5 3 January 2018
+*!  boottest 1.9.6 6 January 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -28,8 +28,7 @@ struct smatrix {
 
 struct boottest_clust {
 	real scalar N, multiplier
-	real rowvector cols
-	real colvector order, ID
+	real colvector order
 	real matrix info
 }
 
@@ -389,8 +388,8 @@ void boottest_set_madjust(class boottestModel scalar M, string scalar madjtype, 
 }
 void boottest_set_wildtype(class boottestModel scalar M, string scalar wildtype) {
 	wildtype = strlower(wildtype)
-	if (.==(M.wildtype = wildtype=="rademacher" ? 0 : (wildtype=="mammen" ? 1 : (wildtype=="webb" ? 2 : (wildtype=="normal" ? 3 : .)))))
-		_error(198, `"Wild type must be "Rademacher" or "Mammen" or "Webb" or "Normal"."')
+	if (.==(M.wildtype = wildtype=="rademacher" ? 0 : (wildtype=="mammen" ? 1 : (wildtype=="webb" ? 2 : (wildtype=="normal" ? 3 : (wildtype=="gamma" ? 4 : .))))))
+		_error(198, `"Wild type must be "Rademacher", "Mammen", "Webb", "Normal", or "Gamma"."')
 	M.set_dirty(1)
 }
 
@@ -497,10 +496,11 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
-	real rowvector val, YstarYstar
+	real rowvector val, YstarYstar, clustcols
 	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi, QQ, SewtXV
 	real scalar i, j, l, c, d, minN
 	pointer (real matrix) scalar _pR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt, pZVR0
@@ -542,15 +542,15 @@ void boottestModel::boottest() {
 				(void) _panelsetup(IDCollapse, 1..NBootClust, IDExplode) // index vector to explode wild weights to one per all-cluster var intersection
 
 			for (c=1; c<=length(clust); c++) {
-				clust[c].cols         = boottest_selectindex(combs[c,])
-				clust[c].multiplier   = 2 * mod(cols(clust[c].cols),2) - 1
+				clustcols         = boottest_selectindex(combs[c,])
+				clust[c].multiplier   = 2 * mod(cols(clustcols),2) - 1
 				
 				if (c > 1) { // for all-cluster intersections, record group defs rel to data set; for rest, rel to collapsed data
 					if (any( combs[|c, min(boottest_selectindex(combs[c,] :!= combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-						IDCollapse = IDCollapse[ clust[c].order = order(IDCollapse, clust[c].cols), ]
-				  clust[c].info       = _panelsetup(IDCollapse, clust[c].cols)
+						IDCollapse = IDCollapse[ clust[c].order = order(IDCollapse, clustcols), ]
+				  clust[c].info       = _panelsetup(IDCollapse, clustcols)
 				} else {
-				  clust.   info       = _panelsetup(*pID      , clust.cols   )
+				  clust.   info       = _panelsetup(*pID      , clustcols   )
 					if (scoreBS)
 						wt = weights? _panelsum(*pwt, clust.info) : clust.info[,2]-clust.info[,1]:+ 1
 				}
@@ -619,6 +619,8 @@ void boottestModel::boottest() {
 		} else {
 			if (wildtype==3)
 				u = rnormal(clust[BootCluster].N, reps+1, -WREnonAR, 1) // normal weights
+			if (wildtype==4)
+				u = rgamma(clust[BootCluster].N, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
 			else if (wildtype==2) {
 				u = rdiscrete(clust[BootCluster].N, reps+1, (1\1\1\0\1\1\1)/6) * .5 :- 2
 				u = sqrt(abs(u)) :* sign(u); if (WREnonAR) u = u :- 1 // Webb weights
