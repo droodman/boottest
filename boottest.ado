@@ -1,4 +1,4 @@
-*! boottest 1.9.6 6 January 2018
+*!  boottest 1.9.7 15 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -455,8 +455,8 @@ program define _boottest, rclass sortpreserve
 					di as err "Original estimation command line needed. Include it in a {cmd:cmdline()} option."
 					exit 198
 				}
-				if "`cmd'"=="tobit" {
-					di as err "Cannot impose null after {help tobit}. Try re-fitting the model with {stata ssc describe cmp:cmp}, {help intreg}, or {help gsem}."
+				if "`cmd'"=="tobit" & c(stata_version)<15 {
+					di as err "Cannot impose null after {help tobit} in Stata versions below 15. Try re-fitting the model with {stata ssc describe cmp:cmp}, {help intreg}, or {help gsem}."
 					exit 198
 				}
 
@@ -685,6 +685,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.7 Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0.
 * 1.9.6 Added Gamma(4, .5) - 2 wild weight distribution option per Liu (1988)
 * 1.9.5 Fixed score test bugs from 1.9.0, and bugs after ML estimation in Stata 15 because of new free parameter matrix label system
 * 1.9.4 Cleaned up display of results for symmetric, equal-tail, etc.

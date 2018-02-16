@@ -1,4 +1,4 @@
-*!  boottest 1.9.6 6 January 2018
+*!  boottest 1.9.7 15 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -520,7 +520,7 @@ void boottestModel::boottest() {
 		REst = rows(*pR) // base model contains restrictions?
 		if (pZExcl != NULL) el = cols(*pZExcl) + kEx
 		if (K==.) K = cols(*pZExcl)>0
-		IV = K & pW==NULL
+		IV = K & 1 // & pW==NULL
 		WRE = (IV & !scoreBS) | AR
 		WREnonAR = WRE & !AR
 
@@ -870,7 +870,7 @@ void boottestModel::boottest() {
 			if (BootCluster == 1) // construct crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
 				for (d=df;d;d--) { // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
 					CT_eZVR0[d].M = diag(t = (*peZVR0)[,d])
-					if (scoreBS & reps) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * t' // for score bootstrap, recenter
+					if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * t' // for score bootstrap, recenter
 				}
 			else
 				for (d=df;d;d--) {
@@ -879,13 +879,13 @@ void boottestModel::boottest() {
 						t = clust[BootCluster].info[i,]'
 						CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
 					}
-					if (scoreBS & reps) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+					if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 				}
 				
 			for (c=1; c<=length(clust); c++) {
 				if (rows(clust[c].order))
 					for (d=df;d;d--) {
-						if (!scoreBS & reps) {
+						if (!scoreBS) {
 								XExZVR0  [d].M = XExZVR0  [d].M[clust[c].order,]
 							if (AR & !scoreBS)
 								ZExclZVR0[d].M = ZExclZVR0[d].M[clust[c].order,]

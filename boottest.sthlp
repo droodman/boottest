@@ -48,7 +48,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synoptline}
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
-{synopt:{opt boott:type(wild | score)}}specify bootstrap type; after ML and GMM estimation, {it:score} is default and only option{p_end}
+{synopt:{opt boott:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 1000; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
@@ -110,7 +110,7 @@ several tests to run on the data sets. The bootstraps are:
 2SLS, LIML, Fuller LIML, and k-class estimation.
 
 {pstd}
-* The "score bootstrap" developed by Kline and Santos (2012) as an adaptation of the wild bootstrap to the general extremum estimator, including 2SLS, LIML, ML, and GMM. In 
+* The score bootstrap developed by Kline and Santos (2012) as an adaptation of the wild bootstrap to the general extremum estimator, including 2SLS, LIML, ML, and GMM. In 
 estimators such as probit and logit, residuals are not well-defined, which prevents application of the wild bootstrap. As its name suggests, the score bootstrap 
 works with a generalized analog of residuals, scores. Also, the score bootstrap does not require re-estimation on each replication, which would be 
 computationally prohibitive with many ML-based estimators.
@@ -144,7 +144,7 @@ program works with Fuller LIML and k-class estimates done with {help ivreg2} (WR
 effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; or {help reghdfe:reghdfe}. And it works after most Stata 
 ML-based estimation commands, including {help probit}, {help glm}, {stata ssc describe cmp:cmp}, and, in Stata 14.0 or later, 
 {help sem} and {help gsem} (score bootstrap only). A 
-notable ML exception is {help tobit}. (To work with {cmd:boottest}, an iterative optimization command must accept
+notable ML exception before Stata 15 was {help tobit}. (To work with {cmd:boottest}, an iterative optimization command must accept
 the {opt const:raints()}, {opt iter:ate()}, {opt from()}, and {opt sc:ore} options.)
 
 {pstd}
@@ -248,6 +248,9 @@ bootstrapping. The default is {it:rademacher}. However if the number of replicat
 Rademacher draws--{cmd:boottest} will take each possible draw once. It will not do that with Mammen weights even though the same issue arises. In all such cases,
 Webb weights are probably better.
 
+{phang}{opt boott:type(wild | score)}} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
+restricted efficient bootstrap is the default, which {cmd:bootttype(score)} overrides in favor of the score bootstrap.
+
 {phang}{opt r:eps(#)} sets the number of bootstrap replications. The default is 1000. Especially when clusters are few, increasing this number costs little in run 
 time. {opt r:eps(0)} requests a Wald test or--if {opt boottype(score)} is also specified and {opt nonul:l} is not--a Rao test. The wrappers {cmd:waldtest}
 and {cmd:scoretest} facilitate this usage.
@@ -267,7 +270,7 @@ one-costraint hypothesis after OLS/2SLS/GMM/LIML, for only then is the confidenc
 default is controlled by {help level:set level} and is usually 95. Setting it to 100 suppresses computation and plotting of the confidence 
 set while still allowing plotting of the confidence curve.
 
-{phang}{opt gridmin(#)}, {opt gridmax(#)}, {opt gridpoints(#)} override the default lower and upper bounds and the resolution of the initial grid search
+{phang}{opt gridmin(#)}, {opt gridmax(#)}, {opt gridpoints(#)} override the default lower and upper bounds and the resolution of the grid search
 that begins the process of determining bounds for confidence sets, as described above. By default, {cmd:boottest} estimates the lower and upper bounds by working
 with the bootstrapped distribution, and uses 25 grid points.
 
@@ -279,7 +282,7 @@ producing {it:name}_1, {it:name}_2, etc.
 {phang}{opt nogr:aph} prevents graphing of the confidence function but not the derivation of confidence sets.
 
 {phang}{opt p:type(symmetric | equaltail | lower | upper)} sets the p value type. The option applies only to unary hypotheses, ones involving a single 
-quality or inequality. The default, {it:symmetric}, has the p value derived from the
+equality. The default, {it:symmetric}, has the p value derived from the
 square of the {it:t}/{it:z} statistic, or, equivalently, the absolute value. {it:equaltail} performs a two-tailed test using the {it:t}/{it:z} statistic. For example, 
 if the confidence level is 95, then the symmetric p value is less than 0.05 if the square of the test statistic is in the top 5 centiles of the corresponding bootstrapped 
 distribution. The equal-tail p value is less than 0.05 if the test statistic is in the top or bottom 2.5 centiles. In addition, {it:lower} and {it:upper} allow
@@ -294,7 +297,7 @@ are the estiamtes of that coefficient in all the bootstrap replications.
 commands. Its impact on bootstrap-based tests is merely cosmetic because it scales the test statistic and all the replicated test statistics by the same
 value, such as N/(N-1), so that the place of the test statistic in the simulated distribution does not change. It substantively affects Rao and Wald tests.
 
-{phang}{opt r:obust} and {opt cl:uster(varlist)} have the traditional meanings, but serve an nontraditional function, which is to override the settings
+{phang}{opt r:obust} and {opt cl:uster(varlist)} have the traditional meanings, but serve a nontraditional function, which is to override the settings
 used in the estimation.
 
 {phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. It is relevant only with multi-way clustering. If the option 
@@ -303,7 +306,7 @@ the {cmd:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (201
 number of clusters.
 
 {phang}{opt ar} requests the Anderson-Rubin test. It applies only to instrumental variables estimation. If the null is specified explicitly, it must fix
-all parameters on instrumented variables, and no others.
+all coefficients on instrumented variables, and no others.
 
 {phang}{opt seed(#)} sets the initial state of the random number generator. See {help set seed}.
 
