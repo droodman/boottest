@@ -668,7 +668,7 @@ program define _boottest, rclass sortpreserve
 			return matrix CI`_h' = `cimat'
 		}
 		
-		return scalar `=cond(`small', "F", "chi2")'`_h' = `stat'
+		return scalar `=cond(`small', "F", "chi2")'`_h' = cond(`df'==1, `stat'*`stat', `stat')
 		if `small' return scalar df_r`_h' = `df_r'
 		return scalar df`_h' = `df'
 		return scalar p`_h' = `p'
@@ -685,7 +685,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.9.7 Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0.
+* 1.9.7 Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0. Fixed failure to square t/z to make r(F), r(chi2).
 * 1.9.6 Added Gamma(4, .5) - 2 wild weight distribution option per Liu (1988)
 * 1.9.5 Fixed score test bugs from 1.9.0, and bugs after ML estimation in Stata 15 because of new free parameter matrix label system
 * 1.9.4 Cleaned up display of results for symmetric, equal-tail, etc.
