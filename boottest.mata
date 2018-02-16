@@ -619,7 +619,7 @@ void boottestModel::boottest() {
 		} else {
 			if (wildtype==3)
 				u = rnormal(clust[BootCluster].N, reps+1, -WREnonAR, 1) // normal weights
-			if (wildtype==4)
+			else if (wildtype==4)
 				u = rgamma(clust[BootCluster].N, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
 			else if (wildtype==2) {
 				u = rdiscrete(clust[BootCluster].N, reps+1, (1\1\1\0\1\1\1)/6) * .5 :- 2
