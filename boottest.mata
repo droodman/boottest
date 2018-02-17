@@ -1,4 +1,4 @@
-*!  boottest 1.9.7 15 February 2018
+*!  boottest 1.9.8 17 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -53,7 +53,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, FEboot, ///
-		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE
+		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE, doQQ
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pinfoExplode
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE
@@ -334,7 +334,7 @@ void boottest_set_W    (class boottestModel scalar M, real matrix W ) {
 void boottest_set_small   (class boottestModel scalar M, real scalar small   ) {
 	M.small = small; M.set_dirty(1)
 }
-void boottest_set_cons(class boottestModel scalar M, real scalar cons  ) {
+void boottest_set_cons(class boottestModel scalar M, real scalar cons) {
 	M.cons = cons; M.set_dirty(1)
 }
 void boottest_set_scoreBS (class boottestModel scalar M, real scalar scoreBS ) {
@@ -502,7 +502,7 @@ void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
 	real rowvector val, YstarYstar, clustcols
 	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi, QQ, SewtXV
-	real scalar i, j, l, c, d, minN
+	real scalar i, j, l, c, d, minN, sumN
 	pointer (real matrix) scalar _pR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt, pZVR0
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unset IDExplode; pragma unused M_WRE
@@ -532,7 +532,7 @@ void boottestModel::boottest() {
 
 		if (NClust = cols(*pID)) {
 			BootCluster = 2^(NClust - NBootClust)
-			minN = .
+			minN = .; sumN = 0
 			combs = combs(NClust) // represent all clustering combinations. First is intersection of all vars.
 			clust = boottest_clust(rows(combs)-1) // leave out no-cluster combination
 
@@ -556,6 +556,8 @@ void boottestModel::boottest() {
 				}
 
 				clust[c].N            = rows(clust[c].info)
+				sumN = sumN + clust[c].N
+
 				if (small) {
 				  clust[c].multiplier = clust[c].multiplier * clust[c].N/(clust[c].N-1)
 					if (minN > clust[c].N) minN = clust[c].N
@@ -567,12 +569,14 @@ void boottestModel::boottest() {
 		} else { // if no clustering, cast "robust" as clustering by observation
 			clust = boottest_clust()
 			clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
-			clust.N = Nobs
+			sumN = clust.N = Nobs
 			clust.info = J(Nobs, 0, 0) // signals _panelsum not to aggregate
 			BootCluster = 1
 			if (scoreBS)
 				ClustShare = weights? *pwt/sumwt : 1/_Nobs
 		}
+
+		doQQ = clust[BootCluster].N * (sumN + clust[BootCluster].N * (reps+1)) +.5*(length(clust))*clust[BootCluster].N < 2*(reps + 1)*(2*sumN + length(clust)) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
 		if (cols(*pFEID)) { // fixed effect prep
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
@@ -870,7 +874,7 @@ void boottestModel::boottest() {
 			if (BootCluster == 1) // construct crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
 				for (d=df;d;d--) { // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
 					CT_eZVR0[d].M = diag(t = (*peZVR0)[,d])
-					if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * t' // for score bootstrap, recenter
+					if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * t' // for score bootstrap, recenter
 				}
 			else
 				for (d=df;d;d--) {
@@ -879,7 +883,7 @@ void boottestModel::boottest() {
 						t = clust[BootCluster].info[i,]'
 						CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
 					}
-					if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+					if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 				}
 				
 			for (c=1; c<=length(clust); c++) {
@@ -904,18 +908,29 @@ void boottestModel::boottest() {
 						if (NFE & !FEboot)
 							pQ[c,d] = &(*pQ[c,d] - _panelsum(CT_ZVR0[c,d].M, clust[c].info) * CT_WE)
 					}
+					if (!doQQ) pQ[c,d] = &(*pQ[c,d] * u)
 				}
 			}
 
-			for (i=df;i;i--) // core computation loop
-				for (j=i;j;j--) {
-					c = length(clust)
-					QQ = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) QQ = QQ * clust[c].multiplier
-					for (c--;c;c--) {
-						 t = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) t  = t  * clust[c].multiplier; QQ = QQ + t
+			if (doQQ) // core computation loop
+				for (i=df;i;i--)
+					for (j=i;j;j--) {
+						c = length(clust)
+						QQ = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) QQ = QQ * clust[c].multiplier
+						for (c--;c;c--) {
+							t = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; QQ = QQ + t
+						}
+						denom[i,j].M = colsum(u :* QQ * u)
 					}
-					denom[i,j].M = colsum(u :* QQ * u)
-				}
+			else // core computational loop, avoiding computing Q'Q which has cubic time cost in numbers of clusters, po
+				for (i=df;i;i--)
+					for (j=i;j;j--) {
+						c = length(clust)
+						denom[i,j].M = colsum(*pQ[c,i] :* *pQ[c,j]); if (clust[c].multiplier!=1) denom[i,j].M = denom[i,j].M  * clust[c].multiplier
+						for (c--;c;c--) {
+							t = colsum(*pQ[c,i] :* *pQ[c,j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom[i,j].M = denom[i,j].M + t
+						}
+					}
 
 			if (df == 1)
 				Dist = (numer :/ sqrt(denom.M))'
@@ -1106,7 +1121,7 @@ void boottestModel::plot(real scalar level) {
 	boottest() // run in order to get true number of replications
 
 	alpha = 1 - level*.01
-	if (alpha>0 & cols(u)-1 <= 1/alpha - 1e6) {
+	if (alpha>0 & cols(u)-1 <= 1/alpha-1e6) {
 		boottest_set_quietly(this, _quietly)
 		if (!quietly) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
 		return (.\.)
