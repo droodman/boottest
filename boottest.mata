@@ -1,4 +1,4 @@
-*!  boottest 1.9.8 17 February 2018
+*!  boottest 1.9.7 17 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
