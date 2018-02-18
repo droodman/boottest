@@ -686,7 +686,7 @@ end
 
 * Version history
 * 1.9.7 Fixed crash on score bootstrap without observation weights. Improved run time when clusters are many by avoiding computation of Q'Q.
-        Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0. Fixed failure to square t/z to make r(F)/r(chi2).
+*       Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0. Fixed failure to square t/z to make r(F)/r(chi2).
 *       Fixed 1.9.6 bug causing normal weights to be replace by Mammen weights.
 * 1.9.6 Added Gamma(4, .5) - 2 wild weight distribution option per Liu (1988)
 * 1.9.5 Fixed score test bugs from 1.9.0, and bugs after ML estimation in Stata 15 because of new free parameter matrix label system
