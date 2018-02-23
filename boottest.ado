@@ -589,7 +589,7 @@ program define _boottest, rclass sortpreserve
 		}
 		
 		di _n
-		if `reps' di as txt strproper("`boottype'") " bootstrap (" cond(`scoreBS',"Kline and Santos 2012",cond(`IV',"Davidson & MacKinnon 2010","Wu 1986")) "), null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
+		if `reps' di as txt strproper("`boottype'") " bootstrap (" cond(`scoreBS',"Kline & Santos 2012",cond(`IV',"Davidson & MacKinnon 2010","Wu 1986")) "), null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test:" _n
 		
 		foreach c in `h0_`h'' {
