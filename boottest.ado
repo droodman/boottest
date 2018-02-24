@@ -1,4 +1,4 @@
-*!  boottest 1.9.7 17 February 2018
+*!  boottest 1.9.8 23 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.09.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.09.08" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -165,11 +165,6 @@ program define _boottest, rclass sortpreserve
 	if "`svmat'"!="" tempname dist
 	local ar = "`ar'" != ""
 	if `ar' & `"`h0s'`h0'"' == "" local h0s `e(instd)'
-
-	if `:word count `clustvars'' <= 1 & `"`bootcluster'"' != "" {
-		di as err "{cmdab:bootcl:uster()} option only accepted for multi-way clustered estimation."
-		exit 198
-	}
 
 	if `:word count `weighttype'' > 1 {
 		di as err "The {cmd:weight:type} option must be {cmdab:rad:emacher}, {cmdab:mam:men}, {cmdab:nor:mal}, or {cmdab:web:b}."
@@ -379,22 +374,11 @@ program define _boottest, rclass sortpreserve
 			}
 		}
 
-		if `:word count `clustvars'' > 1 {
-			if `"`bootcluster'"' == "" {
-				local bootcluster `clustvars'
-				if `reps' di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
-			}
-			else {
-				confirm var `bootcluster'
-				if `"`:list bootcluster - clustvars'"' != "" {
-					di as txt "{cmdab:bootcl:uster()} option includes variables not among the estimate's clustering variables."
-					exit 198
-				}
-			}
-			
-			local clustvars `bootcluster' `:list clustvars - bootcluster' // put bootstrapping clusters first
+		if `"`bootcluster'"' == "" {
+			local bootcluster `clustvars'
+			if `reps' & `:word count `clustvars''>1 di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
 		}
-		else local bootcluster `clustvars'
+		local clustvars `bootcluster' `:list clustvars - bootcluster' // put bootstrapping clusters first
 
 		sort `clustvars', stable
 
@@ -576,7 +560,7 @@ program define _boottest, rclass sortpreserve
 
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', ///
+												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
 
@@ -590,7 +574,10 @@ program define _boottest, rclass sortpreserve
 		
 		di _n
 		if `reps' di as txt strproper("`boottype'") " bootstrap (" cond(`scoreBS',"Kline & Santos 2012",cond(`IV',"Davidson & MacKinnon 2010","Wu 1986")) "), null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
-		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test:" _n
+		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
+		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
+		if "`bootcluster'"!="" | `:word count `clustvars'' > 1 & `reps' di as txt ", bootstrapping by " as inp "`bootcluster'" _c
+		di as txt ":"
 		
 		foreach c in `h0_`h'' {
 			di "  " _c
@@ -685,6 +672,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 1.9.8 Implemented code optimized for pure robust case. Allowed bootstrapping clusters to be chosen arbitrarily, independent of error clusterings.
 * 1.9.7 Fixed crash on score bootstrap without observation weights. Improved run time when clusters are many by avoiding computation of Q'Q.
 *       Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0. Fixed failure to square t/z to make r(F)/r(chi2).
 *       Fixed 1.9.6 bug causing normal weights to be replace by Mammen weights.

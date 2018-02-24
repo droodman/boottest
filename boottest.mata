@@ -1,4 +1,4 @@
-*!  boottest 1.9.7 17 February 2018
+*!  boottest 1.9.8 23 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("01.09.00")
+string scalar      boottestVersion() return("01.09.08")
 
 struct smatrix {
 	real matrix M
@@ -54,21 +54,23 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 }
 
 class boottestModel {
-	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, FEboot, Nclustcombs, ///
-		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClust, BootCluster, NFE, doQQ, purerobust
+	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClust, robust, weights, REst, multiplier, quietly, FEboot, NClustCombs, ///
+		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClust, NErrClust, ///
+		NFE, doQQ, purerobust, subcluster
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pinfoExplode, pX
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE
 	string scalar wttype, madjtype
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare
 	real rowvector peak
-	struct boottest_clust colvector clust
+	struct boottest_clust colvector Clust
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom, purerobustdenom
 	struct smatrix colvector CT_eZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, euZVR0
 	pointer (struct structFE scalar) scalar FEs
 	pointer (real matrix) matrix pQ
+	pointer (struct boottest_clust scalar) scalar pBootClust
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
@@ -227,18 +229,18 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 					WZVR0[d].M = (*pWZVR0)[,d]
 			}
 
-			if (parent->NFE & parent->robust & !parent->WREnonAR & !parent->FEboot & !parent->scoreBS & parent->purerobust<parent->Nclustcombs) {
+			if (parent->NFE & parent->robust & !parent->WREnonAR & !parent->FEboot & !parent->scoreBS & parent->purerobust<parent->NClustCombs) {
 				if (pWZVR0==NULL) pWZVR0 = &(parent->weights? ZVR0 :* *parent->pwt : ZVR0)
-				CT_ZVR0 = smatrix(parent->Nclustcombs, parent->df)
+				CT_ZVR0 = smatrix(parent->NClustCombs, parent->df)
 				for (d=parent->df;d;d--)
 					CT_ZVR0[1,d].M = parent->crosstab((*pWZVR0)[,d])
 				if (parent->NClust > 1) {
 					_CT_ZVR0 = CT_ZVR0[1,]
-					for (c=2; c<=parent->Nclustcombs; c++)
+					for (c=2; c<=parent->NClustCombs; c++)
 						for (d=parent->df;d;d--) {
-							if (rows(parent->clust[c].order))
-								_CT_ZVR0[d].M = _CT_ZVR0[d].M[parent->clust[c].order,]
-							CT_ZVR0[c,d].M = _panelsum(_CT_ZVR0[d].M, parent->clust[c].info)
+							if (rows(parent->Clust[c].order))
+								_CT_ZVR0[d].M = _CT_ZVR0[d].M[parent->Clust[c].order,]
+							CT_ZVR0[c,d].M = _panelsum(_CT_ZVR0[d].M, parent->Clust[c].info)
 						}
 				}
 			}
@@ -281,7 +283,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = FEboot = purerobust = Nclustcombs = 0
+	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = FEboot = purerobust = NClustCombs = subcluster = 0
 	twotailed = null = dirty = 1
 	cuepoint = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pFEID = pR = pR0 = pwt = &J(0,0,0)
@@ -380,9 +382,8 @@ void boottest_set_Rao(class boottestModel scalar M) { // set-up for classical Ra
 void boottest_set_wttype  (class boottestModel scalar M, string scalar wttype) {
 	M.wttype = wttype; M.set_dirty(1)
 }
-void boottest_set_ID      (class boottestModel scalar M, real matrix ID, | real scalar NBootClust) {
-	_editmissing(NBootClust, 1)
-	M.pID = &ID; M.NBootClust = NBootClust; M.set_dirty(1)
+void boottest_set_ID      (class boottestModel scalar M, real matrix ID, real scalar NBootClust, real scalar NErrClust) {
+	M.pID = &ID; M.NBootClust = NBootClust; M.NErrClust=NErrClust; M.set_dirty(1)
 	if (cols(ID)) M.robust = 1
 }
 void boottest_set_FEID      (class boottestModel scalar M, real matrix ID, real scalar FEboot) {
@@ -390,7 +391,7 @@ void boottest_set_FEID      (class boottestModel scalar M, real matrix ID, real 
 }
 void boottest_set_robust  (class boottestModel scalar M, real scalar robust  ) {
 	M.robust = robust
-	if (robust==0) boottest_set_ID(M, J(0,0,0), 1)
+	if (robust==0) boottest_set_ID(M, J(0,0,0), 1, 1)
 	M.set_dirty(1)
 }
 void boottest_set_R (class boottestModel scalar M, real matrix R , real colvector r ) {
@@ -496,12 +497,11 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
-
 // main routine
 void boottestModel::boottest() {
-	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, wt, sortID, o, _FEID
-	real rowvector val, YstarYstar, clustcols
-	real matrix betadev, RAll, L, LAll, vec, combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi, QQ, SewtXV, VXeu
+	real colvector rAll, numer_l, _e, IDExplode, Ystar, _beta, betaEnd, sortID, o, _FEID
+	real rowvector val, YstarYstar, ClustCols
+	real matrix betadev, RAll, L, LAll, vec, Combs, t, ZExclYstar, XExYstar, Subscripts, Zi, AVR0, eZVR0, eu, VR0, infoAll, IDCollapse, XExi, QQ, SewtXV, VXeu
 	real scalar i, j, l, c, d, minN, sumN
 	pointer (real matrix) scalar _pR0, pXEndstar, pXExXEndstar, pZExclXEndstar, pu, pVR0, peZVR0, pt
 	class AnalyticalModel scalar M_WRE
@@ -530,54 +530,60 @@ void boottestModel::boottest() {
 		_Nobs = weights & wttype=="fweight"? sumwt : Nobs
 
 		if (NClust = cols(*pID)) {
-			BootCluster = 2^(NClust - NBootClust)
 			minN = .; sumN = 0
-			combs = combs(NClust) // represent all clustering combinations. First is intersection of all vars.
-			clust = boottest_clust(rows(combs)-1) // leave out no-cluster combination
-			Nclustcombs = length(clust)
+
+			subcluster = NErrClust < NClust
+			Combs = combs(NErrClust) // represent all clustering combinations. First is intersection of all vars.
+			Clust = boottest_clust(rows(Combs)-1) // leave out no-cluster combination
+			NClustCombs = length(Clust)
 
 			infoAll = _panelsetup(*pID, 1..NClust) // info for grouping by intersections of all clustering vars
 			IDCollapse = NClust==1 | rows(infoAll)==Nobs? *pID : (*pID)[infoAll[,1],] // version of ID matrix with one row for each all-cluster var intersection instead of 1 row for each obs
 			if (NClust > NBootClust)
 				(void) _panelsetup(IDCollapse, 1..NBootClust, IDExplode) // index vector to explode wild weights to one per all-cluster var intersection
 
-			for (c=1; c<=Nclustcombs; c++) {
-				clustcols         = boottest_selectindex(combs[c,])
-				clust[c].multiplier   = 2 * mod(cols(clustcols),2) - 1
+			Clust.info = _panelsetup(*pID, 1..NClust)  // for all-cluster intersections, record group defs rel to data set; for rest, rel to collapsed data
+
+			for (c=1; c<=NClustCombs; c++) { // for each error clustering combination
+				ClustCols             = boottest_selectindex(Combs[c,])
+				Clust[c].multiplier   = 2 * mod(cols(ClustCols),2) - 1
 				
-				if (c > 1) { // for all-cluster intersections, record group defs rel to data set; for rest, rel to collapsed data
-					if (any( combs[|c, min(boottest_selectindex(combs[c,] :!= combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-						IDCollapse = IDCollapse[ clust[c].order = order(IDCollapse, clustcols), ]
-				  clust[c].info       = _panelsetup(IDCollapse, clustcols)
-				} else {
-				  clust.   info       = _panelsetup(*pID      , clustcols   )
-					if (scoreBS)
-						wt = weights? _panelsum(*pwt, clust.info) : clust.info[,2]-clust.info[,1]:+ 1
+				if (c > 1) {
+					if (any( Combs[|c, min(boottest_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
+						IDCollapse = IDCollapse[ Clust[c].order = order(IDCollapse, ClustCols), ]
+				  Clust[c].info       = _panelsetup(IDCollapse, ClustCols)
 				}
 
-				clust[c].N            = rows(clust[c].info)
-				sumN = sumN + clust[c].N
+				Clust[c].N            = rows(Clust[c].info)
+				sumN = sumN + Clust[c].N
 
 				if (small) {
-				  clust[c].multiplier = clust[c].multiplier * clust[c].N/(clust[c].N-1)
-					if (minN > clust[c].N) minN = clust[c].N
+				  Clust[c].multiplier = Clust[c].multiplier * Clust[c].N/(Clust[c].N-1)
+					if (minN > Clust[c].N) minN = Clust[c].N
 				}
-
 			}
+
+			if (subcluster) { // for subCluster bootstrap, bootstrapping Cluster is not among error clustering combinations
+				pBootClust = &(boottest_clust())
+				pBootClust->N  = rows(pBootClust->info = _panelsetup(IDCollapse, 1..NBootClust))
+			} else
+				pBootClust = &(Clust[2^(NClust - NBootClust)]) // index of bootstrap clustering within list of cluster combinations
+
 			if (scoreBS)
-				ClustShare = _panelsum(wt, clust.info)/(weights? sumwt : Nobs) // share of observations by group 
-		} else { // if no clustering, cast "robust" as clustering by observation
-			clust = boottest_clust()
-			clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
-			sumN = clust.N = Nobs
-			clust.info = J(Nobs, 0, 0) // signals _panelsum not to aggregate
-			Nclustcombs = BootCluster = 1
+				ClustShare = weights? _panelsum(*pwt, Clust.info)/sumwt : (Clust.info[,2]-Clust.info[,1]:+ 1)/Nobs // share of observations by group 
+
+		} else { // if no Clustering, cast "robust" as Clustering by observation
+			pBootClust = &(Clust = boottest_clust())
+			Clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
+			sumN = Clust.N = Nobs
+			Clust.info = J(Nobs, 0, 0) // signals _panelsum not to aggregate
+			NClustCombs = 1
 			if (scoreBS)
 				ClustShare = weights? *pwt/sumwt : 1/_Nobs
 		}
 
-		purerobust = clust.N==Nobs & !ML // do we ever cluster *and* bootstrap by individual?
-		doQQ = !purerobust & clust[BootCluster].N * (sumN + clust[BootCluster].N * (reps+1)) +.5*(Nclustcombs)*clust[BootCluster].N < 2*(reps + 1)*(2*sumN + Nclustcombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
+		purerobust = Clust.N==Nobs & !ML // do we ever Cluster *and* bootstrap by individual?
+		doQQ = !purerobust & pBootClust->N * (sumN + pBootClust->N * (reps+1)) +.5*(NClustCombs)*pBootClust->N < 2*(reps + 1)*(2*sumN + NClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
 		if (cols(*pFEID)) { // fixed effect prep
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
@@ -611,31 +617,31 @@ void boottestModel::boottest() {
 		if (WREnonAR)
 			pinfoExplode = &_panelsetup(*pID, 1..NBootClust, IDExplode)
 		else if (NClust)
-			if (NClust > 1) // bootstrap cluster grouping defs rel to original data
+			if (NClust > 1) // bootstrap Cluster grouping defs rel to original data
 				pinfoExplode = &_panelsetup(*pID, 1..NBootClust)
 			else
-				pinfoExplode = &clust.info
+				pinfoExplode = &Clust.info
 		else
 			pinfoExplode = &J(0,0,0) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
 
-		if (reps & wildtype==0 & clust[BootCluster].N*ln(2) < ln(reps)+1e-6) {
-			if (!quietly) printf("\nWarning: with %g clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", clust[BootCluster].N, reps, clust[BootCluster].N, 2^clust[BootCluster].N)
-			u = J(clust[BootCluster].N,1,1), count_binary(clust[BootCluster].N, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
+		if (reps & wildtype==0 & pBootClust->N*ln(2) < ln(reps)+1e-6) {
+			if (!quietly) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", pBootClust->N, reps, pBootClust->N, 2^pBootClust->N)
+			u = J(pBootClust->N,1,1), count_binary(pBootClust->N, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
 		} else {
 			if (wildtype==3)
-				u = rnormal(clust[BootCluster].N, reps+1, -WREnonAR, 1) // normal weights
+				u = rnormal(pBootClust->N, reps+1, -WREnonAR, 1) // normal weights
 			else if (wildtype==4)
-				u = rgamma(clust[BootCluster].N, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
+				u = rgamma(pBootClust->N, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
 			else if (wildtype==2) {
-				u = rdiscrete(clust[BootCluster].N, reps+1, (1\1\1\0\1\1\1)/6) * .5 :- 2
+				u = rdiscrete(pBootClust->N, reps+1, (1\1\1\0\1\1\1)/6) * .5 :- 2
 				u = sqrt(abs(u)) :* sign(u); if (WREnonAR) u = u :- 1 // Webb weights
 			}	else if (wildtype) {
-				u = ( rdiscrete(clust[BootCluster].N, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) * sqrt(5) :+ (.5 - WREnonAR) // Mammen
-				if (!quietly & clust[BootCluster].N*ln(2) < ln(reps)+1e-6) printf("\nWarning: with %g clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", clust[BootCluster].N, reps, clust[BootCluster].N, 2^clust[BootCluster].N) 
+				u = ( rdiscrete(pBootClust->N, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) * sqrt(5) :+ (.5 - WREnonAR) // Mammen
+				if (!quietly & pBootClust->N*ln(2) < ln(reps)+1e-6) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", pBootClust->N, reps, pBootClust->N, 2^pBootClust->N) 
 			}	else {
-				u = runiform(clust[BootCluster].N, reps+1) :>= .5; u = u + u :- (1 + WREnonAR) // Rademacher
+				u = runiform(pBootClust->N, reps+1) :>= .5; u = u + u :- (1 + WREnonAR) // Rademacher
 			}
-			u[,1] = J(clust[BootCluster].N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
+			u[,1] = J(pBootClust->N, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
 		}
 		U = WREnonAR? u[IDExplode,] : J(0,0,0)
 
@@ -729,10 +735,10 @@ void boottestModel::boottest() {
 		if (WREnonAR) {
 			XEndstar = XExXEndstar = ZExclXEndstar = smatrix(D-1)
 			if (NClust)
-				XZi = eZi = smatrix(clust[BootCluster].N)
+				XZi = eZi = smatrix(pBootClust->N)
 		} else if (robust) {
 			XExZVR0 = ZExclZVR0 = CT_eZVR0 = smatrix(df)
-			pQ = J(Nclustcombs, df, NULL)
+			pQ = J(NClustCombs, df, NULL)
 		}
 		
 		initialized = 1
@@ -772,8 +778,8 @@ void boottestModel::boottest() {
 				ZExclXEndstar[j].M = cross(*pZExcl, *pwt, XEndstar[j].M)
 			}
 
-		if (NClust & !NFE) // prep for optimized computation for bootstrapping cluster when no FE
-			for (i=clust[BootCluster].N; i; i--) {
+		if (NClust & !NFE) // prep for optimized computation for bootstrapping Cluster when no FE
+			for (i=pBootClust->N; i; i--) {
 				Subscripts = (*pinfoExplode)[i,]', (.\.)
 				XExi = kEx? (*pXEx)[|Subscripts|] : J((*pinfoExplode)[i,2]-(*pinfoExplode)[i,1]+1,0,0)
 				Zi = XExi , (*pZExcl)[|Subscripts|] // inefficient?
@@ -800,23 +806,23 @@ void boottestModel::boottest() {
 
 			if (robust) { // Compute denominator for this WRE test stat
 				denom = smatrix()
-				if (NClust != 1 | NFE) // collapse meat+sandwich  to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
-					peZVR0 = &_panelsum(pM_Repl->ZVR0, weights? *pwt :* pM_Repl->e : pM_Repl->e, clust.info)  // really eZAVR0, where e is wildized residual, not residual from replication fit (estar)
-				for (c=1; c<=Nclustcombs; c++) {
-					if (NClust != 1 & rows(clust[c].order))
-						peZVR0 = &((*peZVR0)[clust[c].order,])
-					if (c==BootCluster & NClust & !NFE) { // optimized computation for bootstrapping cluster when no FE
+				if (NClust != 1 | NFE) // collapse meat+sandwich  to all-Cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
+					peZVR0 = &_panelsum(pM_Repl->ZVR0, weights? *pwt :* pM_Repl->e : pM_Repl->e, Clust.info)  // really eZAVR0, where e is wildized residual, not residual from replication fit (estar)
+				for (c=1; c<=NClustCombs; c++) {
+					if (NClust != 1 & rows(Clust[c].order))
+						peZVR0 = &((*peZVR0)[Clust[c].order,])
+					if (*pBootClust==Clust[c] & NClust & !NFE) { // optimized computation for bootstrapping Cluster when no FE
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						pragma unset t
-						for (i=1; i<=clust[BootCluster].N; i++) {
+						for (i=1; i<=pBootClust->N; i++) {
 							pG = &((_beta'XZi[i].M + betaEnd'eZi[i].M * u[i,j]) * AVR0) // R0 * V * Z_i'estar_i
 							t = i==1? cross(*pG,*pG) : t + cross(*pG,*pG)
 						}
 					} else {
-						pG = &_panelsum(*peZVR0, clust[c].info)
+						pG = &_panelsum(*peZVR0, Clust[c].info)
 						t = cross(*pG,*pG)
 					}
-					if (clust[c].multiplier!=1) t = t * clust[c].multiplier; denom.M = c==1? t : denom.M + t
+					if (Clust[c].multiplier!=1) t = t * Clust[c].multiplier; denom.M = c==1? t : denom.M + t
 				}
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
@@ -828,7 +834,7 @@ void boottestModel::boottest() {
 
 		if (ML)
 			eZVR0 = *pSc * (VR0 = *pV * *pR0')
-		else if (scoreBS | (robust & purerobust<Nclustcombs))
+		else if (scoreBS | (robust & purerobust<NClustCombs))
 			eZVR0 = pM->e :* pM->ZVR0
 
 		if (scoreBS)
@@ -849,56 +855,56 @@ void boottestModel::boottest() {
 
 		// Compute denominators and test stats
 		if (robust) {
-			if (purerobust < Nclustcombs) {
+			if (purerobust < NClustCombs) {
 				if (reps & !scoreBS)
 					for (d=df;d;d--) {
 						t = pM->ZVR0[,d]
-								XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, clust.info)
+								XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, Clust.info)
 						if (AR)
-							ZExclZVR0[d].M = _panelsum(*pZExcl, weights? t :* *pwt : t, clust.info)
+							ZExclZVR0[d].M = _panelsum(*pZExcl, weights? t :* *pwt : t, Clust.info)
 					}
 
-				peZVR0 = &_panelsum(eZVR0, *pwt, clust.info) // collapse data to all-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
+				peZVR0 = &_panelsum(eZVR0, *pwt, Clust.info) // collapse data to all-Cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 
 				if (NFE & !FEboot & !scoreBS)
-					CT_WE = _panelsum(crosstab(wtFE :* pM->e), clust[BootCluster].info)'
-				if (BootCluster == 1) // construct crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
-					for (d=df;d;d--) { // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
+					CT_WE = _panelsum(crosstab(wtFE :* pM->e), pBootClust->info)'
+				if (*pBootClust == Clust[1]) // construct crosstab of E:*ZVR0 wrt bootstrapping Cluster combo and all-Cluster-var intersections
+					for (d=df;d;d--) { // if bootstrapping on all-Cluster-var intersections (including one-way Clustering), the base crosstab is diagonal
 						CT_eZVR0[d].M = diag(t = (*peZVR0)[,d])
 						if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * t' // for score bootstrap, recenter
 					}
 				else
 					for (d=df;d;d--) {
-						CT_eZVR0[d].M = J(clust.N, clust[BootCluster].N, 0)
-						for (i=clust[BootCluster].N;i;i--) {
-							t = clust[BootCluster].info[i,]'
+						CT_eZVR0[d].M = J(Clust.N, pBootClust->N, 0)
+						for (i=pBootClust->N;i;i--) {
+							t = pBootClust->info[i,]'
 							CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
 						}
 						if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 					}
 					
-				for (c=1+purerobust; c<=Nclustcombs; c++)
-					if (!purerobust | clust[c].N < Nobs) { 
-						if (rows(clust[c].order))
+				for (c=1; c<=NClustCombs; c++)
+					if (!purerobust | Clust[c].N < Nobs) { 
+						if (rows(Clust[c].order))
 							for (d=df;d;d--) {
 								if (!scoreBS) {
-										XExZVR0  [d].M = XExZVR0  [d].M[clust[c].order,]
+										XExZVR0  [d].M = XExZVR0  [d].M[Clust[c].order,]
 									if (AR & !scoreBS)
-										ZExclZVR0[d].M = ZExclZVR0[d].M[clust[c].order,]
+										ZExclZVR0[d].M = ZExclZVR0[d].M[Clust[c].order,]
 								}
-								CT_eZVR0[d].M = CT_eZVR0[d].M[clust[c].order,]
+								CT_eZVR0[d].M = CT_eZVR0[d].M[Clust[c].order,]
 							}
 
 						for (d=df;d;d--) {
-							pQ[c,d] = &_panelsum(CT_eZVR0[d].M, clust[c].info) // when c=1, two args have same # of rows, & _panelsum() returns 1st arg by reference. Using & then prevents uncessary cloning.
+							pQ[c,d] = &_panelsum(CT_eZVR0[d].M, Clust[c].info) // when c=1, two args have same # of rows, & _panelsum() returns 1st arg by reference. Using & then prevents uncessary cloning.
 
 							if (!scoreBS) {
 								if (reps) {
-									pt = &_panelsum(XExZVR0[d].M, clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[d].M, clust[c].info))
+									pt = &_panelsum(XExZVR0[d].M, Clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[d].M, Clust[c].info))
 									pQ[c,d] = &(*pQ[c,d] - *pt * SewtXV)
 								}
 								if (NFE & !FEboot)
-									pQ[c,d] = &(*pQ[c,d] - _panelsum(pM->CT_ZVR0[c,d].M, clust[c].info) * CT_WE)
+									pQ[c,d] = &(*pQ[c,d] - _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
 							}
 							if (!doQQ) pQ[c,d] = &(*pQ[c,d] * u)
 						}
@@ -908,15 +914,15 @@ void boottestModel::boottest() {
 			if (doQQ) // core denominator computation loop
 				for (i=df;i;i--)
 					for (j=i;j;j--) {
-						c = Nclustcombs
-						QQ = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) QQ = QQ * clust[c].multiplier
+						c = NClustCombs
+						QQ = cross(*pQ[c,i], *pQ[c,j]); if (Clust[c].multiplier!=1) QQ = QQ * Clust[c].multiplier
 						for (c--;c;c--) {
-							t = cross(*pQ[c,i], *pQ[c,j]); if (clust[c].multiplier!=1) t = t * clust[c].multiplier; QQ = QQ + t
+							t = cross(*pQ[c,i], *pQ[c,j]); if (Clust[c].multiplier!=1) t = t * Clust[c].multiplier; QQ = QQ + t
 						}
 						denom[i,j].M = colsum(u :* QQ * u)
 					}
-			else { // alternative core computational loop, avoiding computing Q'Q which has cubic time cost in numbers of clusters
-				if (purerobust) // special treatment when clustering and bootstrapping by observation
+			else { // alternative core computational loop, avoiding computing Q'Q which has cubic time cost in numbers of Clusters
+				if (purerobust) // special treatment when Clustering and bootstrapping by observation
 					if (ML)
 						for (d=df;d;d--) {
 							euZVR0[d].M = eZVR0[,d] :* u
@@ -937,11 +943,11 @@ void boottestModel::boottest() {
 						denom[i,j].M =           purerobust? (purerobustdenom[i,j].M = ML? colsum(euZVR0[i].M :* euZVR0[j].M) :
 						                                                                   cross(pM->WZVR0[i].M, pM->WZVR0[j].M, eu:*eu)) :
 																			           colsum(*pQ[1,i] :* *pQ[1,j])
-						if (clust.multiplier!=1) denom[i,j].M = denom[i,j].M  * clust.multiplier
-						for (c=2;c<=Nclustcombs;c++) {
-							t = clust[c].N==Nobs & purerobust? purerobustdenom[i,j].M : // more than one cluster comb effectively "robust"?
+						if (Clust.multiplier!=1) denom[i,j].M = denom[i,j].M  * Clust.multiplier
+						for (c=2;c<=NClustCombs;c++) {
+							t = Clust[c].N==Nobs & purerobust? purerobustdenom[i,j].M : // more than one Cluster comb effectively "robust"?
 							                                   colsum(*pQ[c,i] :* *pQ[c,j])
-							if (clust[c].multiplier!=1) t = t * clust[c].multiplier
+							if (Clust[c].multiplier!=1) t = t * Clust[c].multiplier
 							denom[i,j].M = denom[i,j].M + t
 						}
 					}
@@ -1093,13 +1099,13 @@ pointer(real matrix) scalar AnalyticalModel::demean(pointer(real matrix) scalar 
 	return (pIn)
 }
 
-// cross-tab sum of a column vector w.r.t. intersection-of-clustering-vars and fixed-effect var
+// cross-tab sum of a column vector w.r.t. intersection-of-Clustering-vars and fixed-effect var
 real matrix boottestModel::crosstab(real colvector v) {
 	real matrix retval; real scalar i, j, t; real colvector _FEID, _v
-	retval = J(clust.N, NFE, 0)
-	for (i=clust.N;i;i--) {
-		_FEID = panelsubmatrix(*pFEID, i, clust.info)
-		_v    = panelsubmatrix(v     , i, clust.info)
+	retval = J(Clust.N, NFE, 0)
+	for (i=Clust.N;i;i--) {
+		_FEID = panelsubmatrix(*pFEID, i, Clust.info)
+		_v    = panelsubmatrix(v     , i, Clust.info)
 		for (j=rows(_FEID);j;j--) {
 			t = _FEID[j] 
 			retval[i,t] = retval[i,t] + _v[j]
@@ -1249,7 +1255,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	string scalar plotname, string scalar peakname, real scalar level, real scalar ML, real scalar LIML, real scalar Fuller, 
 	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar wildtype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
 	string scalar XExnames, string scalar XEndnames, real scalar cons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
-	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClust, 
+	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClust, real scalar NErrClust, 
 	string scalar FEname, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, real scalar small, string scalar diststat, string scalar distname, ///
 	real scalar gridmin, real scalar gridmax, real scalar gridpoints) {
 
@@ -1280,7 +1286,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	boottest_set_Y (M, Y)
 	boottest_set_ZExcl(M, ZExcl)
 	boottest_set_wt (M, wt)
-	boottest_set_ID(M, ID, NBootClust)
+	boottest_set_ID(M, ID, NBootClust, NErrClust)
 	boottest_set_FEID(M, FEID, FEname:==IDnames)
 	boottest_set_R (M, R , r )
 	boottest_set_R0(M, R0, r0)

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.9.5 3 January 2018}{...}
+{* *! version 1.9.8 23 February 2018}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -300,10 +300,11 @@ value, such as N/(N-1), so that the place of the test statistic in the simulated
 {phang}{opt r:obust} and {opt cl:uster(varlist)} have the traditional meanings, but serve a nontraditional function, which is to override the settings
 used in the estimation.
 
-{phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. It is relevant only with multi-way clustering. If the option 
-includes more than one variable, then for the bootstrap observations are grouped by all the variables in the option. The default is to cluster the bootstrap on all
+{phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. If the option 
+includes more than one variable, then for the bootstrap observations are grouped by intersections of all the variables in the option. The default is to cluster the bootstrap on all
 the {cmd:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (2017) tend to favor clustering the bootstrap just on the one variable with the smallest
-number of clusters.
+number of clusters. However, MacKinnon and Webb (forthcoming) show that in the extreme case of a treatment model with very few (un)treated clusters, it can be better to 
+to perform a "subcluster" bootstrap, such as bootstrapping at the individual observation level.
 
 {phang}{opt ar} requests the Anderson-Rubin test. It applies only to instrumental variables estimation. If the null is specified explicitly, it must fix
 all coefficients on instrumented variables, and no others.
@@ -448,6 +449,7 @@ inference. {it:Journal of Human Resources} 50(2): 317-72.{p_end}
 inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
 {p 4 8 2}Liu, R. Y. 1988. Bootstrap procedures under some non-I.I.D. models. {ir:Annals of Statistics} 16: 1696-1708.{p_end}
 {p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2017. Bootstrap and asymptotic inference with multiway clustering. Queen's Economics Department Working Paper No. 1386.{p_end}
+{p 4 8 2}MacKinnon, J.G., and M.D. Webb. Forthcoming. The Wild Bootstrap for Few (Treated) Clusters. {it:Econometrics Journal}.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of
 estimation. {it:Proc. Cambridge Philos. Soc.} 44: 50-57.{p_end}
