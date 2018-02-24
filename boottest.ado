@@ -1,4 +1,4 @@
-*!  boottest 1.9.8 23 February 2018
+*!  boottest 2.0.0 23 February 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -672,7 +672,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 1.9.8 Implemented code optimized for pure robust case. Allowed bootstrapping clusters to be chosen arbitrarily, independent of error clusterings.
+* 2.0.0 Implemented code optimized for pure robust case. Allowed bootstrapping clusters to be chosen arbitrarily, independent of error clusterings.
 * 1.9.7 Fixed crash on score bootstrap without observation weights. Improved run time when clusters are many by avoiding computation of Q'Q.
 *       Fixed failure to recenter score test (not score bootstrap); bug introduced circa 1.9.0. Fixed failure to square t/z to make r(F)/r(chi2).
 *       Fixed 1.9.6 bug causing normal weights to be replace by Mammen weights.
