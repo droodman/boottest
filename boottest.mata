@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("01.09.08")
+string scalar      boottestVersion() return("02.00.00")
 
 struct smatrix {
 	real matrix M
@@ -382,8 +382,8 @@ void boottest_set_Rao(class boottestModel scalar M) { // set-up for classical Ra
 void boottest_set_wttype  (class boottestModel scalar M, string scalar wttype) {
 	M.wttype = wttype; M.set_dirty(1)
 }
-void boottest_set_ID      (class boottestModel scalar M, real matrix ID, real scalar NBootClust, real scalar NErrClust) {
-	M.pID = &ID; M.NBootClust = NBootClust; M.NErrClust=NErrClust; M.set_dirty(1)
+void boottest_set_ID      (class boottestModel scalar M, real matrix ID, | real scalar NBootClust, real scalar NErrClust) {
+	M.pID = &ID; M.NBootClust = editmissing(NBootClust,1); M.NErrClust=editmissing(NErrClust,1); M.set_dirty(1)
 	if (cols(ID)) M.robust = 1
 }
 void boottest_set_FEID      (class boottestModel scalar M, real matrix ID, real scalar FEboot) {

@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "01.09.08" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.00.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -378,7 +378,7 @@ program define _boottest, rclass sortpreserve
 			local bootcluster `clustvars'
 			if `reps' & `:word count `clustvars''>1 di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
 		}
-		local clustvars `bootcluster' `:list clustvars - bootcluster' // put bootstrapping clusters first
+		local clustvars `:list bootcluster - clustvars' `:list clustvars & bootcluster' `:list clustvars - bootcluster' // put bootstrapping clusters first, error clusters last, overlap in middle
 
 		sort `clustvars', stable
 
