@@ -1,4 +1,4 @@
-*!  boottest 2.0.1 5 March 2018
+*!  boottest 2.0.2 8 March 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -632,8 +632,7 @@ void boottestModel::boottest() {
 			if (!scoreBS & !FEboot & purerobust < NErrClustCombs)
 				infoBootAll = _panelsetup(IDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
 		}
-
-		if (reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
+		if (0 & reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
 			if (!quietly) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
 			u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
 		} else {
@@ -642,9 +641,8 @@ void boottestModel::boottest() {
 			else if (wildtype==4)
 				u = rgamma(NBootClust, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
 			else if (wildtype==2) {
-				u = rdiscrete(NBootClust, reps+1, (1\1\1\0\1\1\1)/6) * .5 :- 2
-				u = sqrt(abs(u)) :* sign(u); if (WREnonAR) u = u :- 1 // Webb weights
-			}	else if (wildtype) {
+				u = ceil(runiform(NBootClust, reps+1) * 3); u = sqrt(u+u) :* ((runiform(NBootClust, reps+1):>=.5):-.5)
+			} else if (wildtype) {
 				u = ( rdiscrete(NBootClust, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) * sqrt(5) :+ (.5 - WREnonAR) // Mammen
 				if (!quietly & NBootClust*ln(2) < ln(reps)+1e-6) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
 			}	else {

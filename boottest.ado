@@ -1,4 +1,4 @@
-*!  boottest 2.0.1 5 March 2018
+*!  boottest 2.0.2 8 March 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -106,7 +106,12 @@ program define _boottest, rclass sortpreserve
 		di as err "{cmdab:r:eps()} option must be non-negative."
 		exit 198
 	}
-	
+
+	if `reps' & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1) {
+		di as txt _n "Note: The bootstrap performs best when the confidence level (here, `level'%)"
+		di           "      times the number of replications plus 1 (" `reps' "+1=" `reps'+1 ") is an integer." 
+	}
+
 	local 0, `madjust'
 	syntax, [Bonferroni Sidak]
 	local madjust `bonferroni'`sidak'
@@ -573,10 +578,11 @@ program define _boottest, rclass sortpreserve
 		}
 		
 		di _n
-		if `reps' di as txt strproper("`boottype'") " bootstrap (" cond(`scoreBS',"Kline & Santos 2012",cond(`IV',"Davidson & MacKinnon 2010","Wu 1986")) "), null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
+		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
 		if "`bootcluster'"!="" | `:word count `clustvars'' > 1 & `reps' di as txt ", bootstrapping by " as inp "`bootcluster'" _c
+		if `reps'	di as txt ", " strproper("`weighttype'") " weights" _c
 		di as txt ":"
 		
 		foreach c in `h0_`h'' {
@@ -672,6 +678,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
 * 2.0.1 Reworked info matrix construction and organization to fix 2.0.0 bug in "subcluster" bootstrapping
 * 2.0.0 Implemented code optimized for pure robust case. Allowed bootstrapping clusters to be chosen arbitrarily, independent of error clusterings.
 * 1.9.7 Fixed crash on score bootstrap without observation weights. Improved run time when clusters are many by avoiding computation of Q'Q.
