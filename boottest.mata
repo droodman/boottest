@@ -632,7 +632,7 @@ void boottestModel::boottest() {
 			if (!scoreBS & !FEboot & purerobust < NErrClustCombs)
 				infoBootAll = _panelsetup(IDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
 		}
-		if (0 & reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
+		if (reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
 			if (!quietly) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
 			u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
 		} else {
