@@ -583,7 +583,7 @@ program define _boottest, rclass sortpreserve
 		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
-		if "`bootcluster'"!="" | `:word count `clustvars'' > 1 & `reps' di as txt ", bootstrapping by " as inp "`bootcluster'" _c
+		if ("`bootcluster'"!="" | `:word count `clustvars'' > 1) & `reps' di as txt ", bootstrapping by " as inp "`bootcluster'" _c
 		if `reps'	di as txt ", " strproper("`weighttype'") " weights" _c
 		di as txt ":"
 		
