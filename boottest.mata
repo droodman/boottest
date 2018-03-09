@@ -1183,11 +1183,16 @@ void boottestModel::plot(real scalar level) {
 				hi = gridstop <.? gridstop  : numer[1] + *pr0 + DistCDR[ceil (( 1-alpha/2)*(rows(DistCDR)-1))+1] * abs(numer[1]/Dist[1])
 			}
 		else {
-			t = abs(numer[1]/Dist[1]) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))
-			lo = gridstart<.? gridstart : numer[1] + *pr0 + t
-			hi = gridstop <.? gridstop  : numer[1] + *pr0 - t
+			t = abs(numer/Dist) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))
+			lo = gridstart<.? gridstart : numer + *pr0 + t
+			hi = gridstop <.? gridstop  : numer + *pr0 - t
+			
+			if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
+				CI = lo, hi
+				return
+			}
 		}
-
+		
 		if (gridstart==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by doubling on low side
 			for (i=10; i & -r0_to_p(lo)<-alpha; i--)
 				lo = 2 * lo - hi
@@ -1340,11 +1345,11 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	st_numscalar(dfname  , M.get_df  ())
 	st_numscalar(dfrname , M.get_df_r())
 	if (distname != "") st_matrix(distname, M.get_dist(diststat))
-	if (plotname != "") {
+	if (plotname != "" | (level<100 & ciname != "")) {
 		M.plot(level)
-		st_matrix(plotname, (M.plotX,M.plotY))
+		if (plotname != "") st_matrix(plotname, (M.plotX,M.plotY))
 		if (cols(M.peak)) st_matrix(peakname, M.peak)
-		if (level<100 & ciname != "") st_matrix(ciname, M.CI) // also makes plotX & plotY
+		if (level<100 & ciname != "") st_matrix(ciname, M.CI)
 	}
 
 	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak

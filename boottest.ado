@@ -430,7 +430,7 @@ program define _boottest, rclass sortpreserve
 		local peakmat
 		local cimat
 		if "`noci'"=="" & !`ML' & rowsof(`C0')==1 {
-			tempname plotmat peakmat
+			if !(`reps'==0 & `scoreBS' & !`null' & "`graph'"!="") tempname plotmat peakmat // don't request plot if doing simple Wald with no graph
 			if `level'<100 tempname cimat
 		}
 
@@ -563,6 +563,8 @@ program define _boottest, rclass sortpreserve
 			}
 		}
 
+		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
+
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
@@ -674,11 +676,11 @@ program define _boottest, rclass sortpreserve
 	return local clustvars `clustvars'
 	return scalar null = `null'
 	return scalar reps = `reps'
-	return local seed `seed'
 end
 
 * Version history
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
+*       If seed() not specified, then return c(seed) in r(seed). For waldtest, nograph just compute CI analytically.
 * 2.0.1 Reworked info matrix construction and organization to fix 2.0.0 bug in "subcluster" bootstrapping
 * 2.0.0 Implemented code optimized for pure robust case. Allowed bootstrapping clusters to be chosen arbitrarily, independent of error clusterings.
 * 1.9.7 Fixed crash on score bootstrap without observation weights. Improved run time when clusters are many by avoiding computation of Q'Q.
