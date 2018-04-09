@@ -1,4 +1,4 @@
-*!  boottest 2.0.2 8 March 2018
+*!  boottest 2.0.2 9 April 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -681,6 +681,7 @@ end
 * Version history
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
 *       If seed() not specified, then return c(seed) in r(seed). For waldtest, nograph just compute CI analytically.
+*       Prevented WRE crash when no clustering.
 * 2.0.1 Reworked info matrix construction and organization to fix 2.0.0 bug in "subcluster" bootstrapping
 * 2.0.0 Implemented code optimized for pure robust case. Allowed bootstrapping clusters to be chosen arbitrarily, independent of error clusterings.
 * 1.9.7 Fixed crash on score bootstrap without observation weights. Improved run time when clusters are many by avoiding computation of Q'Q.
