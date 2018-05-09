@@ -1,4 +1,4 @@
-*!  boottest 2.0.2 9 April 2018
+*!  boottest 2.0.3 9 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("02.00.00")
+string scalar      boottestVersion() return("02.00.03")
 
 struct smatrix {
 	real matrix M
@@ -56,7 +56,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, doQQ, purerobust, subcluster, NBootClust
+		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoAllData
@@ -73,7 +73,7 @@ class boottestModel {
 	pointer (struct boottest_clust scalar) scalar pBootClust
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
-	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r()
+	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r(), get_reps(), get_repsFeas()
 	real matrix combs(), count_binary(), crosstab()
 	real colvector get_dist()
 }
@@ -283,7 +283,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = 0
+	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = 0
 	twotailed = null = dirty = 1
 	cuepoint = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pFEID = pR = pR0 = pwt = &J(0,0,0)
@@ -441,16 +441,17 @@ real scalar boottestModel::get_p(|real scalar analytical) {
 	t = Dist[1]
 	if (t == .) return (.)
 	if (reps & analytical==.) {
+		repsFeas = colnonmissing(Dist) - 1
 		if (sqrt & ptype != 3) {
 			if (ptype==0) { // symmetric p value
 				_Dist = abs(Dist); t = abs(t)
-				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
+				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / repsFeas
 			} else if (ptype==1) // equal-tail p value
-				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / (colnonmissing(Dist) - 1)
+				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / repsFeas
 			else // upper-tailed p value
-				p = 1 -(       colsum(t:< Dist)                       + (colsum(t:==_Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
+				p = 1 -(       colsum(t:< Dist)                       + (colsum(t:==_Dist) - 1)*.5) / repsFeas
 		} else // upper-tailed p value or p value based on squared stats 
-				p = 1 -(       colsum(t:> Dist)                       + (colsum(t:== Dist) - 1)*.5) / (colnonmissing(Dist) - 1)
+				p = 1 -(       colsum(t:> Dist)                       + (colsum(t:== Dist) - 1)*.5) / repsFeas
 	} else {
 		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
 		if (sqrt & !twotailed) {
@@ -461,6 +462,13 @@ real scalar boottestModel::get_p(|real scalar analytical) {
 	}
 	return(p)
 }
+// Return number of bootstrap replications with feasible results
+// Returns 0 if get_p() not yet accessed, or doing non-bootstrapping tests
+real scalar boottestModel::get_repsFeas()
+	return (repsFeas)
+// return number of replications, possibly reduced to 2^G
+real scalar boottestModel::get_reps()
+	return (reps)
 
 real scalar boottestModel::get_padj(|real scalar analytical) {
 	(void) get_p(analytical)
@@ -473,12 +481,10 @@ real scalar boottestModel::get_stat() {
 	if (dirty) boottest()
 	return(Dist[1])
 }
-
 real scalar boottestModel::get_df() {
 	if (dirty) boottest()
 	return(df)
 }
-
 real scalar boottestModel::get_df_r() {
 	if (dirty) boottest()
 	return(df_r)
@@ -490,12 +496,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 	} else
 		st_view(V, i, j, selectvar)
 }
-
-
-
-
-
-
 
 // main routine
 void boottestModel::boottest() {
@@ -621,7 +621,7 @@ void boottestModel::boottest() {
 					j = i
 					
 					if (FEboot) { // are all of this FE's obs in same bootstrapping cluster?
-						t = IDAll[FEs->is, 1..NBootClustVar]
+						t = (*pID)[FEs->is, 1..NBootClustVar]
 						FEboot = all(t :== t[1,])
 					}
 				}
@@ -644,6 +644,7 @@ void boottestModel::boottest() {
 		if (reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
 			if (!quietly) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
 			u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
+			reps = cols(u) - 1
 		} else {
 			if (wildtype==3)
 				u = rnormal(NBootClust, reps+1, -WREnonAR, 1) // normal weights
@@ -1290,8 +1291,8 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar wildtype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
 	string scalar XExnames, string scalar XEndnames, real scalar cons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
-	string scalar FEname, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, real scalar small, string scalar diststat, string scalar distname, ///
-	real scalar gridmin, real scalar gridmax, real scalar gridpoints) {
+	string scalar FEname, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
+	real scalar small, string scalar diststat, string scalar distname, real scalar gridmin, real scalar gridmax, real scalar gridpoints) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, FEID, sc, XEnd, XEx
 	real colvector r, wt, r0, Y
@@ -1331,7 +1332,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	boottest_set_wildtype(M, wildtype)
 	boottest_set_ptype(M, ptype)
 	boottest_set_wttype(M, wttype)
-	boottest_set_reps (M, reps)
+	boottest_set_reps(M, reps)
 	boottest_set_LIML(M, LIML)
 	boottest_set_Fuller(M, Fuller)
 	boottest_set_k(M, K)
@@ -1350,6 +1351,8 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 
 	st_numscalar(statname, M.get_stat())
 	st_numscalar(pname   , M.get_p   ())
+	st_numscalar(repsname, M.get_reps())
+	st_numscalar(repsFeasname, M.get_repsFeas())
 	st_numscalar(padjname, M.get_padj())
 	st_numscalar(dfname  , M.get_df  ())
 	st_numscalar(dfrname , M.get_df_r())

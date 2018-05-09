@@ -1,4 +1,4 @@
-*!  boottest 2.0.2 9 April 2018
+*!  boottest 2.0.3 9 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -233,7 +233,7 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW
+	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW repsname repsFeasname
 	mat `b' = e(b)
 	local k = colsof(`b') // column count before possible removal of _cons term in FE models
 
@@ -568,10 +568,16 @@ program define _boottest, rclass sortpreserve
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
-												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', `small', "`svmat'", "`dist'", ///
+												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
 
 		_estimates unhold `hold'
+		
+		local reps = `repsname' // in case reduced to 2^G
+		if !`ML' & `reps' & `:word count `clustvars''>1 {
+			return scalar repsFeas = `repsFeasname'
+			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replications returned an infeasible test statistic and were deleted from the bootstrap distribution."
+		}
 		
 		if `N_h0s'>1 local _h _`h'
 
@@ -579,7 +585,7 @@ program define _boottest, rclass sortpreserve
 			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
 		}
 		
-		di _n
+		di
 		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
@@ -675,10 +681,11 @@ program define _boottest, rclass sortpreserve
 	return local boottype `boottype'
 	return local clustvars `clustvars'
 	return scalar null = `null'
-	return scalar reps = `reps'
+	return scalar reps = `repsname'
 end
 
 * Version history
+* 2.0.3 Added automatic reporting of any infeasible replication statistics in multi-way clustering. Made r(reps) return value reflect possible reduction to 2^G.
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
 *       If seed() not specified, then return c(seed) in r(seed). For waldtest, nograph just compute CI analytically.
 *       Prevented WRE crash when no clustering.
