@@ -1,4 +1,4 @@
-*!  boottest 2.0.3 9 May 2018
+*!  boottest 2.0.3 10 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -686,6 +686,7 @@ end
 
 * Version history
 * 2.0.3 Added automatic reporting of any infeasible replication statistics in multi-way clustering. Made r(reps) return value reflect possible reduction to 2^G.
+*       Made "unrestricted WRE" (WUE?) work.
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
 *       If seed() not specified, then return c(seed) in r(seed). For waldtest, nograph just compute CI analytically.
 *       Prevented WRE crash when no clustering.

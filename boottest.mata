@@ -1,4 +1,4 @@
-*!  boottest 2.0.3 9 May 2018
+*!  boottest 2.0.3 10 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -820,7 +820,7 @@ void boottestModel::boottest() {
 			pM_Repl->InitEstimate()
 			pM_Repl->InitTestDenoms(S) // prepare for replication regressions, null not imposed
 			pM_Repl->Estimate(s)
-			numer = *pR0 * pM_Repl->beta - *pr0
+			numer = null | j==1? *pR0 * pM_Repl->beta - *pr0 : *pR0 * (pM_Repl->beta - M_DGP.beta0)
 
 			if (robust) { // Compute denominator for this WRE test stat
 				denom = smatrix()
