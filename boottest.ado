@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.00.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.00.03" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
