@@ -1,4 +1,4 @@
-*!  boottest 2.0.4 10 May 2018
+*!  boottest 2.0.5 11 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -59,7 +59,7 @@ class boottestModel {
 		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
-	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoAllData
+	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData
 	string scalar wttype, madjtype
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare
 	real rowvector peak
@@ -542,6 +542,7 @@ void boottestModel::boottest() {
 			pinfoErrData    = NClustVar > NErrClust ? &_panelsetup(*pID, subcluster+1..NClustVar) : &infoAllData // info for intersections of error clustering wrt data
 			IDErr = NClustVar==1 | rows(*pinfoErrData)==Nobs? *pID : (*pID)[(*pinfoErrData)[,1],] // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs
 
+			
 			if (subcluster) { // for subcluster bootstrap, bootstrapping cluster is not among error clustering combinations
 				pBootClust = &(boottest_clust())
 				pBootClust->info = NClustVar > NBootClustVar? _panelsetup(IDAll, 1..NBootClustVar) : _panelsetup(IDAll, 1..NBootClustVar, IDBootData) // bootstrapping cluster info w.r.t. all-bootstrap & error-cluster intersections
@@ -557,7 +558,11 @@ void boottestModel::boottest() {
 				Clust[c].multiplier   = 2 * mod(cols(ClustCols),2) - 1
 
 				if (c == 1)
-				  Clust[c].info       = subcluster? _panelsetup(IDErr, ClustCols) : J(rows(infoAllData),0,0)  // J(rows(infoAllData),0,0) causes no collapsing of data in _panelsum() calls
+				  if (subcluster) {
+						IDErr = IDErr[ Clust.order = order(IDErr, ClustCols), ]
+						Clust.info       = _panelsetup(IDErr, ClustCols)
+					} else
+						Clust.info       = J(rows(infoAllData),0,0)  // J(rows(infoAllData),0,0) causes no collapsing of data in _panelsum() calls
 				else {
 					if (any( Combs[|c, min(boottest_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
 						IDErr = IDErr[ Clust[c].order = order(IDErr, ClustCols), ]
@@ -604,6 +609,9 @@ void boottestModel::boottest() {
 		purerobust = NBootClust==Nobs & !ML // do we ever error-cluster *and* bootstrap-cluster by individual?
  		doQQ = !purerobust & NBootClust * (sumN + NBootClust * (reps+1)) +.5*(NErrClustCombs)*NBootClust < 2*(reps + 1)*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
+		if (robust & purerobust < NErrClustCombs)
+			infoErrAll = _panelsetup(IDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
+
 		if (cols(*pFEID)) { // fixed effect prep
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
 			NFE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
@@ -620,7 +628,7 @@ void boottestModel::boottest() {
 					wtFE[FEs->is] = FEs->wt
 					j = i
 					
-					if (FEboot) { // are all of this FE's obs in same bootstrapping cluster?
+					if (FEboot & NClustVar) { // are all of this FE's obs in same bootstrapping cluster?
 						t = (*pID)[FEs->is, 1..NBootClustVar]
 						FEboot = all(t :== t[1,])
 					}
@@ -895,9 +903,9 @@ void boottestModel::boottest() {
 				else
 					if (subcluster) // crosstab c,c* is wide
 						for (d=df;d;d--) {
-							CT_eZVR0[d].M = J(rows(*pinfoErrData), NBootClust, 0)
+							CT_eZVR0[d].M = J(rows(infoErrAll), NBootClust, 0)
 							for (i=rows(CT_eZVR0[d].M);i;i--) {
-								t = (*pinfoErrData)[i,]'
+								t = infoErrAll[i,]'
 								CT_eZVR0[d].M[|(i\i), t|] = (*peZVR0)[|t, (d\d)|]'
 							}
 							if (scoreBS)
@@ -905,7 +913,7 @@ void boottestModel::boottest() {
 						}
 					else // crosstab c,c* is tall
 						for (d=df;d;d--) {
-							CT_eZVR0[d].M = J(rows(*pinfoErrData), NBootClust, 0)
+							CT_eZVR0[d].M = J(rows(infoErrAll), NBootClust, 0)
 							for (i=cols(CT_eZVR0[d].M);i;i--) {
 								t = pBootClust->info[i,]'
 								CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
@@ -1189,8 +1197,8 @@ void boottestModel::plot(real scalar level) {
 				hi = gridstop <.? gridstop  : cuepoint + t
 			} else {
 				make_DistCDR()
-				lo = gridstart<.? gridstart : numer[1] + *pr0 + DistCDR[floor((   alpha/2)*(rows(DistCDR)-1))+1] * abs(numer[1]/Dist[1]) // initial guess based on distribution from main test
-				hi = gridstop <.? gridstop  : numer[1] + *pr0 + DistCDR[ceil (( 1-alpha/2)*(rows(DistCDR)-1))+1] * abs(numer[1]/Dist[1])
+				lo = gridstart<.? gridstart : numer[1] + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1]) // initial guess based on distribution from main test
+				hi = gridstop <.? gridstop  : numer[1] + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1])
 			}
 		else {
 			t = abs(numer/Dist) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))

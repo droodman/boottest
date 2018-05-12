@@ -1,4 +1,4 @@
-*!  boottest 2.0.4 10 May 2018
+*!  boottest 2.0.5 11 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -383,22 +383,23 @@ program define _boottest, rclass sortpreserve
 			local bootcluster `clustvars'
 			if `reps' & `:word count `clustvars''>1 di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
 		}
-		local clustvars `:list bootcluster - clustvars' `:list clustvars & bootcluster' `:list clustvars - bootcluster' // put bootstrapping clusters first, error clusters last, overlap in middle
+		local    clustvars `:list clustvars & bootcluster' `:list clustvars - bootcluster'
+		local allclustvars `:list bootcluster - clustvars' `clustvars' // put bootstrapping clusters first, error clusters last, overlap in middle
 
-		sort `clustvars', stable
+		sort `allclustvars', stable
 
-		foreach clustvar in `clustvars' {
+		foreach clustvar in `allclustvars' {
 			cap confirm numeric var `clustvar'
 			if _rc {
 				tempvar IDname
 				qui egen long `IDname' = group(`clustvar') if e(sample)
-				local _clustvars `_clustvars' `IDname'
+				local _allclustvars `_allclustvars' `IDname'
 			}
-			else local _clustvars `_clustvars' `clustvar'
+			else local _allclustvars `_allclustvars' `clustvar'
 		}
-		local clustvars `_clustvars'
+		local allclustvars `_allclustvars'
 	}
-	
+
 	forvalues h=1/`N_h0s' { // loop over multiple independent constraints
 		_estimates hold `hold', restore
 		ereturn post `b'
@@ -567,7 +568,7 @@ program define _boottest, rclass sortpreserve
 
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`clustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
+												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints')
 
@@ -685,6 +686,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.0.5 Fixed subcluster bootstrap bug & possible failure to find graph bounds when many replications infeasible and bounds not manually set
 * 2.0.4 Made "unrestricted WRE" (WUE?) work.
 * 2.0.3 Added automatic reporting of any infeasible replication statistics in multi-way clustering. Made r(reps) return value reflect possible reduction to 2^G.
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
