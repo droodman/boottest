@@ -50,7 +50,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 	struct smatrix colvector WZVR0
 
 	void new(), InitExog(), InitEndog(), InitTestDenoms(), SetDGP(), SetS(), InitEstimate(), Estimate(), setParent(), SetLIMLFullerK(), SetAR()
-	pointer(real matrix) scalar demean()
+	pointer(real matrix) scalar partialFE()
 }
 
 class boottestModel {
@@ -98,10 +98,10 @@ void AnalyticalModel::SetAR(real scalar _AR) {
 void AnalyticalModel::InitExog() {
 	real matrix ZExclXEx
 
-	parent->pXEx = demean(parent->pXEx)
+	parent->pXEx = partialFE(parent->pXEx)
 	pXExXEx = &cross(*parent->pXEx, *parent->pwt, *parent->pXEx)
 	if (cols(*parent->pZExcl)) { // GMM, 2SLS, LIML
-		parent->pZExcl = demean(parent->pZExcl)
+		parent->pZExcl = partialFE(parent->pZExcl)
 		ZExclXEx = cross(*parent->pZExcl, *parent->pwt, *parent->pXEx)
 		pZXEx = &(*pXExXEx \ ZExclXEx)
 		if (parent->IV)
@@ -122,7 +122,7 @@ void AnalyticalModel::SetS(real matrix S) {
 void AnalyticalModel::InitEndog(pointer (real colvector) scalar _pY, pointer (real matrix) scalar _pXEnd, | ///
 		pointer (real colvector) scalar _pZExclY, pointer (real rowvector) scalar _pXExY, real scalar _YY, pointer (real matrix) scalar _pZExclXEnd, pointer (real matrix) scalar _pXExXEnd) {
 
-	pY = demean(_pY); pXEnd = demean(_pXEnd)
+	pY = partialFE(_pY); pXEnd = partialFE(_pXEnd)
 	
 	pXExY = _pXExY==NULL? &cross(*parent->pXEx, *parent->pwt, *parent->pY) : _pXExY
 	if (K | AR)
@@ -606,7 +606,7 @@ void boottestModel::boottest() {
 			pinfoBootData = &J(Nobs,0,0) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
 		NBootClust  = rows(*pinfoBootData)
 
-		purerobust = NBootClust==Nobs & !ML // do we ever error-cluster *and* bootstrap-cluster by individual?
+		purerobust = NBootClust==Nobs & !ML & !subcluster // do we ever error-cluster *and* bootstrap-cluster by individual?
  		doQQ = !purerobust & NBootClust * (sumN + NBootClust * (reps+1)) +.5*(NErrClustCombs)*NBootClust < 2*(reps + 1)*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
 		if (robust & purerobust < NErrClustCombs)
@@ -882,7 +882,7 @@ void boottestModel::boottest() {
 		// Compute denominators and test stats
 		if (robust) {
 			if (purerobust < NErrClustCombs) {
-				if (reps & !scoreBS)
+				if (!scoreBS)
 					for (d=df;d;d--) {
 						t = pM->ZVR0[,d]
 								XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, *pinfoErrData)
@@ -967,7 +967,7 @@ void boottestModel::boottest() {
 							if (weights) euZVR0[d].M = euZVR0[d].M :* *pwt
 						}
 					else {
-						eu = *M_DGP.demean(&(pM->e :* u))
+						eu = *M_DGP.partialFE(&(pM->e :* u))
 						if (scoreBS)
 							eu = eu :- (weights? cross(eu, *pwt)/sumwt : colsum(eu)/Nobs)
 						else {
@@ -1123,7 +1123,7 @@ real matrix boottestModel::count_binary(real scalar N, real scalar lo, real scal
 }
 
 // partial fixed effects out of a data matrix
-pointer(real matrix) scalar AnalyticalModel::demean(pointer(real matrix) scalar pIn) {
+pointer(real matrix) scalar AnalyticalModel::partialFE(pointer(real matrix) scalar pIn) {
 	if (parent->NFE & pIn!=NULL) {
 		real matrix Out, t; pointer (struct structFE scalar) scalar thisFE
 		thisFE = parent->FEs; Out = J(rows(*pIn), cols(*pIn), .)

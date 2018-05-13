@@ -686,7 +686,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.0.5 Fixed subcluster bootstrap bug & possible failure to find graph bounds when many replications infeasible and bounds not manually set
+* 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
+*       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set
 * 2.0.4 Made "unrestricted WRE" (WUE?) work.
 * 2.0.3 Added automatic reporting of any infeasible replication statistics in multi-way clustering. Made r(reps) return value reflect possible reduction to 2^G.
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.
