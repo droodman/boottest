@@ -1,4 +1,4 @@
-*!  boottest 2.0.5 11 May 2018
+*!  boottest 2.0.5 15 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -546,7 +546,7 @@ void boottestModel::boottest() {
 			if (subcluster) { // for subcluster bootstrap, bootstrapping cluster is not among error clustering combinations
 				pBootClust = &(boottest_clust())
 				pBootClust->info = NClustVar > NBootClustVar? _panelsetup(IDAll, 1..NBootClustVar) : _panelsetup(IDAll, 1..NBootClustVar, IDBootData) // bootstrapping cluster info w.r.t. all-bootstrap & error-cluster intersections
-				NBootClustVar  = rows(pBootClust->info)
+				NBootClust = rows(pBootClust->info)
 			} else {
 				pBootClust = &(Clust[2^(NClustVar - NBootClustVar)]) // location of bootstrap clustering within list of cluster combinations
 				if (NClustVar > NBootClustVar)
