@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0 23 February 2018}{...}
+{* *! version 2.0.5 15 May 2018}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -371,8 +371,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest post_self=.04, weight(webb) noci}{space 24} // wild bootstrap, Webb weights, null imposed, 1000 replications, no graph or CI{p_end}
 {phang}. {stata scoretest post_self=.04}{space 42} // Rao score/Lagrange multipler test of same{p_end}
 
-{phang}. {stata boottest (post_self) (post), reps(100000) weight(webb)} // wild bootstrap test of joint null, Webb weights, null imposed, 100,000 replications{p_end}
-{phang}. {stata boottest post_self post, reps(100000) weight(webb)} // same, because multiple coefficients can be listed in single constraint{p_end}
+{phang}. {stata boottest (post_self) (post), reps(99999) weight(webb)} // wild bootstrap test of joint null, Webb weights, null imposed, 99,999 replications{p_end}
+{phang}. {stata boottest post_self post, reps(99999) weight(webb)} // same, because multiple coefficients can be listed in single constraint{p_end}
 {phang}. {stata boottest (post_self=.04) (post)} // joint test{p_end}
 {phang}. {stata boottest {post_self=.04} {post}} // separate tests, no correction for multiple hypotheses{p_end}
 {phang}. {stata boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak)} // separate tests, Sidak correction for multiple hypotheses{p_end}

@@ -56,7 +56,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 class boottestModel {
 	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
 		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas
+		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas, u_sd
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData
@@ -425,9 +425,11 @@ real colvector boottestModel::get_dist(| string scalar diststat) {
 	return(DistCDR)
 }
 void boottestModel::make_DistCDR(| string scalar diststat) {
-	if (diststat == "numer")
-		_sort( DistCDR = numer[|2\.|]' :+ (numer[1] + *pr0) , 1)
-	else if (!rows(DistCDR))
+	pointer (real rowvector) scalar pnumer
+	if (diststat == "numer") {
+		pnumer = u_sd==1? &numer : &(numer / u_sd)
+		_sort( DistCDR = (*pnumer)[|2\.|]' :+ ((*pnumer)[1] + *pr0) , 1)
+	}else if (!rows(DistCDR))
 		if (rows(Dist)>1)
 			_sort( DistCDR=Dist[|2\.|] , 1)
 		else
@@ -649,6 +651,7 @@ void boottestModel::boottest() {
 				infoBootAll = _panelsetup(IDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
 		}
 
+		u_sd = 1 // standard deviation of weights
 		if (reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
 			if (!quietly) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
 			u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
@@ -658,15 +661,29 @@ void boottestModel::boottest() {
 				u = rnormal(NBootClust, reps+1, -WREnonAR, 1) // normal weights
 			else if (wildtype==4)
 				u = rgamma(NBootClust, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
-			else if (wildtype==2) {
-				u = ceil(runiform(NBootClust, reps+1) * 3); u = sqrt(u+u) :* ((runiform(NBootClust, reps+1):>=.5):-.5)
-			} else if (wildtype) {
-				u = ( rdiscrete(NBootClust, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) * sqrt(5) :+ (.5 - WREnonAR) // Mammen
+			else if (wildtype==2)
+				if (WREnonAR) {
+					u = ceil(runiform(NBootClust, reps+1) * 3); u = sqrt(u + u) :* ((runiform(NBootClust, reps+1):>=.5):-.5) :- 1 // Webb weights
+				} else {
+					u = sqrt(ceil(runiform(NBootClust, reps+1) * 3)) :* ((runiform(NBootClust, reps+1):>=.5):-.5)      // Webb weights, divided by sqrt(2)
+					u_sd = sqrt(.5)
+				}
+			else if (wildtype) {
+				if (WREnonAR)
+					u = ( rdiscrete(NBootClust, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) *sqrt(5) :+ (.5 - 1) // Mammen weights
+				else {
+					u = ( rdiscrete(NBootClust, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 )          :+  .5     /sqrt(5) // Mammen weights, divided by sqrt(5)
+					u_sd = sqrt(.2)
+				}
 				if (!quietly & NBootClust*ln(2) < ln(reps)+1e-6) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
-			}	else {
-				u = runiform(NBootClust, reps+1) :>= .5; u = u + u :- (1 + WREnonAR) // Rademacher
-			}
-			u[,1] = J(NBootClust, 1, 1-WREnonAR)  // keep original residuals in first entry to compute base model stat
+			} else
+				if (WREnonAR) {
+					u = runiform(NBootClust, reps+1) :>= .5; u = u + u :- 2 // Rademacher
+				} else {
+					u = runiform(NBootClust, reps+1) :>= .5; u = u :- .5 // Rademacher weights, divided by 2
+					u_sd = .5
+				}
+			u[,1] = J(NBootClust, 1, WREnonAR? 0 : u_sd)  // keep original residuals in first entry to compute base model stat
 		}
 		U = WREnonAR? u[IDBootData,] : J(0,0,0)
 
@@ -858,26 +875,33 @@ void boottestModel::boottest() {
 
 	} else { // non-WRE
 
-		if (ML)
-			eZVR0 = *pSc * (VR0 = *pV * *pR0')
-		else if (scoreBS | (robust & purerobust<NErrClustCombs))
-			eZVR0 = pM->e :* pM->ZVR0
+		if (rows(Dist)==0 | null) {  // if are imposing null and or we are not, but this is first call, then build stuff
+			if (ML)
+				eZVR0 = *pSc * (VR0 = *pV * *pR0')
+			else if (scoreBS | (robust & purerobust<NErrClustCombs))
+				eZVR0 = pM->e :* pM->ZVR0
 
-		if (scoreBS)
-			numer = cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights? eZVR0:* *pwt : eZVR0), u)
-		else {
-			pewt = weights? &(pM->e :* *pwt) : &pM->e
-			pt = &_panelsum(*pXEx, *pewt, *pinfoBootData)
-			if (AR)
-				pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoBootData))
-			SewtXV = *pM->pV * (*pt)'
-			if (!robust)
-				betadev = SewtXV * u
-			numer = (*pR0 * SewtXV) * u
+			if (scoreBS)
+				numer = cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights? eZVR0:* *pwt : eZVR0), u)
+			else {
+				pewt = weights? &(pM->e :* *pwt) : &pM->e
+				pt = &_panelsum(*pXEx, *pewt, *pinfoBootData)
+				if (AR)
+					pt = &(*pt, _panelsum(*pZExcl, *pewt, *pinfoBootData))
+				SewtXV = *pM->pV * (*pt)'
+				if (!robust)
+					betadev = SewtXV * u
+				numer = (*pR0 * SewtXV) * u
+			}
 		}
 
-		if      ( AR  ) numer[,1] = pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
-		else if (!null) numer[,1] = *pR0 * (ML? beta : pM->beta) - *pr0 // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+		if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
+		else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+
+		if (rows(Dist) & !null) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
+			Dist[1] = numer[1] / sqrt(denom.M[1]) * multiplier
+			return
+		}
 
 		// Compute denominators and test stats
 		if (robust) {
@@ -1010,16 +1034,14 @@ void boottestModel::boottest() {
 
 			pVR0 = ML? &VR0 : &(pM->VR0)
 			if (df == 1) {  // optimize for one null constraint
-				Dist = sqrt? numer / sqrt(*pR0 * *pVR0) : (numer:*numer) / (*pR0 * *pVR0)
-				if (ML)
-					Dist = Dist'
-				else {
+				denom.M = *pR0 * *pVR0
+				if (!ML) {
 					             eu = u :* pM->e
 					if (scoreBS) eu = eu :- (weights? cross(ClustShare, eu) : colsum(eu) * ClustShare)  // Center variance if needed
 					  else       eu = eu  - (*pXEx, *pZExcl) * betadev // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-					t = weights? cross(*pwt, eu :* eu) : colsum(eu :* eu)
-					Dist = (Dist  :/ (sqrt? sqrt(t) : t))'
+					denom.M = denom.M :* (weights? cross(*pwt, eu :* eu) : colsum(eu :* eu))
 				}
+				Dist = (numer :/ sqrt(denom.M))'
 			} else {
 				denom.M = invsym(*pR0 * *pVR0)
 				Dist = J(cols(u), 1, .)
@@ -1197,13 +1219,13 @@ void boottestModel::plot(real scalar level) {
 				hi = gridstop <.? gridstop  : cuepoint + t
 			} else {
 				make_DistCDR()
-				lo = gridstart<.? gridstart : numer[1] + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1]) // initial guess based on distribution from main test
-				hi = gridstop <.? gridstop  : numer[1] + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1])
+				lo = gridstart<.? gridstart : numer[1]/u_sd + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1]) // initial guess based on distribution from main test
+				hi = gridstop <.? gridstop  : numer[1]/u_sd + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1])
 			}
 		else {
 			t = abs(numer/Dist) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))
-			lo = gridstart<.? gridstart : numer + *pr0 + t
-			hi = gridstop <.? gridstop  : numer + *pr0 - t
+			lo = gridstart<.? gridstart : numer/u_sd + *pr0 + t
+			hi = gridstop <.? gridstop  : numer/u_sd + *pr0 - t
 			
 			if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
 				CI = lo, hi
@@ -1223,7 +1245,7 @@ void boottestModel::plot(real scalar level) {
 	}
 
 	plotX = rangen(lo, hi, gridpoints)
-	if (cuepoint == .) cuepoint = numer[1] + *pr0 // non-AR case
+	if (cuepoint == .) cuepoint = numer[1] / u_sd + *pr0 // non-AR case
 	if (cuepoint < lo) { // insert original point estimate into grid
 		if (gridstart == .) {
 			plotX = cuepoint \ plotX
