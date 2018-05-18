@@ -881,8 +881,6 @@ void boottestModel::boottest() {
 			XExZVR0 = ZExclZVR0 = CT_eZVR0 = smatrix(df)
 			pQ = J(NErrClustCombs, df, NULL)
 		}
-		
-		initialized = 1
 	} // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
 
 	if (!ML) // GMM, 2SLS, analytical LIML
@@ -898,7 +896,7 @@ void boottestModel::boottest() {
 		}
 
 	if (WREnonAR) {
-		if (!(dirty | null)) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
+		if (initialized & !null) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
 			numer[1] = *pR0 * pM_Repl->beta - *pr0
 			Dist[1] = numer[1] / sqrt(denom.M[1]) * multiplier
 			return
@@ -979,7 +977,7 @@ void boottestModel::boottest() {
 
 	} else { // non-WRE
 
-		if (dirty | null) {  // if are imposing null or we are not, but this is first call, then build stuff
+		if (!initialized | null) {  // if are imposing null or we are not, but this is first call, then build stuff
 			if (ML)
 				eZVR0 = *pSc * (VR0 = *pV * *pR0')
 			else if (scoreBS | (robust & purerobust<NErrClustCombs))
@@ -1002,7 +1000,7 @@ void boottestModel::boottest() {
 		if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
 		else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 
-		if (!(dirty | null)) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
+		if (initialized & !null) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
 			Dist[1] = numer[1] / sqrt(denom.M[1]) * multiplier
 			return
 		}
@@ -1167,6 +1165,7 @@ void boottestModel::boottest() {
 	if (multiplier!=1) Dist = Dist * multiplier
 	DistCDR = J(0,0,0)
 	set_dirty(0)
+	initialized = 1
 }
 
 // like panelsetup() but can group on multiple columns, like sort(), and faster. But doesn't take minobs, maxobs arguments.
@@ -1283,7 +1282,7 @@ real matrix boottestModel::crosstab(real colvector v) {
 // performs no error checking
 real scalar boottestModel::r0_to_p(real scalar r0) {
 	pr0 = &r0
-	set_dirty(1)
+	dirty = 1 // DON'T call set_dirty() because it will set initialized=0, which we don't want when only changing r0
 	return (get_padj())
 }
 
