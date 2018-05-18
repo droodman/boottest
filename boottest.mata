@@ -895,7 +895,7 @@ void boottestModel::boottest() {
 
 	} else { // non-WRE
 
-		if (rows(Dist)==0 | null) {  // if are imposing null and or we are not, but this is first call, then build stuff
+		if (rows(Dist)==0 | null) {  // if are imposing null or we are not, but this is first call, then build stuff
 			if (ML)
 				eZVR0 = *pSc * (VR0 = *pV * *pR0')
 			else if (scoreBS | (robust & purerobust<NErrClustCombs))
