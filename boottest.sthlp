@@ -402,7 +402,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {phang}. {stata ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)}{p_end}
 {phang}. {stata boottest tenure, nograph} // Wald test, WRE bootstrap, Rademacher weights, 1000 replications{p_end}
-{phang}. {stata boottest tenure, nograph ar} // same, but Anderson-Rubin (faster){p_end}
+{phang}. {stata boottest tenure, nograph ar} // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid){p_end}
 
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)} // multi-way-clustered test after estimation command not offering such{p_end}

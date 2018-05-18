@@ -216,7 +216,7 @@ program define _boottest, rclass sortpreserve
 	if "`boottype'"'=="" local boottype = cond(`ML', "score", "wild")
 	else {
 		local 0, `boottype'
-		syntax, [SCore Wild]
+		syntax, [Wild SCore]
 		local boottype `score'`wild'
 		if "`boottype'" == "wild" & `ML' {
 			di as err "{cmd:boottype(wild)} not accepted after GMM or Maximum Likelihood-based estimation."
@@ -586,7 +586,6 @@ program define _boottest, rclass sortpreserve
 			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
 		}
 		
-		di
 		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
@@ -691,6 +690,7 @@ end
 *       Fixed crash in FE estimation when FE cluster = error cluster
 *       Accelerated generation of some wild weights by exploiting fact that results are invariant to rescaling of the weights
 *       Finally optimized CI construction for nonull case.
+*       Made default plot bounds more symmetric.
 * 2.0.4 Made "unrestricted WRE" (WUE?) work.
 * 2.0.3 Added automatic reporting of any infeasible replication statistics in multi-way clustering. Made r(reps) return value reflect possible reduction to 2^G.
 * 2.0.2 Dropped citations from output but added reporting of weight type. Added warning if alpha*(B+1) not integer. Sped up Webb weight generation.

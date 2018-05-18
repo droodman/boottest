@@ -54,9 +54,9 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 }
 
 class boottestModel {
-	real scalar scoreBS, reps, small, wildtype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
-		sqrt, cons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas, u_sd
+	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
+		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
+		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas, u_sd, level
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	real matrix numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData
@@ -74,15 +74,14 @@ class boottestModel {
 
 	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
 	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r(), get_reps(), get_repsFeas()
-	real matrix combs(), count_binary(), crosstab()
+	real matrix combs(), count_binary(), crosstab(), get_plot(), get_CI()
+	real rowvector get_peak()
 	real colvector get_dist()
 }
-
 void AnalyticalModel::new()
 	AR = 0
 
-void AnalyticalModel::setParent(class boottestModel scalar B)
-	parent = &B
+void AnalyticalModel::setParent(class boottestModel scalar B) parent = &B
 
 void AnalyticalModel::SetLIMLFullerK(real scalar _LIML, real scalar _Fuller, real scalar _K) {
 	LIML = _LIML
@@ -268,7 +267,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 	if (!(parent->robust | parent->scoreBS) | (DGP==NULL & LIML)) // useful in non-robust, residual-based bootstrap, and in computing e2 in LIML (just below)
 		ee = YY - 2 * *pXY ' beta + beta ' (*pXX) * beta
 	if (!(parent->robust | parent->scoreBS))
-		eec = parent->cons? ee : ee - (parent->weights? cross(e, *parent->pwt) : sum(e))^2 / parent->_Nobs // sum of squares after centering, N * Var
+		eec = parent->hascons? ee : ee - (parent->weights? cross(e, *parent->pwt) : sum(e))^2 / parent->_Nobs // sum of squares after centering, N * Var
 
 	if (DGP==NULL & LIML) {
 		Ze = ZY - ZX * beta
@@ -283,8 +282,9 @@ void AnalyticalModel::Estimate(real colvector s) {
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = wildtype = Neq = ML = initialized = quietly = sqrt = cons = IV = ptype = robust = willplot = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = 0
-	twotailed = null = dirty = 1
+	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = 0
+	twotailed = null = dirty = willplot = 1
+	level = 95
 	cuepoint = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pFEID = pR = pR0 = pwt = &J(0,0,0)
 	pr = pr0 = &J(0,1,0)
@@ -361,8 +361,8 @@ void boottest_set_W    (class boottestModel scalar M, real matrix W ) {
 void boottest_set_small   (class boottestModel scalar M, real scalar small   ) {
 	M.small = small; M.set_dirty(1)
 }
-void boottest_set_cons(class boottestModel scalar M, real scalar cons) {
-	M.cons = cons; M.set_dirty(1)
+void boottest_set_hascons(class boottestModel scalar M, real scalar hascons) {
+	M.hascons = hascons; M.set_dirty(1)
 }
 void boottest_set_scoreBS (class boottestModel scalar M, real scalar scoreBS ) {
 	M.scoreBS = scoreBS; M.set_dirty(1)
@@ -389,6 +389,8 @@ void boottest_set_ID      (class boottestModel scalar M, real matrix ID, | real 
 void boottest_set_FEID      (class boottestModel scalar M, real matrix ID) {
 	M.pFEID = &ID; M.set_dirty(1)
 }
+void boottest_set_level  (class boottestModel scalar M, real scalar level  )
+	M.level = level
 void boottest_set_robust  (class boottestModel scalar M, real scalar robust  ) {
 	M.robust = robust
 	if (robust==0) boottest_set_ID(M, J(0,0,0), 1, 1)
@@ -412,9 +414,9 @@ void boottest_set_madjust(class boottestModel scalar M, string scalar madjtype, 
 	if (M.madjtype != "bonferroni" & M.madjtype != "sidak" & M.madjtype != "")
 		_error(198, `"Multiple-hypothesis adjustment type must be "Bonferroni" or "Sidak"."')
 }
-void boottest_set_wildtype(class boottestModel scalar M, string scalar wildtype) {
-	wildtype = strlower(wildtype)
-	if (.==(M.wildtype = wildtype=="rademacher" ? 0 : (wildtype=="mammen" ? 1 : (wildtype=="webb" ? 2 : (wildtype=="normal" ? 3 : (wildtype=="gamma" ? 4 : .))))))
+void boottest_set_weighttype(class boottestModel scalar M, string scalar weighttype) {
+	weighttype = strlower(weighttype)
+	if (.==(M.weighttype = weighttype=="rademacher" ? 0 : (weighttype=="mammen" ? 1 : (weighttype=="webb" ? 2 : (weighttype=="normal" ? 3 : (weighttype=="gamma" ? 4 : .))))))
 		_error(198, `"Wild type must be "Rademacher", "Mammen", "Webb", "Normal", or "Gamma"."')
 	M.set_dirty(1)
 }
@@ -490,6 +492,18 @@ real scalar boottestModel::get_df() {
 real scalar boottestModel::get_df_r() {
 	if (dirty) boottest()
 	return(df_r)
+}
+real matrix boottestModel::get_plot() {
+	if (!plotted) plot()
+	return((plotX,plotY))
+}
+real rowvector boottestModel::get_peak() {
+	if (!plotted) plot()
+	return(peak)
+}
+real matrix boottestModel::get_CI() {
+	if (!plotted) plot()
+	return(CI)
 }
 
 void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string scalar selectvar) {
@@ -652,23 +666,23 @@ void boottestModel::boottest() {
 		}
 
 		u_sd = 1 // standard deviation of weights
-		if (reps & wildtype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
+		if (reps & weighttype==0 & NBootClust*ln(2) < ln(reps)+1e-6) {
 			if (!quietly) printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
 			u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
 			reps = cols(u) - 1
 		} else {
-			if (wildtype==3)
+			if (weighttype==3)
 				u = rnormal(NBootClust, reps+1, -WREnonAR, 1) // normal weights
-			else if (wildtype==4)
+			else if (weighttype==4)
 				u = rgamma(NBootClust, reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
-			else if (wildtype==2)
+			else if (weighttype==2)
 				if (WREnonAR) {
 					u = ceil(runiform(NBootClust, reps+1) * 3); u = sqrt(u + u) :* ((runiform(NBootClust, reps+1):>=.5):-.5) :- 1 // Webb weights
 				} else {
 					u = sqrt(ceil(runiform(NBootClust, reps+1) * 3)) :* ((runiform(NBootClust, reps+1):>=.5):-.5)      // Webb weights, divided by sqrt(2)
 					u_sd = sqrt(.5)
 				}
-			else if (wildtype) {
+			else if (weighttype) {
 				if (WREnonAR)
 					u = ( rdiscrete(NBootClust, reps+1,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) *sqrt(5) :+ (.5 - 1) // Mammen weights
 				else {
@@ -800,6 +814,12 @@ void boottestModel::boottest() {
 		}
 
 	if (WREnonAR) {
+		if (rows(Dist) & !null) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
+			numer[1] = *pR0 * pM_Repl->beta - *pr0
+			Dist[1] = numer[1] / sqrt(denom.M[1]) * multiplier
+			return
+		}
+
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
 		Dist = J(cols(u), 1, .)
 		pu = NClustVar? &U : &u
@@ -1194,7 +1214,7 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 }
 	
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
-void boottestModel::plot(real scalar level) {
+void boottestModel::plot() {
 	real scalar t, alpha, _quietly, c, i, j; real colvector lo, hi; pointer (real colvector) _pr0
 
 	_quietly = quietly
@@ -1233,12 +1253,18 @@ void boottestModel::plot(real scalar level) {
 			}
 		}
 		
-		if (gridstart==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by doubling on low side
-			for (i=10; i & -r0_to_p(lo)<-alpha; i--)
-				lo = 2 * lo - hi
+		if (gridstart==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+			for (i=10; i & -r0_to_p(lo)<-alpha; i--) {
+				t = hi - lo
+				lo = lo - t
+				hi = hi + t
+			}
 		if (gridstop==. & ptype!=2) // ditto for high side
-			for (i=10; i & -r0_to_p(hi)<-alpha; i--)
-				hi = 2 * hi - lo
+			for (i=10; i & -r0_to_p(hi)<-alpha; i--) {
+				t = hi - lo
+				lo = lo - t
+				hi = hi + t
+			}
 	} else {
 		lo = gridstart
 		hi = gridstop
@@ -1269,6 +1295,7 @@ void boottestModel::plot(real scalar level) {
 		if (mod(i-rows(plotX)-1,50)) displayflush()
 			else printf("\n")
 	}
+	printf("\n")
 
 	if (level<100) {
 		CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
@@ -1303,7 +1330,8 @@ void boottestModel::plot(real scalar level) {
 	}
 
 	boottest_set_quietly(this, _quietly)
-	pr0 = _pr0 // inconsistent in bypassing function interface to class members
+	pr0 = _pr0
+	plotted = 1
 }
 
 // return matrix whose rows are all the subsets of a row of numbers. Nil is at bottom.
@@ -1318,8 +1346,8 @@ real matrix boottestModel::combs(real scalar d) {
 // Stata interface
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
 	string scalar plotname, string scalar peakname, real scalar level, real scalar ML, real scalar LIML, real scalar Fuller, 
-	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar wildtype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
-	string scalar XExnames, string scalar XEndnames, real scalar cons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
+	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar weighttype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
+	string scalar XExnames, string scalar XEndnames, real scalar hascons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
 	string scalar FEname, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
 	real scalar small, string scalar diststat, string scalar distname, real scalar gridmin, real scalar gridmax, real scalar gridpoints) {
@@ -1345,7 +1373,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (IDnames != "") ID   = st_data(., IDnames, samplename)
 	if (wtname  != "") wt   = st_data(., wtname , samplename) // panelsum() doesn't like views as weights
 
-	boottest_set_cons(M, cons)
+	boottest_set_hascons(M, hascons)
 	boottest_set_sc(M, sc)
 	boottest_set_ML(M, ML)
 	boottest_set_Y (M, Y)
@@ -1359,7 +1387,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	boottest_set_small(M, small)
 	boottest_set_robust(M, robust)
 	boottest_set_scoreBS(M, scoreBS)
-	boottest_set_wildtype(M, wildtype)
+	boottest_set_weighttype(M, weighttype)
 	boottest_set_ptype(M, ptype)
 	boottest_set_wttype(M, wttype)
 	boottest_set_reps(M, reps)
@@ -1369,6 +1397,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	boottest_set_AR(M, AR)
 	boottest_set_grid(M, gridmin, gridmax, gridpoints)
 	boottest_set_madjust(M, madjtype, NumH0s)
+	boottest_set_level(M, level)
 
 	_boottest_st_view(XEnd, ., XEndnames, samplename)
 	boottest_set_XEnd(M, XEnd)
@@ -1377,7 +1406,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (bname != "") boottest_set_beta(M, st_matrix(bname)')
 	if (Vname != "") boottest_set_V   (M, st_matrix(Vname) )
 	if (Wname != "") boottest_set_W   (M, st_matrix(Wname) )
-	boottest_set_willplot(M, plotname != "")
+	boottest_set_willplot(M, plotname != "") // can make point estimate a little faster if not going to plot
 
 	st_numscalar(statname, M.get_stat())
 	st_numscalar(pname   , M.get_p   ())
@@ -1388,10 +1417,9 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	st_numscalar(dfrname , M.get_df_r())
 	if (distname != "") st_matrix(distname, M.get_dist(diststat))
 	if (plotname != "" | (level<100 & ciname != "")) {
-		M.plot(level)
-		if (plotname != "") st_matrix(plotname, (M.plotX,M.plotY))
-		if (cols(M.peak)) st_matrix(peakname, M.peak)
-		if (level<100 & ciname != "") st_matrix(ciname, M.CI)
+		if (plotname != "") st_matrix(plotname, M.get_plot())
+		if (cols(M.peak)) st_matrix(peakname, M.get_peak())
+		if (level<100 & ciname != "") st_matrix(ciname, M.get_CI())
 	}
 
 	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak
