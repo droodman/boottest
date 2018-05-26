@@ -49,7 +49,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
 {synopt:{opt boott:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
-{synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 1000; set to 0 for Rao or Wald test{p_end}
+{synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
 {synopt:{opt l:evel(#)}}override default confidence level used for confidence set{p_end}
@@ -94,6 +94,14 @@ In addition, these options are relevant when testing a single hypothesis after O
 
 {pstd}
 {cmd:waldtest}, {cmd:artest}, and {cmd:scoretest} accept all options listed above except {cmdab:weight:type()}, {cmdab:boot:type()}, {opt r:eps(#)}, {opt svm:at}, and {opt seed(#)}.
+
+{title:UPDATE}
+
+{pstd} Version 2.0.6 of {cmd:boottest}, released in May 2018, introduced two changes that can slightly affect results. The default for {opt r:eps(#)}
+is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
+For exact replication of earlier results, an older version, 2.0.5, is available as a
+{browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed, in Stata 13 or later, via
+"{net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}".
 
 {marker description}{...}
 {title:Description}
@@ -217,7 +225,7 @@ Despite the seeming superiority of the asymmetric Mammen and gamma distributions
 in Monte Carlo simulations, in the sense of yielding tests of more accurate size (Davidson and Flachaire 2008; Kline and Santos 2012; Finlay and Magnusson 2014)
 
 {pstd}
-The {opt r:eps(#)} option sets the number of bootstrap replications. 1000 is the default but values of 10000 and higher are often feasible. Since bootstrapping
+The {opt r:eps(#)} option sets the number of bootstrap replications. 999 is the default but values of 9999 and higher are often feasible. Since bootstrapping
 involves drawing pseudorandom numbers, the exact results depend on the starting value of the random number generator and the version of the generator. See 
 {help set_seed:set seed}.
 
@@ -251,7 +259,7 @@ Webb weights are probably better.
 {phang}{opt boott:type(wild | score)}} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
 restricted efficient bootstrap is the default, which {cmd:bootttype(score)} overrides in favor of the score bootstrap.
 
-{phang}{opt r:eps(#)} sets the number of bootstrap replications. The default is 1000. Especially when clusters are few, increasing this number costs little in run 
+{phang}{opt r:eps(#)} sets the number of bootstrap replications. The default is 999. Especially when clusters are few, increasing this number costs little in run 
 time. {opt r:eps(0)} requests a Wald test or--if {opt boottype(score)} is also specified and {opt nonul:l} is not--a Rao test. The wrappers {cmd:waldtest}
 and {cmd:scoretest} facilitate this usage.
 
@@ -367,8 +375,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata "use http://web.archive.org/web/20150802214527/http://faculty.econ.ucdavis.edu/~dlmiller/statafiles/collapsed"}{p_end}
 
 {phang}. {stata regress hasinsurance selfemployed post post_self, cluster(year)}{p_end}
-{phang}. {stata boottest post_self=.04, graphopt(xtitle("Coefficient on tenure"))} // wild bootstrap, Rademacher weights, null imposed, 1000 replications{p_end}
-{phang}. {stata boottest post_self=.04, weight(webb) noci}{space 24} // wild bootstrap, Webb weights, null imposed, 1000 replications, no graph or CI{p_end}
+{phang}. {stata boottest post_self=.04, graphopt(xtitle("Coefficient on tenure"))} // wild bootstrap, Rademacher weights, null imposed, 999 replications{p_end}
+{phang}. {stata boottest post_self=.04, weight(webb) noci}{space 24} // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI{p_end}
 {phang}. {stata scoretest post_self=.04}{space 42} // Rao score/Lagrange multipler test of same{p_end}
 
 {phang}. {stata boottest (post_self) (post), reps(99999) weight(webb)} // wild bootstrap test of joint null, Webb weights, null imposed, 99,999 replications{p_end}
@@ -387,21 +395,21 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {phang}. {stata constraint 1 ttl_exp = .2} {p_end}
 {phang}. {stata cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)}{p_end}
-{phang}. {stata boottest tenure} // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 1000 replications{p_end}
+{phang}. {stata boottest tenure} // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 999 replications{p_end}
 
 {phang}. {stata ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)}{p_end}
-{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321)} // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 1000 reps{p_end}
+{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321)} // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps{p_end}
 {phang}. {stata boottest, ar} // same bootstrap, but Anderson-Rubin test (much faster){p_end}
 {phang}. {stata scoretest tenure} // Rao/LM test of same{p_end}
 {phang}. {stata waldtest tenure} // Wald test of same{p_end}
 
 {phang}. {stata ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)}{p_end}
-{phang}. {stata boottest tenure, noci} // WRE bootstrap, Rademacher weights, 1000 replications{p_end}
+{phang}. {stata boottest tenure, noci} // WRE bootstrap, Rademacher weights, 999 replications{p_end}
 {phang}. {stata cmp (wage = tenure) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)}{p_end}
 {phang}. {stata boottest tenure} // reasonable match on test statistic and p value{p_end}
 
 {phang}. {stata ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)}{p_end}
-{phang}. {stata boottest tenure, nograph} // Wald test, WRE bootstrap, Rademacher weights, 1000 replications{p_end}
+{phang}. {stata boottest tenure, nograph} // Wald test, WRE bootstrap, Rademacher weights, 999 replications{p_end}
 {phang}. {stata boottest tenure, nograph ar} // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid){p_end}
 
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
@@ -413,7 +421,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph} // should match previous result{p_end}
 
 {phang}. {stata probit c_city tenure wage ttl_exp collgrad, cluster(industry)}{p_end}
-{phang}. {stata boottest tenure}{space 25} // score bootstrap, Rademacher weights, null imposed, 1000 replications{p_end}
+{phang}. {stata boottest tenure}{space 25} // score bootstrap, Rademacher weights, null imposed, 999 replications{p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small} // multi-way-clustered, finite-sample-corrected test with score bootstrap{p_end}
 
 {phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit} // same probit estimate as previous{p_end}
