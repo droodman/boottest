@@ -1,4 +1,4 @@
-*!  boottest 2.0.6 226 May 2018
+*!  boottest 2.0.5 15 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -442,20 +442,22 @@ void boottestModel::make_DistCDR(| string scalar diststat) {
 
 // Ties count half. Robust to missing bootstrapped values being interpreted as +infinity.
 real scalar boottestModel::getp(|real scalar analytical) {
-	real scalar t
+	real scalar t; real colvector _Dist
 	if (dirty) boottest()
-	if ( (t = Dist[1]) == .) return (.)
+	t = Dist[1]
+	if (t == .) return (.)
 	if (reps & analytical==.) {
 		repsFeas = colnonmissing(Dist) - 1
 		if (sqrt & ptype != 3) {
-			if (ptype==0) // symmetric p value
-				p = 1 -(       colsum(abs(t):>abs(Dist))                      ) / repsFeas
-			else if (ptype==1) // equal-tail p value
-				p =    (2*min((colsum(    t :>    Dist ) , colsum(-t:>-Dist)))) / repsFeas
+			if (ptype==0) { // symmetric p value
+				_Dist = abs(Dist); t = abs(t)
+				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / repsFeas
+			} else if (ptype==1) // equal-tail p value
+				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / repsFeas
 			else // upper-tailed p value
-				p = 1 -(       colsum(    t :<    Dist )                      ) / repsFeas
+				p = 1 -(       colsum(t:< Dist)                       + (colsum(t:==_Dist) - 1)*.5) / repsFeas
 		} else // upper-tailed p value or p value based on squared stats 
-				p = 1 -(       colsum(    t :>    Dist )                      ) / repsFeas
+				p = 1 -(       colsum(t:> Dist)                       + (colsum(t:== Dist) - 1)*.5) / repsFeas
 	} else {
 		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
 		if (sqrt & !twotailed) {
