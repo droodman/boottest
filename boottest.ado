@@ -81,7 +81,7 @@ program define _boottest, rclass sortpreserve
 		macro shift
 	}
 	local 0 `*'
-	syntax, [h0(numlist integer >0) Reps(integer 1000) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
+	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) *]
 
 	if `reps'==0 local svmat
@@ -685,7 +685,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.0.6 Stopped (half-)counting ties
+* 2.0.6 Stopped (half-)counting ties. Changed default reps from 1000 to 999.
 * 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
 *       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set
 *       Fixed crash in FE estimation when FE cluster = error cluster
