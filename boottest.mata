@@ -1,4 +1,4 @@
-*!  boottest 2.0.5 15 May 2018
+*!  boottest 2.0.6 226 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -72,11 +72,13 @@ class boottestModel {
 	pointer (real matrix) matrix pQ
 	pointer (struct boottest_clust scalar) scalar pBootClust
 
-	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot()
-	real scalar r0_to_p(), search(), get_p(), get_padj(), get_stat(), get_df(), get_df_r(), get_reps(), get_repsFeas()
-	real matrix combs(), count_binary(), crosstab(), get_plot(), get_CI()
-	real rowvector get_peak()
-	real colvector get_dist()
+	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
+		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), 
+		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype()
+	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas()
+	real matrix combs(), count_binary(), crosstab(), getplot(), getCI()
+	real rowvector getpeak()
+	real colvector getdist()
 }
 void AnalyticalModel::new()
 	AR = 0
@@ -176,8 +178,8 @@ void AnalyticalModel::InitEstimate() {
 				TT = Splus ' TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val)
-			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks in
+			eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), vec, val)
+			K = 1/Re(1-val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks in
 		}
 
 	pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
@@ -302,126 +304,126 @@ void boottestModel::set_sqrt(real scalar _sqrt) {
 		set_dirty(1)
 	sqrt = _sqrt
 }
-void boottest_set_ptype(class boottestModel scalar M, string scalar ptype)     {
+void boottestModel::setptype(string scalar ptype)     {
 	real scalar p
 	p = cross( (strtrim(strlower(ptype)) :== ("symmetric"\"equaltail"\"lower"\"upper")), 1::4 ) - 1
 	if (p<0) 
 		_error(198, `"p-value type must be "symmetric", "equaltail", "lower", or "upper.""')
-	M.ptype = p
-	M.twotailed = p<=1
+	this.ptype = p
+	this.twotailed = p<=1
 }
-void boottest_set_dirty   (class boottestModel scalar M                      )
-	 M.set_dirty(1)
-void boottest_set_XEnd    (class boottestModel scalar M, real matrix X       ) {
-	M.pXEnd  = &X; M.set_dirty(1)
+void boottestModel::setdirty   (class boottestModel scalar M                      )
+	 set_dirty(1)
+void boottestModel::setXEnd    (real matrix X       ) {
+	this.pXEnd  = &X; set_dirty(1)
 }
-void boottest_set_XEx    (class boottestModel scalar M, real matrix X        ) {
-	M.pXEx  = &X; M.set_dirty(1)
+void boottestModel::setXEx    (real matrix X        ) {
+	this.pXEx  = &X; set_dirty(1)
 }
-void boottest_set_Y       (class boottestModel scalar M, real matrix Y       ) {
-	M.pY  = &Y; M.set_dirty(1)
+void boottestModel::setY       (real matrix Y       ) {
+	this.pY  = &Y; set_dirty(1)
 }
-void boottest_set_ZExcl   (class boottestModel scalar M, real matrix Z       ) {
-	M.pZExcl  = &Z; M.set_dirty(1)
+void boottestModel::setZExcl   (real matrix Z       ) {
+	this.pZExcl  = &Z; set_dirty(1)
 }
-void boottest_set_wt       (class boottestModel scalar M, real matrix wt     ) {
-	M.pwt  = &wt; M.set_dirty(1)
+void boottestModel::setwt       (real matrix wt     ) {
+	this.pwt  = &wt; set_dirty(1)
 }
-void boottest_set_sc      (class boottestModel scalar M, real matrix Sc) {
-	M.pSc  = &Sc
-	M.set_dirty(1)
+void boottestModel::setsc      (real matrix Sc) {
+	this.pSc  = &Sc
+	set_dirty(1)
 }
-void boottest_set_ML      (class boottestModel scalar M, real scalar ML) {
-	M.ML  = ML; M.set_dirty(1)
-	if (ML) boottest_set_scoreBS(M, 1)
+void boottestModel::setML      (real scalar ML) {
+	this.ML  = ML; set_dirty(1)
+	if (ML) setscoreBS(1)
 }
-void boottest_set_LIML    (class boottestModel scalar M, real scalar LIML) {
-	M.LIML = LIML; M.set_dirty(1)
+void boottestModel::setLIML    (real scalar LIML) {
+	this.LIML = LIML; set_dirty(1)
 }
-void boottest_set_AR    (class boottestModel scalar M, real scalar AR) {
-	M.AR = AR; M.set_dirty(1)
+void boottestModel::setAR    (real scalar AR) {
+	this.AR = AR; set_dirty(1)
 }
-void boottest_set_Fuller    (class boottestModel scalar M, real scalar Fuller) {
-	M.Fuller = Fuller; M.set_dirty(1)
+void boottestModel::setFuller    (real scalar Fuller) {
+	this.Fuller = Fuller; set_dirty(1)
 }
-void boottest_set_k    (class boottestModel scalar M, real scalar K) {
-	M.K = K; M.set_dirty(1)
+void boottestModel::setk    (real scalar K) {
+	this.K = K; set_dirty(1)
 }
-void boottest_set_quietly (class boottestModel scalar M, real scalar quietly )
-	M.quietly = quietly
-void boottest_set_beta    (class boottestModel scalar M, real colvector beta) {
-	M.beta = beta; M.set_dirty(1)
+void boottestModel::setquietly (real scalar quietly )
+	this.quietly = quietly
+void boottestModel::setbeta    (real colvector beta) {
+	this.beta = beta; set_dirty(1)
 }
-void boottest_set_V    (class boottestModel scalar M, real matrix V ) {
-	M.pV = &V; M.set_dirty(1)
+void boottestModel::setV    (real matrix V ) {
+	this.pV = &V; set_dirty(1)
 }
-void boottest_set_W    (class boottestModel scalar M, real matrix W ) {
-	M.pW = &W; M.set_dirty(1)
+void boottestModel::setW    (real matrix W ) {
+	this.pW = &W; set_dirty(1)
 }
-void boottest_set_small   (class boottestModel scalar M, real scalar small   ) {
-	M.small = small; M.set_dirty(1)
+void boottestModel::setsmall   (real scalar small   ) {
+	this.small = small; set_dirty(1)
 }
-void boottest_set_hascons(class boottestModel scalar M, real scalar hascons) {
-	M.hascons = hascons; M.set_dirty(1)
+void boottestModel::sethascons(real scalar hascons) {
+	this.hascons = hascons; set_dirty(1)
 }
-void boottest_set_scoreBS (class boottestModel scalar M, real scalar scoreBS ) {
-	M.scoreBS = scoreBS; M.set_dirty(1)
+void boottestModel::setscoreBS (real scalar scoreBS ) {
+	this.scoreBS = scoreBS; set_dirty(1)
 }
-void boottest_set_reps    (class boottestModel scalar M, real scalar reps    ) {
-	M.reps = reps; M.set_dirty(1)
+void boottestModel::setreps    (real scalar reps    ) {
+	this.reps = reps; set_dirty(1)
 }
-void boottest_set_null    (class boottestModel scalar M, real scalar null    ) {
-	M.null = null; M.set_dirty(1)
+void boottestModel::setnull    (real scalar null    ) {
+	this.null = null; set_dirty(1)
 }
-void boottest_set_Wald(class boottestModel scalar M) { // set-up for classical Wald test
-	M.scoreBS = 1; M.reps = 0; M.null = 0
+void boottestModel::setWald(class boottestModel scalar M) { // set-up for classical Wald test
+	this.scoreBS = 1; this.reps = 0; this.null = 0
 }
-void boottest_set_Rao(class boottestModel scalar M) { // set-up for classical Rao test
-	M.scoreBS = 1; M.reps = 0; M.null = 1
+void boottestModel::setRao(class boottestModel scalar M) { // set-up for classical Rao test
+	this.scoreBS = 1; this.reps = 0; this.null = 1
 }
-void boottest_set_wttype  (class boottestModel scalar M, string scalar wttype) {
-	M.wttype = wttype; M.set_dirty(1)
+void boottestModel::setwttype  (string scalar wttype) {
+	this.wttype = wttype; set_dirty(1)
 }
-void boottest_set_ID      (class boottestModel scalar M, real matrix ID, | real scalar NBootClustVar, real scalar NErrClust) {
-	M.pID = &ID; M.NBootClustVar = editmissing(NBootClustVar,1); M.NErrClust=editmissing(NErrClust,1); M.set_dirty(1)
-	if (cols(ID)) M.robust = 1
+void boottestModel::setID      (real matrix ID, | real scalar NBootClustVar, real scalar NErrClust) {
+	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,1); set_dirty(1)
+	if (cols(ID)) this.robust = 1
 }
-void boottest_set_FEID      (class boottestModel scalar M, real matrix ID) {
-	M.pFEID = &ID; M.set_dirty(1)
+void boottestModel::setFEID      (real matrix ID) {
+	this.pFEID = &ID; set_dirty(1)
 }
-void boottest_set_level  (class boottestModel scalar M, real scalar level  )
-	M.level = level
-void boottest_set_robust  (class boottestModel scalar M, real scalar robust  ) {
-	M.robust = robust
-	if (robust==0) boottest_set_ID(M, J(0,0,0), 1, 1)
-	M.set_dirty(1)
+void boottestModel::setlevel  (real scalar level  )
+	this.level = level
+void boottestModel::setrobust  (real scalar robust  ) {
+	this.robust = robust
+	if (robust==0) setID(J(0,0,0), 1, 1)
+	set_dirty(1)
 }
-void boottest_set_R (class boottestModel scalar M, real matrix R , real colvector r ) {
-	M.pR = &R; 	M.pr  = &r; M.set_dirty(1)
+void boottestModel::setR (real matrix R, real colvector r ) {
+	this.pR = &R; 	this.pr  = &r; set_dirty(1)
 }
-void boottest_set_R0(class boottestModel scalar M, real matrix R0, real colvector r0) {
-	M.pR0 = &R0; M.pr0 = &r0; M.set_dirty(1)
+void boottestModel::setR0(real matrix R0, real colvector r0) {
+	this.pR0 = &R0; this.pr0 = &r0; set_dirty(1)
 }
-void boottest_set_willplot(class boottestModel scalar M, real scalar willplot) {
-	M.willplot = willplot
+void boottestModel::setwillplot(real scalar willplot) {
+	this.willplot = willplot
 }
-void boottest_set_grid(class boottestModel scalar M, real scalar _gridstart, real scalar _gridstop, real scalar _gridpoints) {
-	M.gridstart = _gridstart; M.gridstop = _gridstop; M.gridpoints = _gridpoints
+void boottestModel::setgrid(real scalar _gridstart, real scalar _gridstop, real scalar _gridpoints) {
+	this.gridstart = _gridstart; this.gridstop = _gridstop; this.gridpoints = _gridpoints
 }
-void boottest_set_madjust(class boottestModel scalar M, string scalar madjtype, real scalar NumH0s) {
-	M.madjtype = strlower(madjtype)
-	M.NumH0s = NumH0s
-	if (M.madjtype != "bonferroni" & M.madjtype != "sidak" & M.madjtype != "")
+void boottestModel::setmadjust(string scalar madjtype, real scalar NumH0s) {
+	this.madjtype = strlower(madjtype)
+	this.NumH0s = NumH0s
+	if (this.madjtype != "bonferroni" & this.madjtype != "sidak" & this.madjtype != "")
 		_error(198, `"Multiple-hypothesis adjustment type must be "Bonferroni" or "Sidak"."')
 }
-void boottest_set_weighttype(class boottestModel scalar M, string scalar weighttype) {
+void boottestModel::setweighttype(string scalar weighttype) {
 	weighttype = strlower(weighttype)
-	if (.==(M.weighttype = weighttype=="rademacher" ? 0 : (weighttype=="mammen" ? 1 : (weighttype=="webb" ? 2 : (weighttype=="normal" ? 3 : (weighttype=="gamma" ? 4 : .))))))
+	if (.==(this.weighttype = weighttype=="rademacher" ? 0 : (weighttype=="mammen" ? 1 : (weighttype=="webb" ? 2 : (weighttype=="normal" ? 3 : (weighttype=="gamma" ? 4 : .))))))
 		_error(198, `"Wild type must be "Rademacher", "Mammen", "Webb", "Normal", or "Gamma"."')
-	M.set_dirty(1)
+	set_dirty(1)
 }
 
-real colvector boottestModel::get_dist(| string scalar diststat) {
+real colvector boottestModel::getdist(| string scalar diststat) {
 	if (dirty) boottest()
 	make_DistCDR(diststat)
 	return(DistCDR)
@@ -439,23 +441,21 @@ void boottestModel::make_DistCDR(| string scalar diststat) {
 }
 
 // Ties count half. Robust to missing bootstrapped values being interpreted as +infinity.
-real scalar boottestModel::get_p(|real scalar analytical) {
-	real scalar t; real colvector _Dist
+real scalar boottestModel::getp(|real scalar analytical) {
+	real scalar t
 	if (dirty) boottest()
-	t = Dist[1]
-	if (t == .) return (.)
+	if ( (t = Dist[1]) == .) return (.)
 	if (reps & analytical==.) {
 		repsFeas = colnonmissing(Dist) - 1
 		if (sqrt & ptype != 3) {
-			if (ptype==0) { // symmetric p value
-				_Dist = abs(Dist); t = abs(t)
-				p = 1 -(       colsum(t:>_Dist)                       + (colsum(t:==_Dist) - 1)*.5) / repsFeas
-			} else if (ptype==1) // equal-tail p value
-				p =    (2*min((colsum(t:> Dist) , colsum(-t:>-Dist))) + (colsum(t:== Dist) - 1)   ) / repsFeas
+			if (ptype==0) // symmetric p value
+				p = 1 -(       colsum(abs(t):>abs(Dist))                      ) / repsFeas
+			else if (ptype==1) // equal-tail p value
+				p =    (2*min((colsum(    t :>    Dist ) , colsum(-t:>-Dist)))) / repsFeas
 			else // upper-tailed p value
-				p = 1 -(       colsum(t:< Dist)                       + (colsum(t:==_Dist) - 1)*.5) / repsFeas
+				p = 1 -(       colsum(    t :<    Dist )                      ) / repsFeas
 		} else // upper-tailed p value or p value based on squared stats 
-				p = 1 -(       colsum(t:> Dist)                       + (colsum(t:== Dist) - 1)*.5) / repsFeas
+				p = 1 -(       colsum(    t :>    Dist )                      ) / repsFeas
 	} else {
 		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
 		if (sqrt & !twotailed) {
@@ -467,41 +467,41 @@ real scalar boottestModel::get_p(|real scalar analytical) {
 	return(p)
 }
 // Return number of bootstrap replications with feasible results
-// Returns 0 if get_p() not yet accessed, or doing non-bootstrapping tests
-real scalar boottestModel::get_repsFeas()
+// Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
+real scalar boottestModel::getrepsFeas()
 	return (repsFeas)
 // return number of replications, possibly reduced to 2^G
-real scalar boottestModel::get_reps()
+real scalar boottestModel::getreps()
 	return (reps)
 
-real scalar boottestModel::get_padj(|real scalar analytical) {
-	(void) get_p(analytical)
+real scalar boottestModel::getpadj(|real scalar analytical) {
+	(void) getp(analytical)
 	if (madjtype=="bonferroni") return(min((1, NumH0s*p)))
 	if (madjtype=="sidak"     ) return(1 - (1 - p)^NumH0s)
 	return(p)
 }
 
-real scalar boottestModel::get_stat() {
+real scalar boottestModel::getstat() {
 	if (dirty) boottest()
 	return(Dist[1])
 }
-real scalar boottestModel::get_df() {
+real scalar boottestModel::getdf() {
 	if (dirty) boottest()
 	return(df)
 }
-real scalar boottestModel::get_df_r() {
+real scalar boottestModel::getdf_r() {
 	if (dirty) boottest()
 	return(df_r)
 }
-real matrix boottestModel::get_plot() {
+real matrix boottestModel::getplot() {
 	if (!plotted) plot()
 	return((plotX,plotY))
 }
-real rowvector boottestModel::get_peak() {
+real rowvector boottestModel::getpeak() {
 	if (!plotted) plot()
 	return(peak)
 }
-real matrix boottestModel::get_CI() {
+real matrix boottestModel::getCI() {
 	if (!plotted) plot()
 	return(CI)
 }
@@ -512,8 +512,6 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 	} else
 		st_view(V, i, j, selectvar)
 }
-
-
 
 
 
@@ -982,10 +980,9 @@ void boottestModel::boottest() {
 				eZVR0 = *pSc * (VR0 = *pV * *pR0')
 			else if (scoreBS | (robust & purerobust<NErrClustCombs))
 				eZVR0 = pM->e :* pM->ZVR0
-
 			if (scoreBS)
 				numer = cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights? eZVR0:* *pwt : eZVR0), u)
-			else {
+			else { // same calc as in score BS but broken apart to grab intermediate stuff
 				pewt = weights? &(pM->e :* *pwt) : &pM->e
 				pt = &_panelsum(*pXEx, *pewt, *pinfoBootData)
 				if (AR)
@@ -1283,15 +1280,16 @@ real matrix boottestModel::crosstab(real colvector v) {
 real scalar boottestModel::r0_to_p(real scalar r0) {
 	pr0 = &r0
 	dirty = 1 // DON'T call set_dirty() because it will set initialized=0, which we don't want when only changing r0
-	return (get_padj())
+	return (getpadj())
 }
 
 real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scalar lo, real scalar p_hi, real scalar hi) {
 	real scalar mid, _p
-	mid = (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) + lo
+	mid = lo + ( mreldif(p_hi-p_lo, 1/repsFeas)<1e-6 & repsFeas? (hi - lo)/2 : (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) ) // interpolate linearly until bracketing a single bump-up; then switch to binary search
 	if (mreldif(lo,mid)<1e-6 | mreldif(hi,mid)<1e-6)
 		return (mid)
 	if ( ((_p = r0_to_p(mid)) < alpha) == (p_lo < alpha) )
+
 		return(search(alpha, _p, mid, p_hi, hi))
 	return(search(alpha, p_lo, lo, _p, mid))
 }
@@ -1301,12 +1299,12 @@ void boottestModel::plot() {
 	real scalar t, alpha, _quietly, c, i, j; real colvector lo, hi; pointer (real colvector) _pr0
 
 	_quietly = quietly
-	boottest_set_quietly(this, 1)
+	setquietly(1)
 	boottest() // run in order to get true number of replications
 
 	alpha = 1 - level*.01
 	if (alpha>0 & cols(u)-1 <= 1/alpha-1e6) {
-		boottest_set_quietly(this, _quietly)
+		setquietly(_quietly)
 		if (!quietly) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
 		return (.\.)
 	}
@@ -1317,7 +1315,7 @@ void boottestModel::plot() {
 	if (gridstart==. | gridstop==.) {
 		if (reps)
 			if (AR) {
-				t = abs(cuepoint) * (small? invttail(df_r, alpha/2)/invttail(df_r, get_padj(1)/2) : invnormal(alpha/2)/invnormal(get_padj(1)/2))
+				t = abs(cuepoint) * (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
 				lo = gridstart<.? gridstart : cuepoint - t
 				hi = gridstop <.? gridstop  : cuepoint + t
 			} else {
@@ -1340,12 +1338,12 @@ void boottestModel::plot() {
 			for (i=10; i & -r0_to_p(lo)<-alpha; i--) {
 				t = hi - lo
 				lo = lo - t
-				hi = hi + t
+				if (gridstop==.) hi = hi + t // maintain rough symmetry unless user specified upper bound
 			}
 		if (gridstop==. & ptype!=2) // ditto for high side
 			for (i=10; i & -r0_to_p(hi)<-alpha; i--) {
 				t = hi - lo
-				lo = lo - t
+				if (gridstart==.) lo = lo - t // maintain rough symmetry unless user specified lower bound
 				hi = hi + t
 			}
 	} else {
@@ -1412,7 +1410,7 @@ void boottestModel::plot() {
 		}
 	}
 
-	boottest_set_quietly(this, _quietly)
+	setquietly(_quietly)
 	pr0 = _pr0
 	plotted = 1
 }
@@ -1456,53 +1454,53 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (IDnames != "") ID   = st_data(., IDnames, samplename)
 	if (wtname  != "") wt   = st_data(., wtname , samplename) // panelsum() doesn't like views as weights
 
-	boottest_set_hascons(M, hascons)
-	boottest_set_sc(M, sc)
-	boottest_set_ML(M, ML)
-	boottest_set_Y (M, Y)
-	boottest_set_ZExcl(M, ZExcl)
-	boottest_set_wt (M, wt)
-	boottest_set_ID(M, ID, NBootClustVar, NErrClust)
-	boottest_set_FEID(M, FEID)
-	boottest_set_R (M, R , r )
-	boottest_set_R0(M, R0, r0)
-	boottest_set_null(M, null)
-	boottest_set_small(M, small)
-	boottest_set_robust(M, robust)
-	boottest_set_scoreBS(M, scoreBS)
-	boottest_set_weighttype(M, weighttype)
-	boottest_set_ptype(M, ptype)
-	boottest_set_wttype(M, wttype)
-	boottest_set_reps(M, reps)
-	boottest_set_LIML(M, LIML)
-	boottest_set_Fuller(M, Fuller)
-	boottest_set_k(M, K)
-	boottest_set_AR(M, AR)
-	boottest_set_grid(M, gridmin, gridmax, gridpoints)
-	boottest_set_madjust(M, madjtype, NumH0s)
-	boottest_set_level(M, level)
+	M.sethascons(hascons)
+	M.setsc(sc)
+	M.setML(ML)
+	M.setY (Y)
+	M.setZExcl(ZExcl)
+	M.setwt (wt)
+	M.setID(ID, NBootClustVar, NErrClust)
+	M.setFEID(FEID)
+	M.setR (R , r )
+	M.setR0(R0, r0)
+	M.setnull(null)
+	M.setsmall(small)
+	M.setrobust(robust)
+	M.setscoreBS(scoreBS)
+	M.setweighttype(weighttype)
+	M.setptype(ptype)
+	M.setwttype(wttype)
+	M.setreps(reps)
+	M.setLIML(LIML)
+	M.setFuller(Fuller)
+	M.setk(K)
+	M.setAR(AR)
+	M.setgrid(gridmin, gridmax, gridpoints)
+	M.setmadjust(madjtype, NumH0s)
+	M.setlevel(level)
 
 	_boottest_st_view(XEnd, ., XEndnames, samplename)
-	boottest_set_XEnd(M, XEnd)
+	M.setXEnd(XEnd)
 	_boottest_st_view(XEx, ., XExnames, samplename)
-	boottest_set_XEx(M, XEx)
-	if (bname != "") boottest_set_beta(M, st_matrix(bname)')
-	if (Vname != "") boottest_set_V   (M, st_matrix(Vname) )
-	if (Wname != "") boottest_set_W   (M, st_matrix(Wname) )
-	boottest_set_willplot(M, plotname != "") // can make point estimate a little faster if not going to plot
+	M.setXEx(XEx)
+	if (bname != "") M.setbeta(st_matrix(bname)')
+	if (Vname != "") M.setV   (st_matrix(Vname) )
+	if (Wname != "") M.setW   (st_matrix(Wname) )
+	M.setwillplot(plotname != "") // can make point estimate a little faster if not going to plot
 
-	st_numscalar(statname, M.get_stat())
-	st_numscalar(pname   , M.get_p   ())
-	st_numscalar(repsname, M.get_reps())
-	st_numscalar(repsFeasname, M.get_repsFeas())
-	st_numscalar(padjname, M.get_padj())
-	st_numscalar(dfname  , M.get_df  ())
-	st_numscalar(dfrname , M.get_df_r())
-	if (distname != "") st_matrix(distname, M.get_dist(diststat))
+	st_numscalar(statname, M.getstat())
+	st_numscalar(pname   , M.getp   ())
+	st_numscalar(repsname, M.getreps())
+	st_numscalar(repsFeasname, M.getrepsFeas())
+	st_numscalar(padjname, M.getpadj())
+	st_numscalar(dfname  , M.getdf  ())
+	st_numscalar(dfrname , M.getdf_r())
+	if (distname != "") st_matrix(distname, M.getdist(diststat))
 	if (plotname != "" | (level<100 & ciname != "")) {
-		if (plotname != "") st_matrix(plotname, M.get_plot())
-		if (cols(M.peak)) st_matrix(peakname, M.get_peak())
-		if (level<100 & ciname != "") st_matrix(ciname, M.get_CI())
+		if (plotname != "") st_matrix(plotname, M.getplot())
+		if (cols(M.peak)) st_matrix(peakname, M.getpeak())
+		if (level<100 & ciname != "") st_matrix(ciname, M.getCI())
 	}
 
 	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak

@@ -1,4 +1,4 @@
-*!  boottest 2.0.5 17 May 2018
+*!  boottest 2.0.6 26 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -685,6 +685,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.0.6 Stopped (half-)counting ties
 * 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
 *       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set
 *       Fixed crash in FE estimation when FE cluster = error cluster
