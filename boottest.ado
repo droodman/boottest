@@ -203,8 +203,8 @@ program define _boottest, rclass sortpreserve
 	local K = e(kclass) // "." if missing
 
 	local tz = cond(`small', "t", "z")
-	local symmetric 2 * min(Prob>|`tz'|, Prob<-|`tz'|)
-	local equaltail Prob>|`tz'|
+	local symmetric Prob>|`tz'|
+	local equaltail 2 * min(Prob>|`tz'|, Prob<-|`tz'|)
 	local lower     Prob<`tz'
 	local upper     Prob>`tz'
 
@@ -685,7 +685,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.0.6 Stopped (half-)counting ties. Changed default reps from 1000 to 999.
+* 2.0.6 Stopped (half-)counting ties. Changed default reps from 1000 to 999. Fixed swapped labeling of equal-tail and symmetric p-values(!).
 * 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
 *       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set
 *       Fixed crash in FE estimation when FE cluster = error cluster

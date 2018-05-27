@@ -595,6 +595,8 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 
 
 
+
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, numer_l, _e, IDBootData, Ystar, _beta, betaEnd, sortID, o, _FEID
@@ -1021,7 +1023,8 @@ void boottestModel::boottest() {
 				if (*pBootClust == Clust[1]) // crosstab c,c* is square
 					for (d=df;d;d--) { // if bootstrapping on all-Cluster-var intersections (including one-way Clustering), the base crosstab is diagonal
 						CT_eZVR0[d].M = diag(t = (*peZVR0)[,d])
-						if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * t' // for score bootstrap, recenter
+						if (scoreBS)
+							CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * t' // for score bootstrap, recenter
 					}
 				else
 					if (subcluster) // crosstab c,c* is wide
@@ -1032,7 +1035,7 @@ void boottestModel::boottest() {
 								CT_eZVR0[d].M[|(i\i), t|] = (*peZVR0)[|t, (d\d)|]'
 							}
 							if (scoreBS)
-								CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+								CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 						}
 					else // crosstab c,c* is tall
 						for (d=df;d;d--) {
@@ -1041,7 +1044,7 @@ void boottestModel::boottest() {
 								t = pBootClust->info[i,]'
 								CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
 							}
-							if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M :- ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+							if (scoreBS) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 						}
 
 				for (c=1; c<=NErrClustCombs; c++)
