@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.5 15 May 2018}{...}
+{* *! version 2.1.0 29 May 2018}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -48,6 +48,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synoptline}
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
+{synopt:{cmdab:matsize:gb(#)}}set maximum size of wild weight matrix, in gigabytes{p_end}
 {synopt:{opt boott:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
@@ -320,6 +321,17 @@ all coefficients on instrumented variables, and no others.
 {phang}{opt seed(#)} sets the initial state of the random number generator. See {help set seed}.
 
 {phang}{opt qui:etly}, with Maximum Likelihood-based estimation, suppresses display of initial re-estimation with null imposed.
+
+{phang}{opt matsize:gb(#)} limits the size of the wild weight matrix, in a gigabytes, when memory limits are a concern. More precisely,
+the option directs {cmd:boottest} to divide the matrix into chunks of the specified size, and work with one at a time. Ordinarily,
+{cmd:boottest} draws all of the wild weights at once and stores them in a single matrix with one row for each
+bootstrapping cluster and one column for each bootstrap replication. Normally there are few bootstrapping
+clusters, so this matrix does not require much memory. But applications with many bootstrapping clusters can demand a lot
+of memory. (Each entry of a real matrix in Mata requires 8 bytes.) If phyical memory limits are exceeded, the operating system will start
+caching virtual memory to disk, which can drastically degrade performance. If you are concerned that this is happening,
+monitor memory usage and disk activity while {cmd:boottest} runs. This option can reduce the memory demand. It
+makes {cmd:boottest} computationally less efficient---especially so when constructing confidence intervals, when it must repeatedly 
+create and destroy chunks of the same matrix of wild weights. But if memory is tight, speed will probably still improve overall.
 
 {phang}{opt cmd:line(string)} provides {cmd:boottest} with the command line just used to generate the estimates. This is needed only when performing the 
 Kline-Santos score bootstrap after estimation with the {help ml model} command, and only when imposing the null. In order to impose the null on an ML estimate,

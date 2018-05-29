@@ -1,4 +1,4 @@
-*!  boottest 2.0.6 26 May 2018
+*!  boottest 2.1.0 29 May 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.00.03" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.01.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -82,7 +82,20 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(string) *]
+
+	if `"`matsizegb'"' != "" {
+		cap confirm numeric `matsizegb'
+		if _rc {
+			di as err "{cmdab:maxmat:size()} option must be a positive number (of gigabytes)."
+			exit 198
+		}
+		else if `matsizegb' <= 0 {
+			di as err "{cmdab:maxmat:size()} option must be a positive number (of gigabytes)."
+			exit 198
+		}
+	}
+	else local matsizegb .
 
 	if `reps'==0 local svmat
 		else {
@@ -90,7 +103,7 @@ program define _boottest, rclass sortpreserve
 			local 0, `options'
 			syntax, [SVMat(string) *]
 			if !inlist(`"`svmat'"', "numer", "t", "") {
-				di as err "option " as inp "svmat(" `svmat' ")" as err " not allowed"
+				di as err "option " as inp "svmat(" `svmat' ")" as err " not allowed."
 				error 198
 			}
 			if "`svmat'" == "" local svmat `_svmat'
@@ -570,7 +583,7 @@ program define _boottest, rclass sortpreserve
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-												`gridmin', `gridmax', `gridpoints')
+												`gridmin', `gridmax', `gridpoints', `matsizegb')
 
 		_estimates unhold `hold'
 		
@@ -685,6 +698,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.1.0 Added matsizegb feature
 * 2.0.6 Stopped (half-)counting ties. Changed default reps from 1000 to 999. Fixed swapped labeling of equal-tail and symmetric p-values(!).
 * 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
 *       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set
