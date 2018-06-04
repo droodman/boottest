@@ -84,7 +84,7 @@ program define _boottest, rclass sortpreserve
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(string) *]
 
-	if `"`matsizegb'"' != "" {
+	if `"`matsizegb'"' != "" & `"`matsizegb'"' != "." {
 		cap confirm numeric `matsizegb'
 		if _rc {
 			di as err "{cmdab:maxmat:size()} option must be a positive number (of gigabytes)."
@@ -602,7 +602,7 @@ program define _boottest, rclass sortpreserve
 		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
-		if ("`bootcluster'"!="" | `:word count `clustvars'' > 1) & `reps' di as txt ", bootstrapping by " as inp "`bootcluster'" _c
+		if ("`bootcluster'"!="" | `:word count `clustvars'' > 1) & `reps' di as txt ", bootstrap clustering by " as inp "`bootcluster'" _c
 		if `reps'	di as txt ", " strproper("`weighttype'") " weights" _c
 		di as txt ":"
 		

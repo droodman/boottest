@@ -375,10 +375,10 @@ void boottestModel::setreps    (real scalar reps    ) {
 void boottestModel::setnull    (real scalar null    ) {
 	this.null = null; set_dirty(1)
 }
-void boottestModel::setWald(class boottestModel scalar M) { // set-up for classical Wald test
+void boottestModel::setWald() { // set-up for classical Wald test
 	this.scoreBS = 1; this.reps = 0; this.null = 0
 }
-void boottestModel::setRao(class boottestModel scalar M) { // set-up for classical Rao test
+void boottestModel::setRao() { // set-up for classical Rao test
 	this.scoreBS = 1; this.reps = 0; this.null = 1
 }
 void boottestModel::setwttype  (string scalar wttype) {
@@ -855,21 +855,17 @@ void boottestModel::boottest() {
 				reps = cols(u) - 1
 				MaxMatSize = .
 			}
-		if (MaxMatSize < .)
-			seed = rseed()
-		else
+		NWeightGrps = MaxMatSize == .? 1 : ceil((reps+1) * NBootClust * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
+		if (NWeightGrps == 1) {
 			MakeWildWeights(reps, 1) // make all wild weights, once
-
-		if (MaxMatSize < .) {
-			NWeightGrps = ceil((reps+1) * NBootClust * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
-			_reps = ceil((reps+1) / NWeightGrps)
-			 WeightGrpStart = (0::NWeightGrps-1) * _reps :+ 1
-			(WeightGrpStop  = (1::NWeightGrps  ) * _reps     )[NWeightGrps] = reps+1
-			rseed(seed)
-		} else {
 			NWeightGrps    = 1
 			WeightGrpStart = 1
 			WeightGrpStop  = reps+1
+		} else {
+			seed = rseed()
+			_reps = ceil((reps+1) / NWeightGrps)
+			 WeightGrpStart = (0::NWeightGrps-1) * _reps :+ 1
+			(WeightGrpStop  = (1::NWeightGrps  ) * _reps     )[NWeightGrps] = reps+1
 		}
 
 		if (WREnonAR | df>1 | MaxMatSize<.) // unless nonWRE or df=1 or splitting weight matrix, code will create Dist element-by-element, so pre-allocate vector now
@@ -888,8 +884,10 @@ void boottestModel::boottest() {
 			M_DGP.Estimate(sAll)
 		}
 
+	if (NWeightGrps > 1)
+		rseed(seed)
 	for (g=1; g<=NWeightGrps; g++) { // do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
-		if (MaxMatSize < .)
+		if (NWeightGrps > 1)
 			MakeWildWeights(WeightGrpStop[g] - WeightGrpStart[g] + (g>1), g==1)
 
 		if (WREnonAR) {
@@ -918,23 +916,23 @@ void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
 		u = rgamma(NBootClust, _reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
 	else if (weighttype==2)
 		if (WREnonAR) {
-			u = sqrt(2 * ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5) // Webb weights
+			u = sqrt(2 * ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5) :- 1 // Webb weights, minus 1 for convenience in WRE
 		} else {
-			u = sqrt(    ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5) // Webb weights, divided by sqrt(2)
+			u = sqrt(    ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5)      // Webb weights, divided by sqrt(2)
 			u_sd = sqrt(.5)
 		}
 	else if (weighttype)
 		if (WREnonAR)
-			u = ( rdiscrete(NBootClust, _reps+first,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) *sqrt(5) :+ .5 // Mammen weights
+			u = ( rdiscrete(NBootClust, _reps+first,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 ) *sqrt(5) :- .5 // Mammen weights, minus 1 for convenience in WRE
 		else {
 			u = ( rdiscrete(NBootClust, _reps+first,(.5+sqrt(.05)\.5-sqrt(.05))) :- 1.5 )          :+ .5/sqrt(5) // Mammen weights, divided by sqrt(5)
 			u_sd = sqrt(.2)
 		}
 	else
 		if (WREnonAR)
-			u = 2 * (runiform(NBootClust, _reps+first) :>= .5) :- 2 // Rademacher
+			u = (-2) * (runiform(NBootClust, _reps+first) :>= .5)       // Rademacher weights, minus 1 for convenience in WRE
 		else {
-			u = (runiform(NBootClust, _reps+first) :>= .5) :- .5 // Rademacher weights, divided by 2
+			u =        (runiform(NBootClust, _reps+first) :>= .5) :- .5 // Rademacher weights, divided by 2
 			u_sd = .5
 		}
 	if (first)
@@ -1105,7 +1103,7 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 				if (subcluster) // crosstab c,c* is wide
 					for (d=df;d;d--) {
 						CT_eZVR0[d].M = J(rows(infoErrAll), NBootClust, 0)
-						for (i=rows(CT_eZVR0[d].M);i;i--) {
+						for (i=rows(infoErrAll);i;i--) {
 							t = infoErrAll[i,]'
 							CT_eZVR0[d].M[|(i\i), t|] = (*peZVR0)[|t, (d\d)|]'
 						}
@@ -1115,11 +1113,11 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 				else // crosstab c,c* is tall
 					for (d=df;d;d--) {
 						CT_eZVR0[d].M = J(rows(infoErrAll), NBootClust, 0)
-						for (i=cols(CT_eZVR0[d].M);i;i--) {
+						for (i=NBootClust;i;i--) {
 							t = pBootClust->info[i,]'
 							CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
 						}
-						if (scoreBS | !(1 |hascons)) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+						if (scoreBS | ! (1 |hascons)) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
 					}
 
 			for (c=1; c<=NErrClustCombs; c++)
@@ -1134,7 +1132,7 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 							CT_eZVR0[d].M = CT_eZVR0[d].M[Clust[c].order,]
 						}
 					for (d=df;d;d--) {
-						pQ[c,d] = &_panelsum(CT_eZVR0[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, & _panelsum() returns 1st arg by reference. Using & then prevents uncessary cloning.
+						pQ[c,d] = &_panelsum(CT_eZVR0[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
 
 						if (!scoreBS) {
 							if (reps) {
@@ -1179,7 +1177,7 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 				}
 
 			for (c=NErrClustCombs;c;c--)
-				if (Clust[c].N < Nobs)
+				if (Clust[c].N < Nobs | purerobust==0)
 					for (d=df;d;d--)
 						pQ[c,d] = &(*pQ[c,d] * u)
 
