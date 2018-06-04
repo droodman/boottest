@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 29 May 2018
+*!  boottest 2.1.0 4 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -399,7 +399,7 @@ program define _boottest, rclass sortpreserve
 		local    clustvars `:list clustvars & bootcluster' `:list clustvars - bootcluster'
 		local allclustvars `:list bootcluster - clustvars' `clustvars' // put bootstrapping clusters first, error clusters last, overlap in middle
 
-		sort `allclustvars', stable
+		sort `clustvars' `:list bootcluster - clustvars', stable
 
 		foreach clustvar in `allclustvars' {
 			cap confirm numeric var `clustvar'
@@ -698,7 +698,9 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.1.0 Added matsizegb feature
+* 2.1.0 Added matsizegb feature.
+*       Fixed 2.0.6 failure to subtract 1 from Mammen, Webb weights in WRE non-AR
+*       Fixed failure in subcluster bootstrsap to sort data by error clusterings before bootstrap clustering
 * 2.0.6 Stopped (half-)counting ties. Changed default reps from 1000 to 999. Fixed swapped labeling of equal-tail and symmetric p-values(!).
 * 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
 *       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set

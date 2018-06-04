@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 29 May 2018
+*!  boottest 2.1.0 4 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -601,9 +601,9 @@ void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string 
 void boottestModel::boottest() {
 	real colvector rAll, sortID, o, _FEID
 	real rowvector val, ClustCols
-	real matrix RAll, L, LAll, vec, Combs, t, IDAll, IDErr
+	real matrix RAll, L, LAll, vec, Combs, t, IDErr
 	real scalar i, j, c, minN, sumN, _reps, g
-	pointer (real matrix) scalar _pR0
+	pointer (real matrix) scalar _pR0, pIDAll
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unused M_WRE
 	pointer (struct structFE scalar) scalar next
@@ -636,20 +636,19 @@ void boottestModel::boottest() {
 			NErrClustCombs = length(Clust)
 			subcluster = NClustVar - NErrClust
 
-			infoAllData = _panelsetup(*pID, 1..NClustVar) // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
-			IDAll = NClustVar==1 | rows(infoAllData)==Nobs? *pID : (*pID)[infoAllData[,1],] // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
-			pinfoErrData    = NClustVar > NErrClust ? &_panelsetup(*pID, subcluster+1..NClustVar) : &infoAllData // info for intersections of error clustering wrt data
-			IDErr = NClustVar==1 | rows(*pinfoErrData)==Nobs? *pID : (*pID)[(*pinfoErrData)[,1],] // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs
+			 infoAllData = _panelsetup(*pID, 1..NClustVar) // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
+			pinfoErrData = NClustVar > NErrClust ? &_panelsetup(*pID, subcluster+1..NClustVar) : &infoAllData // info for intersections of error clustering wrt data
+			 IDErr = NClustVar==1 | rows(*pinfoErrData)==Nobs? *pID :   (*pID)[(*pinfoErrData)[,1],] // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+			pIDAll = NClustVar==1 | rows(  infoAllData)==Nobs?  pID : &((*pID)[   infoAllData [,1],]) // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
 
-			
 			if (subcluster) { // for subcluster bootstrap, bootstrapping cluster is not among error clustering combinations
 				pBootClust = &(boottest_clust())
-				pBootClust->info = NClustVar > NBootClustVar? _panelsetup(IDAll, 1..NBootClustVar) : _panelsetup(IDAll, 1..NBootClustVar, IDBootData) // bootstrapping cluster info w.r.t. all-bootstrap & error-cluster intersections
+				pBootClust->info = NClustVar > NBootClustVar? _panelsetup(*pIDAll, 1..NBootClustVar) : _panelsetup(*pIDAll, 1..NBootClustVar, IDBootData) // bootstrapping cluster info w.r.t. all-bootstrap & error-cluster intersections
 				NBootClust = rows(pBootClust->info)
 			} else {
 				pBootClust = &(Clust[2^(NClustVar - NBootClustVar)]) // location of bootstrap clustering within list of cluster combinations
 				if (NClustVar > NBootClustVar)
-					(void) _panelsetup(IDAll, 1..NBootClustVar, IDBootData) // index vector to explode wild weights to one per all-boot-cluster var intersection
+					(void) _panelsetup(*pIDAll, 1..NBootClustVar, IDBootData) // index vector to explode wild weights to one per all-boot-cluster var intersection
 			}
 
 			for (c=1; c<=NErrClustCombs; c++) { // for each error clustering combination
@@ -709,7 +708,7 @@ void boottestModel::boottest() {
  		doQQ = !purerobust & NBootClust * (sumN + NBootClust * (reps+1)) +.5*(NErrClustCombs)*NBootClust < 2*(reps + 1)*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
 		if (robust & purerobust < NErrClustCombs)
-			infoErrAll = _panelsetup(IDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
+			infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 
 		if (cols(*pFEID)) { // fixed effect prep
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
@@ -745,7 +744,7 @@ void boottestModel::boottest() {
 			pFEID = &_FEID // ordinal fixed effect ID
 
 			if (!scoreBS & !FEboot & purerobust < NErrClustCombs)
-				infoBootAll = _panelsetup(IDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
+				infoBootAll = _panelsetup(*pIDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
 		}
 
 		if (ML)
@@ -930,7 +929,7 @@ void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
 		}
 	else
 		if (WREnonAR)
-			u = (-2) * (runiform(NBootClust, _reps+first) :>= .5)       // Rademacher weights, minus 1 for convenience in WRE
+			u = (-2) * (runiform(NBootClust, _reps+first) :<  .5)       // Rademacher weights, minus 1 for convenience in WRE
 		else {
 			u =        (runiform(NBootClust, _reps+first) :>= .5) :- .5 // Rademacher weights, divided by 2
 			u_sd = .5
