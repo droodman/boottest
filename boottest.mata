@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 6 June 2018
+*!  boottest 2.1.0 7 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -56,7 +56,7 @@ class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation-
 class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps
+		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps, enumerate
 	real matrix QQ, eZVR0, SewtXV, VR0, betadev, numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
@@ -284,7 +284,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = 0
+	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = enumerate = 0
 	twotailed = null = dirty = willplot = u_sd = 1
 	level = 95
 	cuepoint = MaxMatSize = .
@@ -850,13 +850,13 @@ void boottestModel::boottest() {
 			else {
 				if (!quietly)
 					printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
-				u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
-				reps = cols(u) - 1
+				enumerate = 1
 				MaxMatSize = .
 			}
 		NWeightGrps = MaxMatSize == .? 1 : ceil((reps+1) * NBootClust * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
 		if (NWeightGrps == 1) {
 			MakeWildWeights(reps, 1) // make all wild weights, once
+			if (enumerate) reps = cols(u) - 1 // replications reduced to 2^G
 			NWeightGrps    = 1
 			WeightGrpStart = 1
 			WeightGrpStop  = reps+1
@@ -909,7 +909,9 @@ void boottestModel::boottest() {
 // draw wild weight matrix of width _reps. If first=1, insert column of 1s at front
 // under Rademacher, if warning recommending Webb weights is triggered, then 
 void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
-	if (weighttype==3)
+	if (enumerate)
+		u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
+	else if (weighttype==3)
 		u = rnormal(NBootClust, _reps+1, -WREnonAR, 1) // normal weights
 	else if (weighttype==4)
 		u = rgamma(NBootClust, _reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
@@ -928,10 +930,10 @@ void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
 			u_sd = sqrt(.2)
 		}
 	else
-		if (WREnonAR)
-			u = (-2) * (runiform(NBootClust, _reps+first) :<  .5)       // Rademacher weights, minus 1 for convenience in WRE
-		else {
-			u =        (runiform(NBootClust, _reps+first) :>= .5) :- .5 // Rademacher weights, divided by 2
+		if (WREnonAR) {
+			u = runiform(NBootClust, _reps+first) :<  .5; u = (-2) * u // Rademacher weights, minus 1 for convenience in WRE
+		} else {
+			u = runiform(NBootClust, _reps+first) :>= .5; u = u :- .5  // Rademacher weights, divided by 2
 			u_sd = .5
 		}
 	if (first)
@@ -1100,7 +1102,7 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 					for (i=Clust.N;i;i--)
 						Kcd[d].M[i,i] = Kcd[d].M[i,i] - (*peZVR0)[i,d]
 					if (scoreBS | !(1 |hascons))
-						Kcd[d].M = Kcd[d].M - ClustShare * (*peZVR0)[,d]' // for score bootstrap, recenter
+						Kcd[d].M = Kcd[d].M + ClustShare * (*peZVR0)[,d]' // for score bootstrap, recenter; "+" because we subtracted *peZVR0
 				}
 			else
 				if (subcluster) // crosstab c,c* is wide
@@ -1128,10 +1130,8 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 						for (d=df;d;d--)
 							Kcd[d].M = Kcd[d].M[Clust[c].order,]
 					for (d=df;d;d--) {
-						if (reps)
-							pQ[c,d] = &_panelsum(Kcd[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
-
-						if (!scoreBS& NFE & !FEboot)
+						pQ[c,d] = &_panelsum(Kcd[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
+						if (!scoreBS & NFE & !FEboot)
 							pQ[c,d] = &(*pQ[c,d] + _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
 					}
 				}
@@ -1359,6 +1359,7 @@ real scalar boottestModel::r0_to_p(real scalar r0) {
 real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scalar lo, real scalar p_hi, real scalar hi) {
 	real scalar mid, _p
 	mid = lo + ( mreldif(p_hi-p_lo, 1/repsFeas)<1e-6 & repsFeas? (hi - lo)/2 : (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) ) // interpolate linearly until bracketing a single bump-up; then switch to binary search
+//lo,hi,p_lo,p_hi,alpha,repsFeas, mreldif(p_hi-p_lo, 1/repsFeas), mid
 	if (mreldif(lo,mid)<1e-6 | mreldif(hi,mid)<1e-6)
 		return (mid)
 	if ( ((_p = r0_to_p(mid)) < alpha) == (p_lo < alpha) )

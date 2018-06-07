@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 6 June 2018
+*!  boottest 2.1.0 7 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -199,7 +199,7 @@ program define _boottest, rclass sortpreserve
 		di as err "The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:lower}, or {cmd:upper}."
 		exit 198
 	}
-	if "`ptype'"'=="" local ptype = cond(`reps', "symmetric", "equaltail")
+	if "`ptype'"'=="" local ptype symmetric
 	else {
 		local 0, `ptype'
 		syntax, [SYMmetric EQualtail LOWer UPper]
