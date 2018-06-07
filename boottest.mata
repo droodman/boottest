@@ -57,7 +57,7 @@ class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, gridstart, gridstop, gridpoints, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, doQQ, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps, enumerate
-	real matrix QQ, eZVR0, SewtXV, VR0, betadev, numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData
+	real matrix QQ, eZVR0, SewtXV, VR0, betadev, numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData, J_ClustN_NBootClust
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	string scalar wttype, madjtype, seed
@@ -284,7 +284,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = enumerate = 0
+	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = purerobust = NErrClustCombs = subcluster = reps = repsFeas = 0
 	twotailed = null = dirty = willplot = u_sd = 1
 	level = 95
 	cuepoint = MaxMatSize = .
@@ -710,6 +710,9 @@ void boottestModel::boottest() {
 		if (robust & purerobust < NErrClustCombs)
 			infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 
+		if (robust & purerobust < NErrClustCombs & scoreBS)
+			J_ClustN_NBootClust = J(Clust.N, NBootClust, 0)
+		
 		if (cols(*pFEID)) { // fixed effect prep
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
 			NFE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
@@ -844,6 +847,7 @@ void boottestModel::boottest() {
 			pQ = J(NErrClustCombs, df, NULL)
 		}
 
+		enumerate = 0
 		if (weighttype <=1 & reps & NBootClust*ln(2) < ln(reps)+1e-6)
 			if (!quietly & weighttype==1)
 					printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
@@ -1082,7 +1086,7 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 		if (purerobust < NErrClustCombs & thiWeightGrpStart==1) { // if pure robust and no multi-way clustering, initialized stuff that depends on r0 but not u
 			if (scoreBS)
 				for (d=df;d;d--)
-					Kcd[d].M = J(rows(infoErrAll), NBootClust, 0) // inefficient, but we're not optimizing for the score bootstrap
+					Kcd[d].M = J_ClustN_NBootClust // inefficient, but we're not optimizing for the score bootstrap
 			else
 				for (d=df;d;d--) {
 					t = pM->ZVR0[,d]; if (weights) t = t :* *pwt
