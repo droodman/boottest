@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 4 June 2018
+*!  boottest 2.1.0 6 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -67,7 +67,7 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom, purerobustdenom
-	struct smatrix colvector CT_eZVR0, XExZVR0, ZExclZVR0, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, euZVR0
+	struct smatrix colvector Kcd, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, euZVR0
 	pointer (struct structFE scalar) scalar FEs
 	pointer (real matrix) matrix pQ
 	pointer (struct boottest_clust scalar) scalar pBootClust
@@ -840,7 +840,7 @@ void boottestModel::boottest() {
 			if (NClustVar)
 				XZi = eZi = smatrix(NBootClust)
 		} else if (robust) {
-			XExZVR0 = ZExclZVR0 = CT_eZVR0 = smatrix(df)
+			Kcd = smatrix(df)
 			pQ = J(NErrClustCombs, df, NULL)
 		}
 
@@ -1074,73 +1074,65 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 	real scalar d, i, c, j, l
 	real matrix eu, t, VXeu
 	real colvector numer_l
-	pointer (real colvector) scalar pt
 	pointer (real matrix) scalar peZVR0, pVR0
 
 	if (robust) {
 		if (purerobust < NErrClustCombs & thiWeightGrpStart==1) { // if pure robust and no multi-way clustering, initialized stuff that depends on r0 but not u
-			if (!scoreBS)
+			if (scoreBS)
+				for (d=df;d;d--)
+					Kcd[d].M = J(rows(infoErrAll), NBootClust, 0) // inefficient, but we're not optimizing for the score bootstrap
+			else
 				for (d=df;d;d--) {
-					t = pM->ZVR0[,d]
-							XExZVR0[d].M = _panelsum(*pXEx  , weights? t :* *pwt : t, *pinfoErrData)
-					if (AR)
-						ZExclZVR0[d].M = _panelsum(*pZExcl, weights? t :* *pwt : t, *pinfoErrData)
+					t = pM->ZVR0[,d]; if (weights) t = t :* *pwt
+					if (AR) // final term in formula for K_cd in paper, for c=intersection of all error clusters
+						Kcd[d].M = (_panelsum(*pXEx  , t, *pinfoErrData), _panelsum(*pZExcl, t, *pinfoErrData)) * SewtXV
+					else
+						Kcd[d].M =  _panelsum(*pXEx  , t, *pinfoErrData                                       ) * SewtXV
 				}
 
 			if (NFE & !FEboot & !scoreBS)
 				CT_WE = _panelsum(crosstab(wtFE :* pM->e), infoBootAll)'
 
-			// construct crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
+			// subtract crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
 			peZVR0 = &_panelsum(eZVR0, *pwt, infoAllData) // collapse data to all-boot & error-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 			if (*pBootClust == Clust[1]) // crosstab c,c* is square
 				for (d=df;d;d--) { // if bootstrapping on all-Cluster-var intersections (including one-way clustering), the base crosstab is diagonal
-					CT_eZVR0[d].M = diag(t = (*peZVR0)[,d])
+					for (i=Clust.N;i;i--)
+						Kcd[d].M[i,i] = Kcd[d].M[i,i] - (*peZVR0)[i,d]
 					if (scoreBS | !(1 |hascons))
-						CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * t' // for score bootstrap, recenter
+						Kcd[d].M = Kcd[d].M - ClustShare * (*peZVR0)[,d]' // for score bootstrap, recenter
 				}
 			else
 				if (subcluster) // crosstab c,c* is wide
 					for (d=df;d;d--) {
-						CT_eZVR0[d].M = J(rows(infoErrAll), NBootClust, 0)
-						for (i=rows(infoErrAll);i;i--) {
+						for (i=Clust.N;i;i--) {
 							t = infoErrAll[i,]'
-							CT_eZVR0[d].M[|(i\i), t|] = (*peZVR0)[|t, (d\d)|]'
+							Kcd.M[|(i\i), t|] = Kcd.M[|(i\i), t|] - (*peZVR0)[|t, (d\d)|]'
 						}
 						if (scoreBS | !(1 |hascons))
-							CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+							Kcd[d].M = Kcd[d].M - ClustShare * colsum(Kcd[d].M) // for score bootstrap, recenter
 					}
 				else // crosstab c,c* is tall
 					for (d=df;d;d--) {
-						CT_eZVR0[d].M = J(rows(infoErrAll), NBootClust, 0)
 						for (i=NBootClust;i;i--) {
 							t = pBootClust->info[i,]'
-							CT_eZVR0[d].M[|t, (i\i)|] = (*peZVR0)[|t, (d\d)|]
+							Kcd[d].M[|t, (i\i)|] = Kcd[d].M[|t, (i\i)|] - (*peZVR0)[|t, (d\d)|]
 						}
-						if (scoreBS | ! (1 |hascons)) CT_eZVR0[d].M = CT_eZVR0[d].M - ClustShare * colsum(CT_eZVR0[d].M) // for score bootstrap, recenter
+						if (scoreBS | ! (1 |hascons))
+							Kcd[d].M = Kcd[d].M - ClustShare * colsum(Kcd[d].M) // for score bootstrap, recenter
 					}
 
 			for (c=1; c<=NErrClustCombs; c++)
 				if (!purerobust | Clust[c].N < Nobs) { 
 					if (rows(Clust[c].order))
-						for (d=df;d;d--) {
-							if (!scoreBS) {
-									XExZVR0  [d].M = XExZVR0  [d].M[Clust[c].order,]
-								if (AR & !scoreBS)
-									ZExclZVR0[d].M = ZExclZVR0[d].M[Clust[c].order,]
-							}
-							CT_eZVR0[d].M = CT_eZVR0[d].M[Clust[c].order,]
-						}
+						for (d=df;d;d--)
+							Kcd[d].M = Kcd[d].M[Clust[c].order,]
 					for (d=df;d;d--) {
-						pQ[c,d] = &_panelsum(CT_eZVR0[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
+						if (reps)
+							pQ[c,d] = &_panelsum(Kcd[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
 
-						if (!scoreBS) {
-							if (reps) {
-								pt = &_panelsum(XExZVR0[d].M, Clust[c].info); if (AR) pt = &(*pt, _panelsum(ZExclZVR0[d].M, Clust[c].info))
-								pQ[c,d] = &(*pQ[c,d] - *pt * SewtXV)
-							}
-							if (NFE & !FEboot)
-								pQ[c,d] = &(*pQ[c,d] - _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
-						}
+						if (!scoreBS& NFE & !FEboot)
+							pQ[c,d] = &(*pQ[c,d] + _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
 					}
 				}
 		}
