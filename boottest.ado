@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 7 June 2018
+*!  boottest 2.1.0 8 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -702,6 +702,7 @@ end
 *       Fixed 2.0.6 failure to subtract 1 from Mammen, Webb weights in WRE non-AR
 *       Fixed failure in subcluster bootstrsap to sort data by error clusterings before bootstrap clustering
 *       Avoided creating diagonal/sparse crosstab matrix
+*       Terminate search for CI bounds when bracketing p values are within 1/reps, with one final linear interpolation, rather than searching precise step-up point, which not so meaningful
 * 2.0.6 Stopped (half-)counting ties. Changed default reps from 1000 to 999. Fixed swapped labeling of equal-tail and symmetric p-values(!).
 * 2.0.5 Fixed subcluster bootstrap bugs: need to sort data even when c=1; don't falsely flag pure-robust case in WB subcluster
 *       Fixed possible failure to find graph bounds when many replications infeasible and bounds not manually set
