@@ -1362,7 +1362,7 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 	real scalar mid, _p
 	mid = lo + (alpha-p_lo)/(p_hi-p_lo)*(hi-lo)  // interpolate linearly
 //	mid = lo + ( mreldif(p_hi-p_lo, 1/repsFeas)<1e-6 & repsFeas? (hi - lo)/2 : (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) ) // interpolate linearly until bracketing a single bump-up; then switch to binary search
-	if (mreldif(lo,mid)<1e-6 | mreldif(hi,mid)<1e-6 | (repsFeas & abs(p_hi-p_lo)<1/repsFeas+1e-6))
+	if (mreldif(lo,mid)<1e-6 | mreldif(hi,mid)<1e-6 | (repsFeas & abs(p_hi-p_lo)<(1+(ptype==1))/repsFeas*1.000001))
 		return (mid)
 	if ( ((_p = r0_to_p(mid)) < alpha) == (p_lo < alpha) )
 
