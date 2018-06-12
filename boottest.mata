@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 8 June 2018
+*!  boottest 2.1.0 12 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -72,7 +72,7 @@ class boottestModel {
 	pointer (real matrix) matrix pQ
 	pointer (struct boottest_clust scalar) scalar pBootClust
 
-	void new(), set_dirty(), set_sqrt(), boottest(), make_DistCDR(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
+	void new(), set_sqrt(), boottest(), make_DistCDR(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
 		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), 
 		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), MakeWildWeights(), MakeNonWREStats(), MaxMatSize()
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), MakeNonWRENumers(), MakeWREStats()
@@ -292,16 +292,16 @@ void boottestModel::new() {
 	pr = pr0 = &J(0,1,0)
 }
 
-void boottestModel::set_dirty(real scalar _dirty) {
+void boottestModel::setdirty(real scalar _dirty, | real scalar noinitialize) {
 	dirty = _dirty
-	if (_dirty)
+	if (_dirty & noinitialize!=1)
 		initialized = 0
 }
 void boottestModel::set_sqrt(real scalar _sqrt) {
 	if (_sqrt < sqrt)
 		if (!dirty) Dist = Dist :* Dist
 	else
-		set_dirty(1)
+		setdirty(1)
 	sqrt = _sqrt
 }
 void boottestModel::setptype(string scalar ptype)     {
@@ -312,97 +312,95 @@ void boottestModel::setptype(string scalar ptype)     {
 	this.ptype = p
 	this.twotailed = p<=1
 }
-void boottestModel::setdirty   (class boottestModel scalar M                      )
-	 set_dirty(1)
 void boottestModel::setXEnd    (real matrix X       ) {
-	this.pXEnd  = &X; set_dirty(1)
+	this.pXEnd  = &X; setdirty(1)
 }
 void boottestModel::setXEx    (real matrix X        ) {
-	this.pXEx  = &X; set_dirty(1)
+	this.pXEx  = &X; setdirty(1)
 }
 void boottestModel::setY       (real matrix Y       ) {
-	this.pY  = &Y; set_dirty(1)
+	this.pY  = &Y; setdirty(1)
 }
 void boottestModel::setZExcl   (real matrix Z       ) {
-	this.pZExcl  = &Z; set_dirty(1)
+	this.pZExcl  = &Z; setdirty(1)
 }
 void boottestModel::setwt       (real matrix wt     ) {
-	this.pwt  = &wt; set_dirty(1)
+	this.pwt  = &wt; setdirty(1)
 }
 void boottestModel::setsc      (real matrix Sc) {
 	this.pSc  = &Sc
-	set_dirty(1)
+	setdirty(1)
 }
 void boottestModel::setML      (real scalar ML) {
-	this.ML  = ML; set_dirty(1)
+	this.ML  = ML; setdirty(1)
 	if (ML) setscoreBS(1)
 }
 void boottestModel::setLIML    (real scalar LIML) {
-	this.LIML = LIML; set_dirty(1)
+	this.LIML = LIML; setdirty(1)
 }
 void boottestModel::setAR    (real scalar AR) {
-	this.AR = AR; set_dirty(1)
+	this.AR = AR; setdirty(1)
 }
 void boottestModel::setFuller    (real scalar Fuller) {
-	this.Fuller = Fuller; set_dirty(1)
+	this.Fuller = Fuller; setdirty(1)
 }
 void boottestModel::setk    (real scalar K) {
-	this.K = K; set_dirty(1)
+	this.K = K; setdirty(1)
 }
 void boottestModel::setquietly (real scalar quietly )
 	this.quietly = quietly
 void boottestModel::setbeta    (real colvector beta) {
-	this.beta = beta; set_dirty(1)
+	this.beta = beta; setdirty(1)
 }
 void boottestModel::setV    (real matrix V ) {
-	this.pV = &V; set_dirty(1)
+	this.pV = &V; setdirty(1)
 }
 void boottestModel::setW    (real matrix W ) {
-	this.pW = &W; set_dirty(1)
+	this.pW = &W; setdirty(1)
 }
 void boottestModel::setsmall   (real scalar small   ) {
-	this.small = small; set_dirty(1)
+	this.small = small; setdirty(1)
 }
 void boottestModel::sethascons(real scalar hascons) {
-	this.hascons = hascons; set_dirty(1)
+	this.hascons = hascons; setdirty(1)
 }
 void boottestModel::setscoreBS (real scalar scoreBS ) {
-	this.scoreBS = scoreBS; set_dirty(1)
+	this.scoreBS = scoreBS; setdirty(1)
 }
 void boottestModel::setreps    (real scalar reps    ) {
-	this.reps = reps; set_dirty(1)
+	this.reps = reps; setdirty(1)
 }
 void boottestModel::setnull    (real scalar null    ) {
-	this.null = null; set_dirty(1)
+	this.null = null; setdirty(1)
 }
 void boottestModel::setWald() { // set-up for classical Wald test
-	this.scoreBS = 1; this.reps = 0; this.null = 0
+	this.scoreBS = 1; this.reps = 0; this.null = 0; setdirty(1)
 }
 void boottestModel::setRao() { // set-up for classical Rao test
-	this.scoreBS = 1; this.reps = 0; this.null = 1
+	this.scoreBS = 1; this.reps = 0; this.null = 1; setdirty(1)
 }
 void boottestModel::setwttype  (string scalar wttype) {
-	this.wttype = wttype; set_dirty(1)
+	this.wttype = wttype; setdirty(1)
 }
 void boottestModel::setID      (real matrix ID, | real scalar NBootClustVar, real scalar NErrClust) {
-	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,1); set_dirty(1)
+	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,1); setdirty(1)
 	if (cols(ID)) this.robust = 1
 }
 void boottestModel::setFEID      (real matrix ID) {
-	this.pFEID = &ID; set_dirty(1)
+	this.pFEID = &ID; setdirty(1)
 }
 void boottestModel::setlevel  (real scalar level  )
 	this.level = level
 void boottestModel::setrobust  (real scalar robust  ) {
 	this.robust = robust
 	if (robust==0) setID(J(0,0,0), 1, 1)
-	set_dirty(1)
+	setdirty(1)
 }
 void boottestModel::setR (real matrix R, real colvector r ) {
-	this.pR = &R; 	this.pr  = &r; set_dirty(1)
+	this.pR = &R; 	this.pr  = &r; setdirty(1)
 }
 void boottestModel::setR0(real matrix R0, real colvector r0) {
-	this.pR0 = &R0; this.pr0 = &r0; set_dirty(1)
+	this.pR0 = &R0; this.pr0 = &r0; setdirty(1)
 }
 void boottestModel::setwillplot(real scalar willplot) {
 	this.willplot = willplot
@@ -420,10 +418,10 @@ void boottestModel::setweighttype(string scalar weighttype) {
 	weighttype = strlower(weighttype)
 	if (.==(this.weighttype = weighttype=="rademacher" ? 0 : (weighttype=="mammen" ? 1 : (weighttype=="webb" ? 2 : (weighttype=="normal" ? 3 : (weighttype=="gamma" ? 4 : .))))))
 		_error(198, `"Wild type must be "Rademacher", "Mammen", "Webb", "Normal", or "Gamma"."')
-	set_dirty(1)
+	setdirty(1)
 }
 void boottestModel::MaxMatSize (real scalar MaxMatSize) {
-	this.MaxMatSize = MaxMatSize; set_dirty(1)
+	this.MaxMatSize = MaxMatSize; setdirty(1)
 }
 
 real colvector boottestModel::getdist(| string scalar diststat) {
@@ -905,7 +903,7 @@ void boottestModel::boottest() {
 
 	if (multiplier!=1) Dist = Dist * multiplier
 	DistCDR = J(0,0,0)
-	set_dirty(0)
+	setdirty(0)
 	initialized = 1
 }
 
@@ -1091,9 +1089,9 @@ void boottestModel::MakeNonWREStats(real scalar thiWeightGrpStart, real scalar t
 				for (d=df;d;d--) {
 					t = pM->ZVR0[,d]; if (weights) t = t :* *pwt
 					if (AR) // final term in formula for K_cd in paper, for c=intersection of all error clusters
-						Kcd[d].M = (_panelsum(*pXEx  , t, *pinfoErrData), _panelsum(*pZExcl, t, *pinfoErrData)) * SewtXV
+						Kcd[d].M = (_panelsum(*pXEx, t, *pinfoErrData), _panelsum(*pZExcl, t, *pinfoErrData)) * SewtXV
 					else
-						Kcd[d].M =  _panelsum(*pXEx  , t, *pinfoErrData                                       ) * SewtXV
+						Kcd[d].M =  _panelsum(*pXEx, t, *pinfoErrData                                       ) * SewtXV
 				}
 
 			if (NFE & !FEboot & !scoreBS)
@@ -1356,7 +1354,7 @@ real matrix boottestModel::crosstab(real colvector v) {
 // performs no error checking
 real scalar boottestModel::r0_to_p(real scalar r0) {
 	pr0 = &r0
-	dirty = 1 // DON'T call set_dirty() because it will set initialized=0, which we don't want when only changing r0
+	setdirty(1, 1) // set dirty = 1, but leave initialized=0, which we want when only changing r0
 	return (getpadj())
 }
 
