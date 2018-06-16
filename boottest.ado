@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 12 June 2018
+*!  boottest 2.1.1 16 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -242,7 +242,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-	local FEname = cond(inlist("`cmd'","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
+	local FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -379,10 +379,9 @@ program define _boottest, rclass sortpreserve
 		if 0`hascns' mata _boottestC = st_matrix("`C'")[,(st_matrix("`keepC'"),cols(st_matrix("`C'")))]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
 
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
-
 		if `cons' local Xnames_exog `hold' `Xnames_exog' // add constant term
 	}
-		
+
 	if `hasclust' {
 		if 0`override' {
 			cap assert !missing(`:subinstr local clustvars " " ",", all') if e(sample), `=cond(c(stata_version)>=12.1, "fast", "")'
@@ -578,13 +577,12 @@ program define _boottest, rclass sortpreserve
 		}
 
 		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
-
+		
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints', `matsizegb')
-
 		_estimates unhold `hold'
 		
 		local reps = `repsname' // in case reduced to 2^G
@@ -698,6 +696,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.1.1 Fixed failure to detect FE variable after xtreg, fe cluster()
 * 2.1.0 Added matsizegb feature.
 *       Fixed 2.0.6 failure to subtract 1 from Mammen, Webb weights in WRE non-AR
 *       Fixed failure in subcluster bootstrsap to sort data by error clusterings before bootstrap clustering
