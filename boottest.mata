@@ -1,4 +1,4 @@
-*!  boottest 2.1.0 12 June 2018
+*!  boottest 2.1.1 18 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -445,18 +445,19 @@ void boottestModel::make_DistCDR(| string scalar diststat) {
 real scalar boottestModel::getp(|real scalar analytical) {
 	real scalar t
 	if (dirty) boottest()
-	if ( (t = Dist[1]) == .) return (.)
+	t = Dist[1]
+	if (t == .) return (.)
 	if (reps & analytical==.) {
 		repsFeas = colnonmissing(Dist) - 1
 		if (sqrt & ptype != 3) {
-			if (ptype==0) // symmetric p value
-				p = 1 -(       colsum(abs(t):>abs(Dist))                      ) / repsFeas
+			if (ptype==0)
+				p = colsum(-abs(t):>-abs(Dist)) / repsFeas  // symmetric p value; do so as not to count missing entries in Dist
 			else if (ptype==1) // equal-tail p value
-				p =    (2*min((colsum(    t :>    Dist ) , colsum(-t:>-Dist)))) / repsFeas
-			else // upper-tailed p value
-				p = 1 -(       colsum(    t :<    Dist )                      ) / repsFeas
-		} else // upper-tailed p value or p value based on squared stats 
-				p = 1 -(       colsum(    t :>    Dist )                      ) / repsFeas
+				p = 2*min((colsum(t:>Dist) , colsum(-t:>-Dist))) / repsFeas
+			else
+				p = colsum(-t:>-Dist) / repsFeas  // lower-tailed p value
+		} else
+				p = colsum( t:> Dist) / repsFeas  // upper-tailed p value or p value based on squared stats
 	} else {
 		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
 		if (sqrt & !twotailed) {

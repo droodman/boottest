@@ -1,4 +1,4 @@
-*!  boottest 2.1.1 16 June 2018
+*!  boottest 2.1.1 18 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -43,7 +43,7 @@ program define _boottest, rclass sortpreserve
 		run "`r(fn)'"
 	}
 
-	local cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
+	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
 	local ivcmd = cond("`cmd'"=="reghdfe", "`e(subcmd)'", cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
 	
 	if "`e(prefix)'" == "svy" {
@@ -294,13 +294,11 @@ program define _boottest, rclass sortpreserve
 	if `N_h0s'==1 local madjust
 
 	makecns
-	local k_autoCns = r(k_autoCns)
 	if "`e(Cns)'" != "" {
 		local hascns 1
 		mat `C' = e(Cns)
 	}
 	cap _estimates drop `hold'
-
 	if !`ML' {
 		if ("`ivcmd'"=="ivreg2" & !inlist("`e(model)'", "ols", "iv", "gmm2s", "liml")) | ("`ivcmd'"=="ivregress" & !inlist("`e(estimator)'", "liml", "2sls", "gmm")) {
 			di as err "Only for use with OLS, 2SLS, single-equation GMM, and ML-based estimators."
@@ -426,10 +424,12 @@ program define _boottest, rclass sortpreserve
 			}
 			exit 111
 		}
+		
 		cap mat `C0' = e(Cns)
 		if _rc exit 111
 		_estimates unhold `hold'
-		if `k_autoCns' mat `C0' = `C0'[`k_autoCns'+1...,1...]
+		if r(k_autoCns) mat `C0' = `C0'[r(k_autoCns)+1...,1...]
+		
 		if "`FEname'" != "" {
 			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`C0'"),st_matrixcolstripe("`C0'")[,2]':=="_cons"))))
 
@@ -464,6 +464,11 @@ program define _boottest, rclass sortpreserve
 
 				mat `CC0' = `C0' \ nullmat(`C') // add null to model constraints
 
+				* get rid of any remaining o. and b. constraints; r(k_autcns) doesn't capture all
+				mata _boottestC = st_matrixcolstripe("`CC0'")[,2]
+				mata _boottestC = !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))'; _boottestC[cols(_boottestC)] = 0 // don't look at r column
+				mata st_matrix("`CC0'", select(st_matrix("`CC0'"), rowsum(select(st_matrix("`CC0'"), _boottestC) :!= 0)))
+
 				`quietly' di as res _n "Re-running regression with null imposed." _n
 				if `"`cmdline'"'=="" local 0 `e(cmdline)'
 				                else local 0 `cmdline'
@@ -475,6 +480,7 @@ program define _boottest, rclass sortpreserve
 				local coleq: coleq `b'
 				if "`coleq''"=="_" local coleq
 				local colnames: colnames `b'
+
 				forvalues r=1/`=rowsof(`CC0')' {
 					local terms 0
 					local _constraint
@@ -489,7 +495,7 @@ program define _boottest, rclass sortpreserve
 					local _constraints `_constraints' `r(free)'
 					constraint `r(free)' `_constraint'
 				}
-				
+
 				cap `=cond("`quietly'"=="", "noisily", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `max' `options'
 				local rc = _rc
 				constraint drop `_constraints'
@@ -500,11 +506,11 @@ program define _boottest, rclass sortpreserve
 				if !`rc' {
 					tempname b0
 					mat `b0' = e(b)
-					cap `anything' if e(sample), `=cond(inlist("`cmd'", "cmp","ml"),"init","from")'(`b0') iterate(0) `options' `max'
+					cap `anything' if e(sample), `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `options' `max'
 					local rc = _rc
 				}
 				if `rc' {
-					di as err "Error imposing null. Perhaps {cmd:`e(cmd)'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
+					di as err "Error imposing null. Perhaps {cmd:`cmd'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
 					exit `rc'
 				}
 				if "`quietly'"=="" {
@@ -539,7 +545,7 @@ program define _boottest, rclass sortpreserve
 						local lasteq ``i''
 					}
 					local var: word `i' of `colnames'
-					if "`var'"=="_cons" | "``i''"=="/" local _sc `_sc' `:word `eq' of `scnames'' // constant term or free parameter
+					if "`var'"=="_cons" | strmatch("`var'","*._cons") | "``i''"=="/" local _sc `_sc' `:word `eq' of `scnames'' // constant term or free parameter
 					else {
 						tempvar t
 						gen double `t' = `:word `eq' of `scnames'' * `var' if e(sample)
@@ -577,7 +583,7 @@ program define _boottest, rclass sortpreserve
 		}
 
 		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
-		
+
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
@@ -697,6 +703,8 @@ end
 
 * Version history
 * 2.1.1 Fixed failure to detect FE variable after xtreg, fe cluster()
+*       Fixed error in removing half-counting of ties in 2.0.6
+*       Stopped crashes after mlogit (and probably other mlogit and mprobit commands)
 * 2.1.0 Added matsizegb feature.
 *       Fixed 2.0.6 failure to subtract 1 from Mammen, Webb weights in WRE non-AR
 *       Fixed failure in subcluster bootstrsap to sort data by error clusterings before bootstrap clustering
