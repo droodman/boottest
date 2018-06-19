@@ -1,4 +1,4 @@
-*!  boottest 2.1.1 18 June 2018
+*!  boottest 2.1.2 18 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -702,9 +702,9 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.1.1 Fixed failure to detect FE variable after xtreg, fe cluster()
-*       Fixed error in removing half-counting of ties in 2.0.6
+* 2.1.2 Fixed error in removing half-counting of ties in 2.0.6
 *       Stopped crashes after mlogit (and probably other mlogit and mprobit commands)
+* 2.1.1 Fixed failure to detect FE variable after xtreg, fe cluster()
 * 2.1.0 Added matsizegb feature.
 *       Fixed 2.0.6 failure to subtract 1 from Mammen, Webb weights in WRE non-AR
 *       Fixed failure in subcluster bootstrsap to sort data by error clusterings before bootstrap clustering
