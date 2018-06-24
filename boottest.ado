@@ -120,11 +120,6 @@ program define _boottest, rclass sortpreserve
 		exit 198
 	}
 
-	if `reps' & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1) {
-		di as txt _n "Note: The bootstrap performs best when the confidence level (here, `level'%)"
-		di           "      times the number of replications plus 1 (" `reps' "+1=" `reps'+1 ") is an integer." 
-	}
-
 	local 0, `madjust'
 	syntax, [Bonferroni Sidak]
 	local madjust `bonferroni'`sidak'
@@ -603,6 +598,7 @@ program define _boottest, rclass sortpreserve
 			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
 		}
 		
+		di
 		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
@@ -702,12 +698,13 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.1.3 Added more return values and Roodman et al. cite to help file. Blocked warning about \alpha(B+1) being an integer for Rademacher with <=12 groups.
 * 2.1.2 Fixed error in removing half-counting of ties in 2.0.6
 *       Stopped crashes after mlogit (and probably other mlogit and mprobit commands)
 * 2.1.1 Fixed failure to detect FE variable after xtreg, fe cluster()
 * 2.1.0 Added matsizegb feature.
 *       Fixed 2.0.6 failure to subtract 1 from Mammen, Webb weights in WRE non-AR
-*       Fixed failure in subcluster bootstrsap to sort data by error clusterings before bootstrap clustering
+*       Fixed failure in subcluster bootstrap to sort data by error clusterings before bootstrap clustering
 *       Avoided creating diagonal/sparse crosstab matrix
 *       Terminate search for CI bounds when bracketing p values are within 1/reps (2/reps for equaltail), with 1 last linear interpolation, rather than find precise step-up point, which not so meaningful
 *       Fixed minor new bugs when using Mata interface

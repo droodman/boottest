@@ -74,7 +74,7 @@ class boottestModel {
 
 	void new(), set_sqrt(), boottest(), make_DistCDR(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
 		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), 
-		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), MakeWildWeights(), MakeNonWREStats(), MaxMatSize()
+		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), MakeWildWeights(), MakeNonWREStats(), MaxMatSize(), _st_view()
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), MakeNonWRENumers(), MakeWREStats()
 	real matrix combs(), count_binary(), crosstab(), getplot(), getCI()
 	real rowvector getpeak()
@@ -508,12 +508,13 @@ real matrix boottestModel::getCI() {
 	return(CI)
 }
 
-void _boottest_st_view(real matrix V, real scalar i, string rowvector j, string scalar selectvar) {
-	if (favorspeed() | 1) {
+void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, string scalar selectvar) {
+	if (favorspeed() | 1)
 		V = length(tokens(j))? st_data(i, j, selectvar) : st_data(i, J(1,0,0), selectvar)
-	} else
+	else
 		st_view(V, i, j, selectvar)
 }
+
 
 
 
@@ -847,15 +848,22 @@ void boottestModel::boottest() {
 		}
 
 		enumerate = 0
-		if (weighttype <=1 & reps & NBootClust*ln(2) < ln(reps)+1e-6)
-			if (!quietly & weighttype==1)
-					printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
-			else {
-				if (!quietly)
-					printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
-				enumerate = 1
-				MaxMatSize = .
-			}
+		if (weighttype<=1 & reps)
+			if (NBootClust*ln(2) < ln(reps)+1e-6)
+				if (weighttype==1) {
+					if (!quietly)
+						printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
+				} else {
+					if (!quietly)
+						printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
+					enumerate = 1
+					MaxMatSize = .
+				}
+			else if (!quietly & (NBootClust>12 | weighttype) & floor(level/100 * (reps+1)) != level/100 * (reps+1)) {
+					printf("\nNote: The bootstrap usually performs best when the confidence level (here, %g%%)\n", level)
+					printf("      times the number of replications plus 1 (%g+1=%g) is an integer.\n", reps, reps+1)
+				}
+
 		NWeightGrps = MaxMatSize == .? 1 : ceil((reps+1) * NBootClust * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
 		if (NWeightGrps == 1) {
 			MakeWildWeights(reps, 1) // make all wild weights, once
@@ -1524,9 +1532,9 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 		r = C[,cols(C)]
 	}
 
-	_boottest_st_view(sc, ., scnames, samplename)
-	_boottest_st_view(Y , ., Ynames , samplename)
-	_boottest_st_view(ZExcl, ., ZExclnames , samplename)
+	M._st_view(sc, ., scnames, samplename)
+	M._st_view(Y , ., Ynames , samplename)
+	M._st_view(ZExcl, ., ZExclnames , samplename)
 	if (FEname != "" ) FEID = st_data(., FEname , samplename)
 	if (IDnames != "") ID   = st_data(., IDnames, samplename)
 	if (wtname  != "") wt   = st_data(., wtname , samplename) // panelsum() doesn't like views as weights
@@ -1558,9 +1566,9 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	M.setmadjust(madjtype, NumH0s)
 	M.setlevel(level)
 
-	_boottest_st_view(XEnd, ., XEndnames, samplename)
+	M._st_view(XEnd, ., XEndnames, samplename)
 	M.setXEnd(XEnd)
-	_boottest_st_view(XEx, ., XExnames, samplename)
+	M._st_view(XEx, ., XExnames, samplename)
 	M.setXEx(XEx)
 	if (bname != "") M.setbeta(st_matrix(bname)')
 	if (Vname != "") M.setV   (st_matrix(Vname) )

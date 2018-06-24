@@ -96,19 +96,22 @@ In addition, these options are relevant when testing a single hypothesis after O
 {pstd}
 {cmd:waldtest}, {cmd:artest}, and {cmd:scoretest} accept all options listed above except {cmdab:weight:type()}, {cmdab:boot:type()}, {opt r:eps(#)}, {opt svm:at}, and {opt seed(#)}.
 
-{title:UPDATE}
+{title:Update}
 
 {pstd} Version 2.0.6 of {cmd:boottest}, released in May 2018, introduced two changes that can slightly affect results. The default for {opt r:eps(#)}
 is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
 For exact replication of earlier results, an older version, 2.0.5, is available as a
-{browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed, in Stata 13 or later, via
+{browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed in Stata 13 or later via
 "{net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}".
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:boottest} is a post-estimation command that tests linear hypotheses about parameters. It offers several bootstraps--algorithms for generating simulated data sets--and
+{cmd:boottest} is a post-estimation command that tests linear hypotheses about parameters. Roodman et al. (2018) documents it more fully than this help file.
+
+{pstd}
+{cmd:boottest} offers several bootstraps--algorithms for generating simulated data sets--and
 several tests to run on the data sets. The bootstraps are:
 
 {p 4 6 0}
@@ -354,17 +357,20 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(reps)}}number of bootstrap replications{p_end}
+{synopt:{cmd:r(repsFeas)}}number of bootstrap replications producing feasible (non-missing) test statistics{p_end}
 {synopt:{cmd:r(F)}}test statistic if making small-sample correction{p_end}
 {synopt:{cmd:r(chi2)}}test statistic if not making small-sample correction{p_end}
 {synopt:{cmd:r(t)}}appropriately signed square root of {cmd:r(F)}, if testing one null constraint{p_end}
 {synopt:{cmd:r(z)}}appropriately signed square root of {cmd:r(chi2)}, if testing one null constraint{p_end}
 {synopt:{cmd:r(df)}}test degrees of freedom{p_end}
 {synopt:{cmd:r(df_r)}}residual degrees of freedom if making small-sample correction{p_end}
+{synopt:{cmd:r(p)}}test p value{p_end}
+{synopt:{cmd:r(padj)}}p value adjusted for multiple hypothesis testing, if requested{p_end}
 {synopt:{cmd:r(null)}}indicates whether null imposed{p_end}
 {synopt:{cmd:r(level)}}statistical signficance level for confidence interval, if any{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(seed)}}value of {opt seed(#)} option, if any{p_end}
+{synopt:{cmd:r(seed)}}value of {opt seed(#)} option, if any, or else c(seed) at command invocation{p_end}
 {synopt:{cmd:r(bootttype)}}bootstrapping type{p_end}
 {synopt:{cmd:r(weighttype)}}bootstrapping weight type{p_end}
 {synopt:{cmd:r(robust)}}indicates robust/clustered test{p_end}
@@ -375,11 +381,22 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 {synopt:{cmd:r(plot)}}data for confidence plot, if any{p_end}
 {synopt:{cmd:r(dist)}}t/z distribution, if requested with {opt svm:at}{p_end}
 
+{pstd}
+If more than one independent hypotheses is tested, many return values listed above will be supplied
+separately for each hypothesis, using suffixes 1, 2, ....
+
 {title:Donate?}
 
 {pstd}
 Has {cmd:boottest} improved your career or marriage? Consider
 giving back through a {browse "http://j.mp/1iptvDY":donation} to support the work of its author, {browse "http://davidroodman.com":David Roodman}.
+
+
+{title:Citation}
+
+{p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community.
+Please cite it as such: {p_end}
+{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2018. Fast and wild: bootstrap inference in Stata using boottest. Queen's Economics Department Working Paper No. 1406.{p_end}
 
 
 {title:Examples}
@@ -473,6 +490,7 @@ inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of
 estimation. {it:Proc. Cambridge Philos. Soc.} 44: 50-57.{p_end}
+{p 4 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2018. Fast and wild: bootstrap inference in Stata using boottest. Queen's Economics Department Working Paper No. 1406.{p_end}
 {p 4 8 2}Wald, A. 1943. Tests of statistical hypotheses concerning several parameters when the number of observations is
 large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
