@@ -1,4 +1,4 @@
-*!  boottest 2.1.2 18 June 2018
+*!  boottest 2.1.3 28 June 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -463,6 +463,11 @@ program define _boottest, rclass sortpreserve
 				mata _boottestC = st_matrixcolstripe("`CC0'")[,2]
 				mata _boottestC = !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))'; _boottestC[cols(_boottestC)] = 0 // don't look at r column
 				mata st_matrix("`CC0'", select(st_matrix("`CC0'"), rowsum(select(st_matrix("`CC0'"), _boottestC) :!= 0)))
+				cap mat `CC0'[1,1] = `CC0'[1,1]
+				if _rc {
+					di as error _n "Null constraint applies only to omitted variables or base levels of factor variables."
+					continue
+				}
 
 				`quietly' di as res _n "Re-running regression with null imposed." _n
 				if `"`cmdline'"'=="" local 0 `e(cmdline)'
@@ -534,6 +539,7 @@ program define _boottest, rclass sortpreserve
 				tokenize `:coleq `b''
 				local lasteq
 				local eq 0
+				local _sc
 				qui forvalues i=1/`k' {
 					if "``i''" != "`lasteq'" | "``i''"=="/" {
 						local ++eq
@@ -698,7 +704,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.1.3 Added more return values and Roodman et al. cite to help file. Blocked warning about \alpha(B+1) being an integer for Rademacher with <=12 groups.
+* 2.1.3 Fixed crash on testing of multiple independent hypotheses on ML models
+*       Added more return values and Roodman et al. cite to help file. Blocked warning about \alpha(B+1) being an integer for Rademacher with <=12 groups.
 * 2.1.2 Fixed error in removing half-counting of ties in 2.0.6
 *       Stopped crashes after mlogit (and probably other mlogit and mprobit commands)
 * 2.1.1 Fixed failure to detect FE variable after xtreg, fe cluster()
