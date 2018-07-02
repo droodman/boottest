@@ -1,4 +1,4 @@
-*!  boottest 2.1.2 18 June 2018
+*!  boottest 2.1.4 2 July 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1410,9 +1410,8 @@ void boottestModel::plot() {
 			}
 		else {
 			t = abs(numer/Dist) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))
-			lo = gridstart<.? gridstart : numer/u_sd + *pr0 + t
-			hi = gridstop <.? gridstop  : numer/u_sd + *pr0 - t
-			
+			lo = gridstart<.? gridstart : (numer + t)/u_sd + *pr0
+			hi = gridstop <.? gridstop  : (numer - t)/u_sd + *pr0
 			if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
 				CI = lo, hi
 				return
