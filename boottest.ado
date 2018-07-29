@@ -1,4 +1,4 @@
-*!  boottest 2.1.4 2 July 2018
+*! boottest 2.1.5 29 July 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -704,6 +704,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.1.5 Changed to faster computation for WCR with many clusters, but not quite WB. In multiway only applies to intersection of all clusters.
 * 2.1.4 Fixed CI scaling issue introduced in 2.0.5 that affects scoretest, waldtest
 * 2.1.3 Fixed crash on testing of multiple independent hypotheses on ML models
 *       Added more return values and Roodman et al. cite to help file. Blocked warning about \alpha(B+1) being an integer for Rademacher with <=12 groups.
