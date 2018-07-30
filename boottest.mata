@@ -703,7 +703,7 @@ void boottestModel::boottest() {
 		NBootClust  = rows(*pinfoBootData)
 
 		purerobust = NBootClust==Nobs & !ML & !subcluster // do we ever error-cluster *and* bootstrap-cluster by individual?
-		granular = purerobust | 5*Nobs*k+1/25*2*Clust.N*k^2+1/25*2*Clust.N^2*k+Clust.N+1/25*2*Clust.N^2*reps+2*Clust.N*reps > 3*Nobs*reps+Nobs*k+1/25*(2*Clust.N*k*reps+2*k*reps-2*k*Clust.N-2*Clust.N*reps+2*Clust.N*k*reps)+2*Clust.N*reps
+		granular = !scoreBS & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
 		doQQ = !granular & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
 		if (granular & rows(IDBootData)==0 & NClustVar)
@@ -809,8 +809,7 @@ void boottestModel::boottest() {
 			
 			if (granular) {
 				euZVR0 = smatrix(df)
-				if (!scoreBS)
-					pX = AR? &(*pXEx, *pZExcl) : pXEx
+				pX = AR? &(*pXEx, *pZExcl) : pXEx
 			}
 
 			M_DGP.SetS(SAll) // (potentially) constrained model in DGP; SAll imposes constraints, pR0 tests hypotheses on results
@@ -899,6 +898,7 @@ void boottestModel::boottest() {
 
 	if (NWeightGrps > 1)
 		rseed(seed)
+
 	for (g=1; g<=NWeightGrps; g++) { // do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
 		if (NWeightGrps > 1)
 			MakeWildWeights(WeightGrpStop[g] - WeightGrpStart[g] + (g>1), g==1)
@@ -1173,29 +1173,14 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					denom[i,j].M = colsum(u :* QQ * u)
 				}
 		else { // alternative core computational loop, avoiding computing Q'Q which has cubic time cost in numbers of bootstrapping clusters
-			if (granular) // prep optimized treatment when clustering and bootstrapping by observation
-				if (ML)
-					for (d=df;d;d--) {
-						pQ[1,d] = &_panelsum(u, eZVR0[,d], Clust.info)
-						pQ[1,d] = &(*pQ[1,d] :- (weights? cross(ClustShare, *pQ[1,d]) : colsum(*pQ[1,d]) * ClustShare)) // recenter
-						if (weights) pQ[1,d] = &(*pQ[1,d] :* *pwt)
-					}
-				else if (purerobust) {
-					eu = *M_DGP.partialFE(&(pM->e :* u))
-					if (scoreBS)
-						 eu = eu :- (weights? cross(ClustShare, eu) : colsum(eu) * ClustShare) // recenter
-					else
-						eu = eu - *pX * betadev
+			if (granular) // prep optimized treatment when bootstrapping by small groups
+				if (purerobust) {
+					eu = *M_DGP.partialFE(&(pM->e :* u)) - *pX * betadev
 					eueu = eu:*eu
 				} else { // clusters small but not all singletons
-					eu = *M_DGP.partialFE(&(pM->e :* (purerobust? u : u[IDBootData,])))
-					for (d=df;d;d--) {
-						pQ[1,d] = &_panelsum(eu, pM->WZVR0[d].M, *pinfoErrData)
-						if (scoreBS)
-							pQ[1,d] = &(*pQ[1,d] :- (weights? cross(ClustShare, *pQ[1,d]) : colsum(*pQ[1,d]) * ClustShare)) // recenter
-						else
-							pQ[1,d] = &(*pQ[1,d] - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
-					}
+					eu = *M_DGP.partialFE(&(pM->e :* u[IDBootData,]))
+					for (d=df;d;d--)
+						pQ[1,d] = &(_panelsum(eu, pM->WZVR0[d].M, *pinfoErrData) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
 				}
 
 			for (c=NErrClustCombs; c>granular; c--)
