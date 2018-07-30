@@ -16,8 +16,8 @@
 mata
 mata clear
 mata set matastrict on
-mata set matalnum on
-mata set mataoptimize off
+mata set mataoptimize on
+mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
 string scalar      boottestVersion() return("02.01.00")
@@ -699,7 +699,7 @@ void boottestModel::boottest() {
 			else
 				pinfoBootData = &infoAllData
 		} else
-			pinfoBootData = &J(Nobs,0,0) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
+			pinfoBootData = &(infoAllData = J(Nobs,0,0)) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
 		NBootClust  = rows(*pinfoBootData)
 
 		purerobust = NClustVar & !scoreBS & NBootClust==Nobs & !subcluster // do we ever error-cluster *and* bootstrap-cluster by individual?
@@ -1096,6 +1096,8 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 
 
 
+
+
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l
 	pointer (real matrix) scalar peZVR0, pVR0
@@ -1124,7 +1126,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					for (i=Clust.N;i;i--)
 						Kcd[d].M[i,i] = Kcd[d].M[i,i] - (*peZVR0)[i,d]
 					if (scoreBS | !(1 | hascons))
-						Kcd[d].M = Kcd[d].M + ClustShare * (*peZVR0)[,d]' // for score bootstrap, recenter; "+" because we subtracted *peZVR0
+						Kcd[d].M = Kcd[d].M :+ ClustShare * (*peZVR0)[,d]' // for score bootstrap, recenter; "+" because we subtracted *peZVR0
 				}
 			else
 				if (subcluster) // crosstab c,c* is wide
