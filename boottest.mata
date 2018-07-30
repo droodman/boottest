@@ -61,7 +61,7 @@ class boottestModel {
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	string scalar wttype, madjtype, seed
-	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, WeightGrpStart, WeightGrpStop
+	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop
 	real rowvector peak
 	struct boottest_clust colvector Clust
 	class AnalyticalModel scalar M_DGP
@@ -702,15 +702,18 @@ void boottestModel::boottest() {
 			pinfoBootData = &J(Nobs,0,0) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
 		NBootClust  = rows(*pinfoBootData)
 
-		purerobust = NBootClust==Nobs & !ML & !subcluster // do we ever error-cluster *and* bootstrap-cluster by individual?
-		granular = !scoreBS & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
+		purerobust = NClustVar & !scoreBS & NBootClust==Nobs & !subcluster // do we ever error-cluster *and* bootstrap-cluster by individual?
+		granular   = NClustVar & !scoreBS & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
 		doQQ = !granular & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
-		if (granular & rows(IDBootData)==0 & NClustVar)
-			(void) _panelsetup(*pID, 1..NBootClustVar, IDBootData)
+		if (granular) {
+			if (rows(IDBootData)==0 & NFE)
+				(void) _panelsetup(*pID, 1..NBootClustVar, IDBootData)
+			(void) _panelsetup(*pIDAll, 1..NBootClustVar, IDBootAll)
+		}
 
-		if (robust & granular < NErrClustCombs) {
-			if (subcluster)
+		if (robust & !purerobust) {
+			if (subcluster | granular)
 				infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 			if (scoreBS)
 				J_ClustN_NBootClust = J(Clust.N, NBootClust, 0)
@@ -1093,11 +1096,6 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 
 
 
-
-
-
-
-
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l
 	pointer (real matrix) scalar peZVR0, pVR0
@@ -1178,9 +1176,13 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					eu = *M_DGP.partialFE(&(pM->e :* u)) - *pX * betadev
 					eueu = eu:*eu
 				} else { // clusters small but not all singletons
-					eu = *M_DGP.partialFE(&(pM->e :* u[IDBootData,]))
-					for (d=df;d;d--)
-						pQ[1,d] = &(_panelsum(eu, pM->WZVR0[d].M, *pinfoErrData) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
+					if (NFE) {
+						eu = *M_DGP.partialFE(&(pM->e :* u[IDBootData,]))
+						for (d=df;d;d--)
+							pQ[1,d] = &(_panelsum(eu, pM->WZVR0[d].M, *pinfoErrData)                                          - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
+					} else
+						for (d=df;d;d--)
+							pQ[1,d] = &(_panelsum(_panelsum(pM->e, pM->WZVR0[d].M, infoAllData) :* u[IDBootAll,], infoErrAll) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
 				}
 
 			for (c=NErrClustCombs; c>granular; c--)
