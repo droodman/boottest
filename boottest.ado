@@ -1,4 +1,4 @@
-*! boottest 2.1.6 29 July 2018
+*! boottest 2.1.7 3 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -82,20 +82,9 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(string) *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) *]
 
-	if `"`matsizegb'"' != "" & `"`matsizegb'"' != "." {
-		cap confirm numeric `matsizegb'
-		if _rc {
-			di as err "{cmdab:maxmat:size()} option must be a positive number (of gigabytes)."
-			exit 198
-		}
-		else if `matsizegb' <= 0 {
-			di as err "{cmdab:maxmat:size()} option must be a positive number (of gigabytes)."
-			exit 198
-		}
-	}
-	else local matsizegb .
+	if `matsizegb'==1000000 local matsizegb .
 
 	if `reps'==0 local svmat
 		else {
@@ -704,6 +693,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.1.7 Fixed 2.1.6 crash with FE. Fixed parsing of matsizegb() option.
 * 2.1.6 Changed to faster computation for WCR with many clusters, but not quite WB. In multiway only applies to intersection of all clusters.
 * 2.1.4 Fixed CI scaling issue introduced in 2.0.5 that affects scoretest, waldtest
 * 2.1.3 Fixed crash on testing of multiple independent hypotheses on ML models

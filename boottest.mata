@@ -1,4 +1,4 @@
-*! boottest 2.1.6 29 July 2018
+*! boottest 2.1.7 3 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -706,19 +706,13 @@ void boottestModel::boottest() {
 		granular   = NClustVar & !scoreBS & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
 		doQQ = !granular & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
-		if (granular) {
-			if (rows(IDBootData)==0 & NFE)
-				(void) _panelsetup(*pID, 1..NBootClustVar, IDBootData)
-			(void) _panelsetup(*pIDAll, 1..NBootClustVar, IDBootAll)
-		}
-
 		if (robust & !purerobust) {
 			if (subcluster | granular)
 				infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 			if (scoreBS)
 				J_ClustN_NBootClust = J(Clust.N, NBootClust, 0)
 		}
-		
+
 		if (cols(*pFEID)) { // fixed effect prep
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
 			NFE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
@@ -751,10 +745,15 @@ void boottestModel::boottest() {
 				FEs->wt = J(j-i,1,1/(j-i))
 			wtFE[FEs->is] = FEs->wt
 			pFEID = &_FEID // ordinal fixed effect ID
-
-			if (!scoreBS & !FEboot & granular < NErrClustCombs)
+			if (robust & !(scoreBS | FEboot) & granular < NErrClustCombs)
 				infoBootAll = _panelsetup(*pIDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
 		}
+
+		if (granular & !(WREnonAR & purerobust))
+			if (NFE)
+				(void) _panelsetup(*pID   , 1..NBootClustVar, IDBootData)
+			else
+				(void) _panelsetup(*pIDAll, 1..NBootClustVar, IDBootAll )
 
 		if (ML)
 			df = rows(*pR0)
@@ -869,7 +868,7 @@ void boottestModel::boottest() {
 					printf("      times the number of replications plus 1 (%g+1=%g) is an integer.\n", reps, reps+1)
 				}
 
-		NWeightGrps = MaxMatSize == .? 1 : ceil((reps+1) * NBootClust * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
+		NWeightGrps = MaxMatSize == .? 1 : ceil((reps+1) * max((rows(IDBootData), rows(IDBootAll), NBootClust)) * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
 		if (NWeightGrps == 1) {
 			MakeWildWeights(reps, 1) // make all wild weights, once
 			if (enumerate) reps = cols(u) - 1 // replications reduced to 2^G
@@ -1088,9 +1087,6 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 	}
 	return(0)
 }
-
-
-
 
 
 
