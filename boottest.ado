@@ -1,4 +1,4 @@
-*! boottest 2.1.7 3 August 2018
+*! boottest 2.1.8 3 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -693,7 +693,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.1.7 Fixed 2.1.6 crash with FE. Fixed parsing of matsizegb() option.
+* 2.1.8 Fixed 2.1.6 crash with FE. Fixed parsing of matsizegb() option.
 * 2.1.6 Changed to faster computation for WCR with many clusters, but not quite WB. In multiway only applies to intersection of all clusters.
 * 2.1.4 Fixed CI scaling issue introduced in 2.0.5 that affects scoretest, waldtest
 * 2.1.3 Fixed crash on testing of multiple independent hypotheses on ML models
