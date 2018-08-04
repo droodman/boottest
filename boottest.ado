@@ -1,4 +1,4 @@
-*! boottest 2.1.8 3 August 2018
+*! boottest 2.1.9 4 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.01.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.01.09" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -227,7 +227,8 @@ program define _boottest, rclass sortpreserve
 	local scoreBS = "`boottype'"=="score"
 	
 	local FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
-
+	local NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , 0`e(k_absorb)'`e(K1)')
+	
 	if `"`seed'"'!="" set seed `seed'
 
 	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW repsname repsFeasname
@@ -322,7 +323,7 @@ program define _boottest, rclass sortpreserve
 
 		mata _boottestp = J(`cons',1,`k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))] \ `k'+1
 
-		if "`FEname'"!="" & `cons' {
+		if 0`NFE' & `cons' {
 			mata _boottestp = _boottestp[|2\.|]
 			local cons 0
 			local _cons
@@ -414,7 +415,7 @@ program define _boottest, rclass sortpreserve
 		_estimates unhold `hold'
 		if r(k_autoCns) mat `C0' = `C0'[r(k_autoCns)+1...,1...]
 		
-		if "`FEname'" != "" {
+		if `NFE' {
 			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`C0'"),st_matrixcolstripe("`C0'")[,2]':=="_cons"))))
 
 			if `rc' {
@@ -577,7 +578,7 @@ program define _boottest, rclass sortpreserve
 		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
-												"`FEname'", "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
+												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												`gridmin', `gridmax', `gridpoints', `matsizegb')
 		_estimates unhold `hold'
 		
@@ -693,6 +694,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.1.9 Work-around for Stata crash when number of fixed effects is very large: require # of FE as input, and don't represent them as linked list.
 * 2.1.8 Fixed 2.1.6 crash with FE. Fixed parsing of matsizegb() option.
 * 2.1.6 Changed to faster computation for WCR with many clusters, but not quite WB. In multiway only applies to intersection of all clusters.
 * 2.1.4 Fixed CI scaling issue introduced in 2.0.5 that affects scoretest, waldtest

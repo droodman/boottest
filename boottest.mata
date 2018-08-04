@@ -1,4 +1,4 @@
-*! boottest 2.1.8 3 August 2018
+*! boottest 2.1.9 4 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("02.01.00")
+string scalar      boottestVersion() return("02.01.09")
 
 struct smatrix {
 	real matrix M
@@ -68,7 +68,7 @@ class boottestModel {
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom
 	struct smatrix colvector Kcd, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, euZVR0
-	pointer (struct structFE scalar) scalar FEs
+	struct structFE rowvector FEs
 	pointer (real matrix) matrix pQ
 	pointer (struct boottest_clust scalar) scalar pBootClust
 
@@ -386,8 +386,8 @@ void boottestModel::setID      (real matrix ID, | real scalar NBootClustVar, rea
 	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,1); setdirty(1)
 	if (cols(ID)) this.robust = 1
 }
-void boottestModel::setFEID      (real matrix ID) {
-	this.pFEID = &ID; setdirty(1)
+void boottestModel::setFEID(real matrix ID, real scalar NFE) {
+	this.pFEID = &ID; this.NFE = NFE; setdirty(1)
 }
 void boottestModel::setlevel  (real scalar level  )
 	this.level = level
@@ -602,7 +602,7 @@ void boottestModel::boottest() {
 	real colvector rAll, sortID, o, _FEID
 	real rowvector val, ClustCols
 	real matrix RAll, L, LAll, vec, Combs, t, IDErr
-	real scalar i, j, c, minN, sumN, _reps, g
+	real scalar i, j, c, minN, sumN, _reps, g, i_FE
 	pointer (real matrix) scalar _pR0, pIDAll
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unused M_WRE
@@ -713,37 +713,36 @@ void boottestModel::boottest() {
 				J_ClustN_NBootClust = J(Clust.N, NBootClust, 0)
 		}
 
-		if (cols(*pFEID)) { // fixed effect prep
+		if (NFE) {
 			sortID = (*pFEID)[o = order(*pFEID, 1)]
-			NFE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
+			i_FE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
+			FEs = structFE(NFE)
 			for (i=Nobs-1;i;i--) {
 				if (sortID[i] != sortID[i+1]) {
-					NFE++
-					next = FEs; (FEs = &(structFE()))->next = next  // add new FE to linked list
-					FEs->is = o[|i+1\j|]
+					FEs[i_FE].is = o[|i+1\j|]
 					if (weights) {
-						FEs->wt  = (*pwt)[FEs->is]
-						FEs->wt = FEs->wt / colsum(FEs->wt)
+						t  = (*pwt)[FEs[i_FE].is]
+						FEs[i_FE].wt = t / colsum(t)
 					} else
-						FEs->wt = J(j-i,1,1/(j-i))
-					wtFE[FEs->is] = FEs->wt
+						FEs[i_FE].wt = J(j-i,1,1/(j-i))
+					wtFE[FEs[i_FE].is] = FEs[i_FE].wt
 					j = i
 					
 					if (FEboot & NClustVar) { // are all of this FE's obs in same bootstrapping cluster?
-						t = (*pID)[FEs->is, 1..NBootClustVar]
+						t = (*pID)[FEs[i_FE].is, 1..NBootClustVar]
 						FEboot = all(t :== t[1,])
 					}
+					++i_FE
 				}
-				_FEID[o[i]] = NFE
+				_FEID[o[i]] = i_FE
 			}
-			next = FEs; (FEs = &(structFE()))->next = next
-			FEs->is = FEs->is = o[|.\j|]
+			FEs[NFE].is = FEs[NFE].is = o[|.\j|]
 			if (weights) {
-				FEs->wt  = (*pwt)[FEs->is]
-				FEs->wt = FEs->wt / colsum(FEs->wt)
+				t  = (*pwt)[FEs[NFE].is]
+				FEs[NFE].wt = t / colsum(t)
 			} else
-				FEs->wt = J(j-i,1,1/(j-i))
-			wtFE[FEs->is] = FEs->wt
+				FEs[NFE].wt = J(j-i,1,1/(j-i))
+			wtFE[FEs[NFE].is] = FEs[NFE].wt
 			pFEID = &_FEID // ordinal fixed effect ID
 			if (robust & !(scoreBS | FEboot) & granular < NErrClustCombs)
 				infoBootAll = _panelsetup(*pIDAll, 1..NBootClustVar) // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
@@ -1094,9 +1093,12 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 
 
 
+
+
+
+
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
-	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l
-	pointer (real matrix) scalar peZVR0, pVR0
+	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0
 
 	if (robust) {
 		if (granular < NErrClustCombs & thisWeightGrpStart==1) { // if pure robust and no multi-way clustering, initialized stuff that depends on r0 but not u
@@ -1169,7 +1171,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					denom[i,j].M = colsum(u :* QQ * u)
 				}
 		else { // alternative core computational loop, avoiding computing Q'Q which has cubic time cost in numbers of bootstrapping clusters
-			if (granular) // prep optimized treatment when bootstrapping by small groups
+			if (granular) // prep optimized treatment when bootstrapping by many/small groups
 				if (purerobust) {
 					eu = *M_DGP.partialFE(&(pM->e :* u)) - *pX * betadev
 					eueu = eu:*eu
@@ -1332,13 +1334,12 @@ real matrix boottestModel::count_binary(real scalar N, real scalar lo, real scal
 
 // partial fixed effects out of a data matrix
 pointer(real matrix) scalar AnalyticalModel::partialFE(pointer(real matrix) scalar pIn) {
+	real matrix Out, t; real scalar i
 	if (parent->NFE & pIn!=NULL) {
-		real matrix Out, t; pointer (struct structFE scalar) scalar thisFE
-		thisFE = parent->FEs; Out = J(rows(*pIn), cols(*pIn), .)
-		while (thisFE != NULL) {
-			t = (*pIn)[thisFE->is,]
-			Out[thisFE->is,] = t :- cross(thisFE->wt, t)
-			thisFE = thisFE->next
+		Out = *pIn
+		for (i=parent->NFE;i;i--) {
+			t = Out[parent->FEs[i].is,]
+			Out[parent->FEs[i].is,] = t :- cross(parent->FEs[i].wt, t)
 		}
 		return(&Out)
 	}
@@ -1516,7 +1517,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	real scalar K, real scalar AR, real scalar null, real scalar scoreBS, string scalar weighttype, string scalar ptype, string scalar madjtype, real scalar NumH0s,
 	string scalar XExnames, string scalar XEndnames, real scalar hascons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
-	string scalar FEname, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
+	string scalar FEname, real scalar NFE, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
 	real scalar small, string scalar diststat, string scalar distname, real scalar gridmin, real scalar gridmax, real scalar gridpoints, real scalar MaxMatSize) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, FEID, sc, XEnd, XEx
@@ -1548,7 +1549,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	M.setZExcl(ZExcl)
 	M.setwt (wt)
 	M.setID(ID, NBootClustVar, NErrClust)
-	M.setFEID(FEID)
+	M.setFEID(FEID, NFE)
 	M.setR (R , r )
 	M.setR0(R0, r0)
 	M.setnull(null)
