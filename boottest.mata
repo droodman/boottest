@@ -1411,8 +1411,6 @@ void boottestModel::plot() {
 	if (gridstart[1]==. | gridstop[1]==.) {
 		if (reps)
 			if (AR) {
-"invnormal(alpha/2), invnormal(getpadj(1)/2)"
-invnormal(alpha/2), invnormal(getpadj(1)/2)
 				t = abs(cuepoint) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
 				lo = editmissing(gridstart[1], cuepoint - t)
 				hi = editmissing(gridstop [1], cuepoint + t)

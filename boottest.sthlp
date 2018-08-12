@@ -446,7 +446,11 @@ Please cite it as such: {p_end}
 
 {phang}. {stata ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)}{p_end}
 {phang}. {stata boottest tenure, nograph} // Wald test, WRE bootstrap, Rademacher weights, 999 replications{p_end}
-{phang}. {stata boottest tenure, nograph ar} // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid){p_end}
+{phang}. {stata boottest, nograph ar} // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid){p_end}
+
+{phang}. {stata ivregress liml wage (collgrad tenure = ttl_exp union), cluster(industry)}{p_end}
+{phang}. {stata boottest, ar} // Anderson-Rubin test, with contour plot of p value surface{p_end}
+{phang}. {stata boottest collgrad tenure, gridpoints(10 10)} // WRE boostrap also with contour plot{p_end}
 
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)} // multi-way-clustered test after estimation command not offering such{p_end}
@@ -461,8 +465,8 @@ Please cite it as such: {p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small} // multi-way-clustered, finite-sample-corrected test with score bootstrap{p_end}
 
 {phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit} // same probit estimate as previous{p_end}
-{phang}. {stata boottest tenure}{space 67} // requires Stata 14.0 or later {p_end}
-{phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 16} // requires Stata 14.0 or later{p_end}
+{phang}. {stata boottest tenure}{space 60} // requires Stata 14.0 or later {p_end}
+{phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 9} // requires Stata 14.0 or later{p_end}
 
 {phang}. {stata sysuse auto}{p_end}
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
