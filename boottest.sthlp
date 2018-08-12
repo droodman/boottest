@@ -73,9 +73,9 @@ In addition, these options are relevant when testing a single hypothesis after O
 {synoptset 45 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt gridmin(#)}}set lower end of confidence set search range{p_end}
-{synopt:{opt gridmax(#)}}set upper end of search range{p_end}
-{synopt:{opt gridpoints(#)}}set number of equally space points to compute rejection confidence{p_end}
+{synopt:{opt gridmin(# [#])}}set lower end(s) of confidence set search range; two entries for 2-D hypotheses{p_end}
+{synopt:{opt gridmax(# [#])}}analogous upper ends{p_end}
+{synopt:{opt gridpoints(# [#])}}set number of equally space points to compute rejection confidence{p_end}
 {synopt:{opt graphopt(string)}}formatting options to pass to graph command{p_end}
 {synopt:{opt noci}}prevent derivation of confidence set from inverted bootstrap test{p_end}
 {synopt:{cmd:graphname(}{it:name}[{cmd:, replace}]{cmd:)}}name graph; for multiple independent hypotheses, uses {it:name} as stub{p_end}
@@ -102,7 +102,7 @@ In addition, these options are relevant when testing a single hypothesis after O
 is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
 For exact replication of earlier results, an older version, 2.0.5, is available as a
 {browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed in Stata 13 or later via
-"{net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}".
+{net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}.
 
 {marker description}{...}
 {title:Description}
@@ -121,7 +121,7 @@ several tests to run on the data sets. The bootstraps are:
 * The wild restricted efficient bootstrap (WRE; Davidson and MacKinnon 2010), which extends the wild bootstrap to instrumental variables estimators including
 2SLS, LIML, Fuller LIML, and k-class estimation.
 
-{pstd}
+{p 4 6 0}
 * The score bootstrap developed by Kline and Santos (2012) as an adaptation of the wild bootstrap to the general extremum estimator, including 2SLS, LIML, ML, and GMM. In 
 estimators such as probit and logit, residuals are not well-defined, which prevents application of the wild bootstrap. As its name suggests, the score bootstrap 
 works with a generalized analog of residuals, scores. Also, the score bootstrap does not require re-estimation on each replication, which would be 
@@ -234,7 +234,7 @@ involves drawing pseudorandom numbers, the exact results depend on the starting 
 {help set_seed:set seed}.
 
 {pstd}
-When testing a single-constraint hypothesis after OLS, 2SLS, or LIML, {cmd:boottest} by default derives and plots a confidence curve and a confidence set for the 
+When testing a one-dimensional hypothesis after linear estimation (OLS, 2SLS, etc.), {cmd:boottest} by default derives and plots a confidence curve and a confidence set for the 
 right-hand-side of the hypothesis. (This adds greatly to run time and can be prevented with the {opt noci} option.) For example,
 if the hypothesis is "X + Y = 1", meaning that the coefficients on X and Y sum to 1, then {cmd:boottest} will estimate the set of all potential values for this sum that cannot be rejected
 at, say, p = 0.05. This set might consist of disjoint pieces. The standard {opt l:evel(#)} option controls the coverage of the confidence set. By default, p value 
@@ -250,6 +250,13 @@ options. Then it tests potential values at equally spaced intervals within this 
 that is rejected at 0.05, in order to bound the confidence set. The confidence curve is then plotted, at all the grid points as well as the detected crossover points and the
 original point estimate. The graph may look coarse with only 25 grid points, but the confidence set bounds will nevertheless be computed precisely.  Specifying 
 {opt level(100)} suppresses this entire search process while still requesting a plot of the confidence function.
+
+{pstd}
+Similarly, when testing a two-dimensional hypothesis after linear estimation, {cmd:boottest} automatically renders the p value surface with a {help twoway contour:contour plot}. In
+this case, it does not attempt to numerically describe the boundary of the, say, 95% confidence set. But by default, the contour plot has shading breaks at 0.05, 0.1, ...,, 0.95, making the 
+boundary easy to perceive. The {opt gridmin()}, {opt gridmax()}, and {opt gridpoints()} options, if included, now should provide two numbers each, for the first and second
+dimensions of the hypothesis. But any entry may be missing (".") to accept {cmd:boottest}'s best guess at a good boundary (for {opt gridmin()} and {opt gridmax()}) or fixed default
+(25, for {opt gridpoints()}). To override the default formatting of the contour plot, include {help twoway contour} options inside a {cmd:boottest} {opt graphopt()} option.
 
 
 {marker options}{...}
@@ -282,11 +289,11 @@ one-costraint hypothesis after OLS/2SLS/GMM/LIML, for only then is the confidenc
 default is controlled by {help level:set level} and is usually 95. Setting it to 100 suppresses computation and plotting of the confidence 
 set while still allowing plotting of the confidence curve.
 
-{phang}{opt gridmin(#)}, {opt gridmax(#)}, {opt gridpoints(#)} override the default lower and upper bounds and the resolution of the grid search
-that begins the process of determining bounds for confidence sets, as described above. By default, {cmd:boottest} estimates the lower and upper bounds by working
+{phang}{opt gridmin(# [#])}, {opt gridmax(# [#])}, {opt gridpoints(# [#])} override the default lower and upper bounds and the resolution of the grid search,
+as described above. By default, {cmd:boottest} picks the lower and upper bounds by working
 with the bootstrapped distribution, and uses 25 grid points.
 
-{phang}{opt graphopt(string)} allows the user to pass formatting options to the {help graph} command, in order to control the appearance of the confidence plot.
+{phang}{opt graphopt(string)} allows the user to pass formatting options to the {help graph} command, in order to control the appearance of the p value plot.
 
 {phang}{cmd:graphname(}{it:name}[{cmd:, replace}]{cmd:)} names any resulting graphs. If testing multiple independent hypotheses, {it:name} will be used as a stub,
 producing {it:name}_1, {it:name}_2, etc.
@@ -378,7 +385,7 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(CI)}}bounds of confidence sets, if any{p_end}
-{synopt:{cmd:r(plot)}}data for confidence plot, if any{p_end}
+{synopt:{cmd:r(plot)}}data for p value plot, if any{p_end}
 {synopt:{cmd:r(dist)}}t/z distribution, if requested with {opt svm:at}{p_end}
 
 {pstd}

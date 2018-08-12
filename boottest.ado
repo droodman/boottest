@@ -651,7 +651,7 @@ program define _boottest, rclass sortpreserve
 
 		if "`plotmat'" != "" {
 			tempvar X1 Y _plotmat
-			if `df'==2 tempvar X2
+			if rowsof(`C0')==2 tempvar X2
 			mat `_plotmat' = `plotmat'
 			return matrix plot`_h' = `plotmat'
 			mat `plotmat' = `_plotmat'
@@ -672,7 +672,7 @@ program define _boottest, rclass sortpreserve
 				label var `Y' " " // in case user turns on legend
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
 
-				if `df'==1 {
+				if rowsof(`C0')==1 {
 					format `X1' `X2' %5.0g
 					local 0, `graphopt'
 					syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
@@ -683,8 +683,10 @@ program define _boottest, rclass sortpreserve
 				}
 				else {
 					foreach var in Y X1 X2 {
-						ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
-						local `var' _boottest``var''
+						if "``var''" != "" {
+							ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
+							local `var' _boottest``var''
+						}
 					}
 					c_local contourvars `Y' `X1' `X2' // pass these to calling program for dropping in case twoway contour crashes
 					

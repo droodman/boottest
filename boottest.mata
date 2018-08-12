@@ -801,7 +801,7 @@ void boottestModel::boottest() {
 			M_DGP.InitEndog(pY, pXEnd)
 
 			if (AR) {
-				if (willplot & rows(*pR0)==1) { // for plotting purposes get original point estimate if not normally generated
+				if (willplot) { // for plotting purposes get original point estimate if not normally generated
 					M_DGP.SetS(S) // no-null model in DGP
 					M_DGP.InitEstimate()
 					M_DGP.Estimate(s)
@@ -1048,7 +1048,10 @@ real scalar boottestModel::MakeWREStats(real scalar thisWeightGrpStart, real sca
 			denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
 		Dist[j+thisWeightGrpStart-1] = sqrt? numer/sqrt(denom.M) : cross(numer, invsym(denom.M) * numer)
+
 	}
+	if (thisWeightGrpStart==1 & df==2) denom0 = denom.M // original-sample denominator
+
 	return(0) // don't skip remaining calcs in calling procedure
 }
 
@@ -1089,6 +1092,7 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 	}
 	return(0)
 }
+
 
 
 
@@ -1407,18 +1411,20 @@ void boottestModel::plot() {
 	if (gridstart[1]==. | gridstop[1]==.) {
 		if (reps)
 			if (AR) {
-				t = abs(cuepoint) * (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
-				lo = gridstart[1]<.? gridstart[1] : cuepoint - t
-				hi = gridstop[1] <.? gridstop[1]  : cuepoint + t
+"invnormal(alpha/2), invnormal(getpadj(1)/2)"
+invnormal(alpha/2), invnormal(getpadj(1)/2)
+				t = abs(cuepoint) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
+				lo = editmissing(gridstart[1], cuepoint - t)
+				hi = editmissing(gridstop [1], cuepoint + t)
 			} else {
 				make_DistCDR()
-				lo = gridstart[1]<.? gridstart[1] : numer[1]/u_sd + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1]) // initial guess based on distribution from main test
-				hi = gridstop[1] <.? gridstop[1]  : numer[1]/u_sd + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1])
+				lo = editmissing(gridstart[1], numer[1]/u_sd + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1])) // initial guess based on distribution from main test
+				hi = editmissing(gridstop [1], numer[1]/u_sd + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer[1]/Dist[1]))
 			}
 		else {
-			t = abs(numer/Dist) * (small? -invttail(df_r, alpha/2) : invnormal(alpha/2))
-			lo = gridstart[1]<.? gridstart[1] : (numer + t)/u_sd + *pr0
-			hi = gridstop[1] <.? gridstop[1]  : (numer - t)/u_sd + *pr0
+			t = abs(numer/Dist) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
+			lo = editmissing(gridstart[1], (numer - t)/u_sd + *pr0)
+			hi = editmissing(gridstop [1], (numer + t)/u_sd + *pr0)
 			if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
 				CI = lo, hi
 				return
@@ -1463,9 +1469,11 @@ void boottestModel::plot() {
 	printf("{txt}")
 	for (i = rows(plotX); i; i--) {
 		plotY[i] = r0_to_p(plotX[i])
-		printf(".")
-		if (mod(i-rows(plotX)-1,50)) displayflush()
-			else printf("\n")
+		if (!_quietly) {
+			printf(".")
+			if (mod(i-rows(plotX)-1,50)) displayflush()
+				else printf("\n")
+		}
 	}
 	printf("\n")
 
@@ -1515,13 +1523,22 @@ void boottestModel::contourplot() {
 
 	_editmissing(gridpoints, 25)
 	lo = hi = J(2, 1, .)
+
+	if (AR)
+		t = abs(cuepoint) / (-2/invnormal(getpadj(1)/2))
+
 	for(d=df;d;d--) {
-		lo[d] = editmissing(gridstart[d], (numer[d,1] + (*pr0)[d] - 2 * sqrt(denom0[d,d]))/u_sd)
-		hi[d] = editmissing(gridstop [d], (numer[d,1] + (*pr0)[d] + 2 * sqrt(denom0[d,d]))/u_sd)
+		if (AR) {
+			lo[d] = editmissing(gridstart[d], cuepoint[d] - t[d])
+			hi[d] = editmissing(gridstart[d], cuepoint[d] + t[d])
+		} else {
+			lo[d] = editmissing(gridstart[d], (numer[d,1] + (*pr0)[d] - 3 * sqrt(denom0[d,d]))/u_sd)
+			hi[d] = editmissing(gridstop [d], (numer[d,1] + (*pr0)[d] + 3 * sqrt(denom0[d,d]))/u_sd)
+		}
 
 		stata("_natscale " + strofreal(lo[d]) + " " + strofreal(hi[d]) + " 4")
 		if (gridstart[d]==.) {
-			stata("local min = r(min)")
+			stata("local min = r(min)")  // for some reason, st_global("r(min)") doesn't work
 			lo[d] = strtoreal(st_local("min"))
 		}
 		if (gridstop[d]==.) {
@@ -1535,9 +1552,11 @@ void boottestModel::contourplot() {
 	printf("{txt}")
 	for (i = rows(plotX); i; i--) {
 		plotY[i] = r0_to_p(plotX[i,]')
-		printf(".")
-		if (mod(i-rows(plotX)-1,50)) displayflush()
-			else printf("\n")
+		if (!_quietly) {
+			printf(".")
+			if (mod(i-rows(plotX)-1,50)) displayflush()
+				else printf("\n")
+		}
 	}
 	printf("\n")
 
