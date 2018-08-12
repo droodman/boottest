@@ -1,4 +1,4 @@
-*! boottest 2.1.9 4 August 2018
+*! boottest 2.2.0 12 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -731,6 +731,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.2.0 Added contour plotting for 2-D tests.
 * 2.1.9 Work-around for Stata crash when number of fixed effects is very large: require # of FE as input, and don't represent them as linked list.
 * 2.1.8 Fixed 2.1.6 crash with FE. Fixed parsing of matsizegb() option.
 * 2.1.6 Changed to faster computation for WCR with many clusters, but not quite WB. In multiway only applies to intersection of all clusters.
