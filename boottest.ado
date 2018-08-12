@@ -25,6 +25,7 @@ program define boottest
 	constraint drop `anythingh0'
 	cap mata mata drop _boottestp
 	cap mata mata drop _boottestC
+	cap drop `contourvars'
 	exit `rc'
 end
 
@@ -33,7 +34,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.01.09" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.02.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -119,32 +120,33 @@ program define _boottest, rclass sortpreserve
 	}
 	else local graphname Graph
 
-	if `"`gridpoints'"'=="" local gridpoints .
+	if `"`gridpoints'"'=="" local gridpoints . .
 	else {
-		cap confirm integer number `gridpoints'
-		local rc = _rc
-		if !_rc {
-			local rc = `gridpoints' <= 0
-		}
-		if `rc' {
-			di as err "{cmd:gridpoints()} not a positive integer."
-			exit 198
-		}
-	}
-	if `"`gridmin'"'=="" local gridmin .
-	else {
-		cap confirm number `gridmin'
-		if _rc {
-			di as err "{cmd:gridmin()} not numeric."
-			exit 198
+		foreach g of local gridpoints {
+			cap confirm integer number `g'
+			local rc = _rc
+			if !_rc {
+				local rc = `g' <= 0
+			}
+			if `rc' {
+				di as err "{cmd:gridpoints()} entry not a positive integer."
+				exit 198
+			}
 		}
 	}
-	if `"`gridmax'"'=="" local gridmax .
-	else {
-		cap confirm number `gridmax'
-		if _rc {
-			di as err "{cmd:gridmax()} not numeric."
-			exit 198
+
+	foreach macro in gridmin gridmax {
+		if `"``macro''"'=="" local `macro' . .
+		else {
+			foreach g of local `macro' {
+				if `"`g'"' != "." {
+					cap confirm number `g'
+					if _rc {
+						di as err "{cmd:`macro'()} entry not numeric."
+						exit 198
+					}
+				}
+			}
 		}
 	}
 	
@@ -414,7 +416,8 @@ program define _boottest, rclass sortpreserve
 		if _rc exit 111
 		_estimates unhold `hold'
 		if r(k_autoCns) mat `C0' = `C0'[r(k_autoCns)+1...,1...]
-		
+		scalar `df' = rowsof(`C0')
+
 		if `NFE' {
 			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`C0'"),st_matrixcolstripe("`C0'")[,2]':=="_cons"))))
 
@@ -427,12 +430,28 @@ program define _boottest, rclass sortpreserve
 		local plotmat
 		local peakmat
 		local cimat
-		if "`noci'"=="" & !`ML' & rowsof(`C0')==1 {
-			if !(`reps'==0 & `scoreBS' & !`null' & "`graph'"!="") tempname plotmat peakmat // don't request plot if doing simple Wald with no graph
-			if `level'<100 tempname cimat
+		if "`noci'"=="" & !`ML' & (`df'<=1 | `df'==2 & "`graph'"=="") {
+			if `reps' | !`scoreBS' | `null' | "`graph'"=="" tempname plotmat peakmat // don't request plot if doing simple Wald with no graph
+			if `level'<100 & `df'==1 tempname cimat
 		}
 
-		if rowsof(`C0')>1 & "`ptype'"!="symmetric" di as txt "Note: {cmd:ptype(`ptype')} ignored for multi-constraint null hypotheses."
+		if `df'>1 & "`ptype'"!="symmetric" di as txt "Note: {cmd:ptype(`ptype')} ignored for multi-constraint null hypotheses."
+
+		if `df'<=2 & "`graph'"=="" { // a bit duplicative of code in the if-`ML' block just below...
+			local coleq: coleq `b'
+			if "`:word 1 of `coleq''"=="_" local coleq
+			local colnames: colnames `b'
+			forvalues r=1/2 {
+				local terms 0
+				local constraintLHS`r'
+				forvalues c=1/`=colsof(`C0')-1' {
+					if `C0'[`r',`c'] {
+						if `terms++' local constraintLHS`r' `constraintLHS`r''+
+						local constraintLHS`r' `constraintLHS`r'' `=cond(`C0'[`r',`c']!=1,"`=`C0'[`r',`c']'*","")'`=cond("`coleq'"=="","","[`:word `c' of `coleq'']")'`:word `c' of `colnames''
+					}
+				}
+			}
+		}
 
 		if `ML' {
 			local K .
@@ -468,7 +487,7 @@ program define _boottest, rclass sortpreserve
 				cap _estimates drop `hold'
 				_estimates hold `hold', restore
 				local coleq: coleq `b'
-				if "`coleq''"=="_" local coleq
+				if "`:word 1 of `coleq''"=="_" local coleq
 				local colnames: colnames `b'
 
 				forvalues r=1/`=rowsof(`CC0')' {
@@ -579,9 +598,9 @@ program define _boottest, rclass sortpreserve
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-												`gridmin', `gridmax', `gridpoints', `matsizegb')
+												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb')
 		_estimates unhold `hold'
-		
+
 		local reps = `repsname' // in case reduced to 2^G
 		if !`ML' & `reps' & `:word count `clustvars''>1 {
 			return scalar repsFeas = `repsFeasname'
@@ -631,7 +650,8 @@ program define _boottest, rclass sortpreserve
 		}
 
 		if "`plotmat'" != "" {
-			tempvar X Y _plotmat
+			tempvar X1 Y _plotmat
+			if `df'==2 tempvar X2
 			mat `_plotmat' = `plotmat'
 			return matrix plot`_h' = `plotmat'
 			mat `plotmat' = `_plotmat'
@@ -647,17 +667,32 @@ program define _boottest, rclass sortpreserve
 				else {
 					mata st_matrix("`_plotmat'", st_matrix("`plotmat'") \ ((st_matrix("`cimat'")[,1] \ st_matrix("`cimat'")[,2]), J(2*`=rowsof(`cimat')', 1, 1-`level'/100)))
 				}
-				mat colnames `_plotmat' = `X' `Y'
+				mat colnames `_plotmat' = `X1' `X2' `Y'
 				qui svmat `_plotmat', names(col)
 				label var `Y' " " // in case user turns on legend
-				format `X' %5.0g
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
-				local 0, `graphopt'
-				syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
-				line `Y' `X', sort(`X') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X' if _n>rowsof(`plotmat'), mlabel(`X') mlabpos(6) xtitle("") ///
-					ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"') ///
-					yscale(range(0 .)) name(`graphname'`_h', `replace') ///
-					`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
+
+				if `df'==1 {
+					format `X1' `X2' %5.0g
+					local 0, `graphopt'
+					syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
+					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) xtitle("`constraintLHS1'") ///
+						ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"') ///
+						yscale(range(0 .)) name(`graphname'`_h', `replace') ///
+						`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
+				}
+				else {
+					foreach var in Y X1 X2 {
+						ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
+						local `var' _boottest``var''
+					}
+					c_local contourvars `Y' `X1' `X2' // pass these to calling program for dropping in case twoway contour crashes
+					
+					twoway contour `Y' `X2' `X1' if _n<=rowsof(`plotmat'), xtitle("`constraintLHS1'") ytitle("`constraintLHS2'") ///
+						ztitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"', orient(rvert)) ///
+						name(`graphname'`_h', `replace') crule(linear) scolor(gs5) ecolor(white) ccut(0(.05)1) plotregion(margin(zero)) /// // defaults copied from weakiv
+						`graphopt'
+				}
 			}
 		}
 

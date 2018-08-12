@@ -49,7 +49,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
 {synopt:{cmdab:matsize:gb(#)}}set maximum size of wild weight matrix, in gigabytes{p_end}
-{synopt:{opt boott:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
+{synopt:{opt boot:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
@@ -260,8 +260,8 @@ bootstrapping. The default is {it:rademacher}. However if the number of replicat
 Rademacher draws--{cmd:boottest} will take each possible draw once. It will not do that with Mammen weights even though the same issue arises. In all such cases,
 Webb weights are probably better.
 
-{phang}{opt boott:type(wild | score)}} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
-restricted efficient bootstrap is the default, which {cmd:bootttype(score)} overrides in favor of the score bootstrap.
+{phang}{opt boot:type(wild | score)}} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
+restricted efficient bootstrap is the default, which {cmd:boottype(score)} overrides in favor of the score bootstrap.
 
 {phang}{opt r:eps(#)} sets the number of bootstrap replications. The default is 999. Especially when clusters are few, increasing this number costs little in run 
 time. {opt r:eps(0)} requests a Wald test or--if {opt boottype(score)} is also specified and {opt nonul:l} is not--a Rao test. The wrappers {cmd:waldtest}
@@ -371,7 +371,7 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(seed)}}value of {opt seed(#)} option, if any, or else c(seed) at command invocation{p_end}
-{synopt:{cmd:r(bootttype)}}bootstrapping type{p_end}
+{synopt:{cmd:r(boottype)}}bootstrapping type{p_end}
 {synopt:{cmd:r(weighttype)}}bootstrapping weight type{p_end}
 {synopt:{cmd:r(robust)}}indicates robust/clustered test{p_end}
 {synopt:{cmd:r(clustvars)}}clustering variables for test, if any{p_end}
@@ -404,12 +404,12 @@ Please cite it as such: {p_end}
 {phang}. {stata "use http://web.archive.org/web/20150802214527/http://faculty.econ.ucdavis.edu/~dlmiller/statafiles/collapsed"}{p_end}
 
 {phang}. {stata regress hasinsurance selfemployed post post_self, cluster(year)}{p_end}
-{phang}. {stata boottest post_self=.04, graphopt(xtitle("Coefficient on tenure"))} // wild bootstrap, Rademacher weights, null imposed, 999 replications{p_end}
+{phang}. {stata boottest post_self=.04} // wild bootstrap, Rademacher weights, null imposed, 999 replications{p_end}
 {phang}. {stata boottest post_self=.04, weight(webb) noci}{space 24} // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI{p_end}
 {phang}. {stata scoretest post_self=.04}{space 42} // Rao score/Lagrange multipler test of same{p_end}
 
-{phang}. {stata boottest (post_self) (post), reps(99999) weight(webb)} // wild bootstrap test of joint null, Webb weights, null imposed, 99,999 replications{p_end}
-{phang}. {stata boottest post_self post, reps(99999) weight(webb)} // same, because multiple coefficients can be listed in single constraint{p_end}
+{phang}. {stata boottest (post_self) (post), weight(webb) reps(9999)} // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications{p_end}
+{phang}. {stata boottest post_self post, reps(9999) weight(webb)} // same, because multiple coefficients can be listed in single constraint{p_end}
 {phang}. {stata boottest (post_self=.04) (post)} // joint test{p_end}
 {phang}. {stata boottest {post_self=.04} {post}} // separate tests, no correction for multiple hypotheses{p_end}
 {phang}. {stata boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak)} // separate tests, Sidak correction for multiple hypotheses{p_end}
