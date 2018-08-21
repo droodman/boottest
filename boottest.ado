@@ -1,4 +1,4 @@
-*! boottest 2.2.0 12 August 2018
+*! boottest 2.2.1 21 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -229,8 +229,8 @@ program define _boottest, rclass sortpreserve
 	local scoreBS = "`boottype'"=="score"
 	
 	local FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
-	local NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , 0`e(k_absorb)'`e(K1)')
-	
+	local NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), 0`e(K1)'))
+
 	if `"`seed'"'!="" set seed `seed'
 
 	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW repsname repsFeasname
@@ -731,6 +731,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.2.1 Fixed failure to detect # of FE after areg in Stata version < 15
 * 2.2.0 Added contour plotting for 2-D tests.
 * 2.1.9 Work-around for Stata crash when number of fixed effects is very large: require # of FE as input, and don't represent them as linked list.
 * 2.1.8 Fixed 2.1.6 crash with FE. Fixed parsing of matsizegb() option.
