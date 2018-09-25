@@ -1,4 +1,4 @@
-*! boottest 2.2.2 26 August 2018
+*! boottest 2.2.2 25 September 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -78,7 +78,7 @@ class boottestModel {
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), MakeNonWRENumers(), MakeWREStats()
 	real matrix combs(), count_binary(), crosstab(), getplot(), getCI()
 	real rowvector getpeak()
-	real colvector getdist()
+	real colvector getdist(), myorder()
 }
 void AnalyticalModel::new()
 	AR = 0
@@ -178,7 +178,7 @@ void AnalyticalModel::InitEstimate() {
 				TT = Splus ' TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), vec, val)
+			eigensystemselecti(luinv(TT) * TPZT, rows(TT)\rows(TT), vec, val)
 			K = 1/Re(1-val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks in
 		}
 
@@ -654,13 +654,13 @@ void boottestModel::boottest() {
 
 				if (c == 1)
 				  if (subcluster) {
-						IDErr = IDErr[ Clust.order = order(IDErr, ClustCols), ]
+						IDErr = IDErr[ Clust.order = myorder(IDErr, ClustCols), ]
 						Clust.info       = _panelsetup(IDErr, ClustCols)
 					} else
 						Clust.info       = J(rows(infoAllData),0,0)  // causes no collapsing of data in _panelsum() calls
 				else {
 					if (any( Combs[|c, min(boottest_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-						IDErr = IDErr[ Clust[c].order = order(IDErr, ClustCols), ]
+						IDErr = IDErr[ Clust[c].order = myorder(IDErr, ClustCols), ]
 
 					Clust[c].info       = _panelsetup(IDErr, ClustCols)
 				}
@@ -713,7 +713,7 @@ void boottestModel::boottest() {
 		}
 
 		if (NFE) {
-			sortID = (*pFEID)[o = order(*pFEID, 1)]
+			sortID = (*pFEID)[o = myorder(*pFEID, 1)]
 			i_FE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
 			FEs = structFE(NFE)
 			for (i=Nobs-1;i;i--) {
@@ -1513,7 +1513,7 @@ void boottestModel::plot() {
 }
 
 void boottestModel::contourplot() {
-	real scalar t, alpha, _quietly, i, d; real colvector lo, hi; pointer (real colvector) scalar _pr0
+	real scalar t, _quietly, i, d; real colvector lo, hi; pointer (real colvector) scalar _pr0
 
 	_quietly = quietly
 	setquietly(1)
@@ -1571,6 +1571,10 @@ real matrix boottestModel::combs(real scalar d) {
 		retval = retval, J(2^(d-i),1,1) # (1\0) # J(2^(i-1),1,1) 
 	return (retval)
 }
+
+// Like Mata's order() but does a stable sort
+real colvector boottestModel::myorder(real matrix X, real rowvector idx)
+	return (order((X, (1::rows(X))), (idx,cols(X)+1)))
 
 // Stata interface
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
