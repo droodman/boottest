@@ -78,7 +78,7 @@ class boottestModel {
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), MakeNonWRENumers(), MakeWREStats()
 	real matrix combs(), count_binary(), crosstab(), getplot(), getCI()
 	real rowvector getpeak()
-	real colvector getdist(), myorder()
+	real colvector getdist(), stableorder()
 }
 void AnalyticalModel::new()
 	AR = 0
@@ -654,13 +654,13 @@ void boottestModel::boottest() {
 
 				if (c == 1)
 				  if (subcluster) {
-						IDErr = IDErr[ Clust.order = myorder(IDErr, ClustCols), ]
+						IDErr = IDErr[ Clust.order = stableorder(IDErr, ClustCols), ]
 						Clust.info       = _panelsetup(IDErr, ClustCols)
 					} else
 						Clust.info       = J(rows(infoAllData),0,0)  // causes no collapsing of data in _panelsum() calls
 				else {
 					if (any( Combs[|c, min(boottest_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-						IDErr = IDErr[ Clust[c].order = myorder(IDErr, ClustCols), ]
+						IDErr = IDErr[ Clust[c].order = stableorder(IDErr, ClustCols), ]
 
 					Clust[c].info       = _panelsetup(IDErr, ClustCols)
 				}
@@ -713,7 +713,7 @@ void boottestModel::boottest() {
 		}
 
 		if (NFE) {
-			sortID = (*pFEID)[o = myorder(*pFEID, 1)]
+			sortID = (*pFEID)[o = stableorder(*pFEID, 1)]
 			i_FE = 1; FEboot = reps>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
 			FEs = structFE(NFE)
 			for (i=Nobs-1;i;i--) {
@@ -1573,7 +1573,7 @@ real matrix boottestModel::combs(real scalar d) {
 }
 
 // Like Mata's order() but does a stable sort
-real colvector boottestModel::myorder(real matrix X, real rowvector idx)
+real colvector boottestModel::stableorder(real matrix X, real rowvector idx)
 	return (order((X, (1::rows(X))), (idx,cols(X)+1)))
 
 // Stata interface
