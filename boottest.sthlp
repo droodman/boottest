@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.2.0 12 August 2018}{...}
+{* *! version 2.2.2 26 August 2018}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -392,6 +392,13 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 If more than one independent hypotheses is tested, many return values listed above will be supplied
 separately for each hypothesis, using suffixes 1, 2, ....
 
+
+{title:Author}
+
+{p 4}David Roodman{p_end}
+{p 4}david@davidroodman.com{p_end}
+
+
 {title:Donate?}
 
 {pstd}
@@ -402,7 +409,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {title:Citation}
 
 {p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community.
-Please cite it as such: {p_end}
+Please cite: {p_end}
 {p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2018. Fast and wild: bootstrap inference in Stata using boottest. Queen's Economics Department Working Paper No. 1406.{p_end}
 
 
@@ -412,12 +419,11 @@ Please cite it as such: {p_end}
 
 {phang}. {stata regress hasinsurance selfemployed post post_self, cluster(year)}{p_end}
 {phang}. {stata boottest post_self=.04} // wild bootstrap, Rademacher weights, null imposed, 999 replications{p_end}
-{phang}. {stata boottest post_self=.04, weight(webb) noci}{space 24} // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI{p_end}
-{phang}. {stata scoretest post_self=.04}{space 42} // Rao score/Lagrange multipler test of same{p_end}
+{phang}. {stata boottest post_self=.04, weight(webb) noci} // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI{p_end}
+{phang}. {stata scoretest post_self=.04}{space 18} // Rao score/Lagrange multipler test of same{p_end}
 
-{phang}. {stata boottest (post_self) (post), weight(webb) reps(9999)} // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications{p_end}
-{phang}. {stata boottest post_self post, reps(9999) weight(webb)} // same, because multiple coefficients can be listed in single constraint{p_end}
-{phang}. {stata boottest (post_self=.04) (post)} // joint test{p_end}
+{phang}. {stata boottest post_self post, reps(9999) weight(webb)} // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications{p_end}
+{phang}. {stata boottest (post_self) (post), reps(9999) weight(webb)} // same{p_end}
 {phang}. {stata boottest {post_self=.04} {post}} // separate tests, no correction for multiple hypotheses{p_end}
 {phang}. {stata boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak)} // separate tests, Sidak correction for multiple hypotheses{p_end}
 
@@ -507,8 +513,3 @@ large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
 {p 4 8 2}Wu, C.F.J. 1986. Jackknife, bootstrap and other resampling methods in regression analysis (with discussions). {it:Annals of Statistics}
 14: 1261-1350.{p_end}
-
-{title:Author}
-
-{p 4}David Roodman{p_end}
-{p 4}david@davidroodman.com{p_end}

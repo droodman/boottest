@@ -1,4 +1,4 @@
-*! boottest 2.2.1 21 August 2018
+*! boottest 2.2.2 26 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.02.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.02.02" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -598,7 +598,7 @@ program define _boottest, rclass sortpreserve
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb')
+												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="")
 		_estimates unhold `hold'
 
 		local reps = `repsname' // in case reduced to 2^G
@@ -731,6 +731,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.2.2 Allowed quietly option in ado interface to suppress dots
 * 2.2.1 Fixed failure to detect # of FE after areg in Stata version < 15
 * 2.2.0 Added contour plotting for 2-D tests.
 * 2.1.9 Work-around for Stata crash when number of fixed effects is very large: require # of FE as input, and don't represent them as linked list.

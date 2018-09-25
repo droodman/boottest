@@ -1,4 +1,4 @@
-*! boottest 2.2.0 12 August 2018
+*! boottest 2.2.2 26 August 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("02.02.00")
+string scalar      boottestVersion() return("02.02.02")
 
 struct smatrix {
 	real matrix M
@@ -1579,7 +1579,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	string scalar XExnames, string scalar XEndnames, real scalar hascons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
 	string scalar FEname, real scalar NFE, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
-	real scalar small, string scalar diststat, string scalar distname, string scalar gridstart, string scalar gridstop, string scalar gridpoints, real scalar MaxMatSize) {
+	real scalar small, string scalar diststat, string scalar distname, string scalar gridstart, string scalar gridstop, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, FEID, sc, XEnd, XEx
 	real colvector r, wt, r0, Y
@@ -1628,6 +1628,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	M.setgrid(strtoreal(tokens(gridstart)), strtoreal(tokens(gridstop)), strtoreal(tokens(gridpoints)))
 	M.setmadjust(madjtype, NumH0s)
 	M.setlevel(level)
+	M.setquietly(quietly)
 
 	M._st_view(XEnd, ., XEndnames, samplename)
 	M.setXEnd(XEnd)
