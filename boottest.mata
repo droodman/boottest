@@ -178,8 +178,8 @@ void AnalyticalModel::InitEstimate() {
 				TT = Splus ' TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti(luinv(TT) * TPZT, rows(TT)\rows(TT), vec, val)
-			K = 1/Re(1-val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks in
+			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val) // eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks in
 		}
 
 	pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX

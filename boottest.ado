@@ -1,4 +1,4 @@
-*! boottest 2.2.2 26 August 2018
+*! boottest 2.2.2 25 September 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -731,7 +731,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.2.2 Allowed quietly option in ado interface to suppress dots. Made sorts in Mata code stable. Switched from invsym() to luinv() in finding smallest eigenvalue.
+* 2.2.2 Allowed quietly option in ado interface to suppress dots. Made sorts in Mata code stable.
+*       For LIML, reverted to finding eigenvalue of I-TT/TPZT instead of TT/TPZT; seems to avoid instances of eigensystem() returning all missing
 * 2.2.1 Fixed failure to detect # of FE after areg in Stata version < 15
 * 2.2.0 Added contour plotting for 2-D tests.
 * 2.1.9 Work-around for Stata crash when number of fixed effects is very large: require # of FE as input, and don't represent them as linked list.
