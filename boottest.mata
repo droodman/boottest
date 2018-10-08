@@ -39,11 +39,11 @@ struct structFE {
 
 class AnalyticalModel { // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
 	real scalar LIML, YY, ee, eec, Fuller, AR, K, k
-	real matrix ZX, ZXEnd, ZZ, H_2SLS, invH, A, VR0, ZVR0, e2, numer, Splus, pi, XXEnd, dbetads, Ze2
+	real matrix ZX, ZXEnd, ZZ, H_2SLS, invH, A, VR0, ZVR0, e2, numer, Splus, pi, XXEnd, dbetads, Ze2, ZExclXEnd, XExXEnd
 	real colvector sAll, e, beta, beta0, Ze, ZY
 	real rowvector YXEnd
 	pointer(real colvector) scalar pY
-	pointer(real matrix) scalar pXEnd, pXX, pXY, pZExclY, pXExY, pZExclXEnd, pV, pW, pinvZZ, pXExXEx, pZXEx, pXExXEnd, pH, pR0, pS
+	pointer(real matrix) scalar pXEnd, pXX, pXY, pZExclY, pXExY, pV, pW, pinvZZ, pXExXEx, pZXEx, pH, pR0, pS
 	pointer (class boottestModel scalar) scalar parent
 	pointer (class AnalyticalModel scalar) scalar DGP
 	struct smatrix matrix CT_ZVR0
@@ -57,7 +57,7 @@ class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, doQQ, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps, enumerate
-	real matrix QQ, eZVR0, SewtXV, VR0, betadev, numer, u, U, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData, J_ClustN_NBootClust, denom0
+	real matrix QQ, eZVR0, SewtXV, VR0, betadev, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootAll, infoErrAll, infoAllData, J_ClustN_NBootClust, denom0
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoBootData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	string scalar wttype, madjtype, seed
@@ -67,7 +67,7 @@ class boottestModel {
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct smatrix matrix denom
-	struct smatrix colvector Kcd, XEndstar, XExXEndstar, ZExclXEndstar, XZi, eZi, euZVR0
+	struct smatrix colvector Kcd, XZi, eZi, euZVR0
 	struct structFE rowvector FEs
 	pointer (real matrix) matrix pQ
 	pointer (struct boottest_clust scalar) scalar pBootClust
@@ -121,25 +121,25 @@ void AnalyticalModel::SetS(real matrix S) {
 
 // stuff that can be done before S & r0 set, but depend on endogenous variables, which are bootstrapped in WRE
 void AnalyticalModel::InitEndog(pointer (real colvector) scalar _pY, pointer (real matrix) scalar _pXEnd, | ///
-		pointer (real colvector) scalar _pZExclY, pointer (real rowvector) scalar _pXExY, real scalar _YY, pointer (real matrix) scalar _pZExclXEnd, pointer (real matrix) scalar _pXExXEnd) {
+		pointer (real colvector) scalar _pZExclY, pointer (real rowvector) scalar _pXExY) {
 
 	pY = partialFE(_pY); pXEnd = partialFE(_pXEnd)
-	
-	pXExY = _pXExY==NULL? &cross(*parent->pXEx, *parent->pwt, *parent->pY) : _pXExY
+
+	pXExY = _pXExY==NULL? &cross(*parent->pXEx, *parent->pwt, *pY) : _pXExY
 	if (K | AR)
 		pZExclY = _pZExclY==NULL? &cross(*parent->pZExcl, *parent->pwt, *pY) : _pZExclY
 	if (K) {
-		pXExXEnd   = _pXExXEnd  ==NULL? &cross(*parent->pXEx  , *parent->pwt, *pXEnd) : _pXExXEnd
-		pZExclXEnd = _pZExclXEnd==NULL? &cross(*parent->pZExcl, *parent->pwt, *pXEnd) : _pZExclXEnd
-		ZXEnd = *pXExXEnd \ *pZExclXEnd
+		XExXEnd   = cross(*parent->pXEx  , *parent->pwt, *pXEnd)
+		ZExclXEnd = cross(*parent->pZExcl, *parent->pwt, *pXEnd)
+		ZXEnd = XExXEnd \ ZExclXEnd
 		ZX = *pZXEx, ZXEnd
-		XXEnd = *pXExXEnd \ cross(*pXEnd, *parent->pwt, *pXEnd)
-		pXX = &(*pXExXEx,  *pXExXEnd \ XXEnd')
+		XXEnd = XExXEnd \ cross(*pXEnd, *parent->pwt, *pXEnd)
+		pXX = &(*pXExXEx,  XExXEnd \ XXEnd')
 		YXEnd = cross(*pY, *parent->pwt, *pXEnd)
 		ZY = *pXExY \ *pZExclY
 		pXY = &(*pXExY \ YXEnd')
 		if (LIML | !(parent->robust | parent->scoreBS))
-			YY = _YY==.? cross(*pY, *parent->pwt, *pY) : _YY
+			YY = cross(*pY, *parent->pwt, *pY)
 
 		if (parent->IV) // if GMM weight matrix not provided, prepare 2SLS one
 			A = (I(parent->kEx) \ J(parent->el-parent->kEx, parent->kEx, 0)), *pinvZZ * ZXEnd // 2SLS is (A' ZX)^-1 * (A'ZY). Also apparently used in k-class and LIML robust VCV by Stata convention
@@ -845,7 +845,6 @@ void boottestModel::boottest() {
 
 		denom = smatrix(df,df)
 		if (WREnonAR) {
-			XEndstar = XExXEndstar = ZExclXEndstar = smatrix(D-1)
 			if (NClustVar)
 				XZi = eZi = smatrix(NBootClust)
 		} else if (robust) {
@@ -890,7 +889,7 @@ void boottestModel::boottest() {
 
 	if (!ML) // GMM, 2SLS, analytical LIML
 		if (AR) {
-			pM_Repl->InitEndog(&(*pY - *pXEnd * *pr0), NULL, &(*M_DGP.pZExclY - *M_DGP.pZExclXEnd * *pr0), &(*M_DGP.pXExY - *M_DGP.pXExXEnd * *pr0))
+			pM_Repl->InitEndog(&(*pY - *pXEnd * *pr0), NULL, &(*M_DGP.pZExclY - M_DGP.ZExclXEnd * *pr0), &(*M_DGP.pXExY - M_DGP.XExXEnd * *pr0))
 			pM_Repl->InitEstimate()
 			pM_Repl->Estimate(sAR)
 			pM_Repl->InitTestDenoms(SAR)
@@ -954,21 +953,18 @@ void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
 			u = runiform(NBootClust, _reps+first) :>= .5; u = u :- .5  // Rademacher weights, divided by 2
 			u_sd = .5
 		}
+
 	if (first)
 		u[,1] = J(NBootClust, 1, WREnonAR? 0 : u_sd)  // keep original residuals in first entry to compute base model stat
-
-	U = WREnonAR? u[IDBootData,] : J(0,0,0)
 }
 
-
 real scalar boottestModel::MakeWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
-	real scalar c, j, i
-	real colvector _e, Ystar, _beta, betaEnd
-	real rowvector YstarYstar
-	real matrix ZExclYstar, XExYstar, Subscripts, Zi, AVR0, t, XExi
-	pointer (real matrix) scalar peZVR0, pu, pXEndstar, pXExXEndstar, pZExclXEndstar
 	pragma unused thisWeightGrpStop
-	
+	real scalar c, j, i
+	real colvector _e, _beta, betaEnd, _u
+	real matrix Subscripts, Zi, AVR0, t, XExi
+	pointer (real matrix) scalar peZVR0
+
 	if (initialized & !null) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
 		numer[1] = *pR0 * pM_Repl->beta - *pr0
 		Dist[1] = numer[1] / sqrt(denom.M[1]) * multiplier
@@ -977,52 +973,27 @@ real scalar boottestModel::MakeWREStats(real scalar thisWeightGrpStart, real sca
 
 	if (thisWeightGrpStart == 1) { // first/only weight group? initialize a couple of things
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
-		pu = NClustVar? &U : &u
+
+		if (NClustVar & !NFE) // prep for optimized computation for bootstrapping cluster when no FE
+			for (i=NBootClust; i; i--) {
+				Subscripts = (*pinfoBootData)[i,]', (.\.)
+				XExi = kEx? (*pXEx)[|Subscripts|] : J(Subscripts[2,1]-Subscripts[1,1]+1,0,0)
+				Zi = XExi , (*pZExcl)[|Subscripts|] // inefficient?
+				if (weights) Zi = Zi :* (*pwt)[|Subscripts|]
+				XZi[i].M = cross(XExi, Zi) \ cross((*pXEnd)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
+				eZi[i].M =                   cross(M_DGP.e2[|Subscripts|], Zi) \ cross(   _e[|Subscripts|], Zi)
+			}
 	}
 
-	Ystar = *M_DGP.pY :+ _e :* *pu
-	XExYstar   = cross(*pXEx  , *pwt, Ystar)
-	ZExclYstar = cross(*pZExcl, *pwt, Ystar)
-	
-	if ((LIML | !robust) & !NFE)
-		YstarYstar = weights? cross(*pwt, Ystar:*Ystar) : colsum(Ystar:*Ystar)
-
-	if (D==2) {
-			XEndstar.M         =  *pXEnd      :+ M_DGP.e2     :* *pu
-			XExXEndstar.M      = cross(*pXEx  , *pwt, XEndstar.M)
-			ZExclXEndstar.M    = cross(*pZExcl, *pwt, XEndstar.M)
-	} else
-		for (j=D-1; j; j--) {
-			XEndstar[j].M      = (*pXEnd)[,j] :+ M_DGP.e2[,j] :* *pu
-			XExXEndstar  [j].M = cross(*pXEx  , *pwt, XEndstar[j].M)
-			ZExclXEndstar[j].M = cross(*pZExcl, *pwt, XEndstar[j].M)
-		}
-
-	if (NClustVar & !NFE) // prep for optimized computation for bootstrapping cluster when no FE
-		for (i=NBootClust; i; i--) {
-			Subscripts = (*pinfoBootData)[i,]', (.\.)
-			XExi = kEx? (*pXEx)[|Subscripts|] : J((*pinfoBootData)[i,2]-(*pinfoBootData)[i,1]+1,0,0)
-			Zi = XExi , (*pZExcl)[|Subscripts|] // inefficient?
-			if (weights) Zi = Zi :* (*pwt)[|Subscripts|]
-			XZi[i].M = cross(XExi, Zi) \ cross((*pXEnd)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
-			eZi[i].M =                   cross(M_DGP.e2[|Subscripts|], Zi) \ cross(   _e[|Subscripts|], Zi)
-		}
-
 	for (j=cols(u); j; j--) { // WRE bootstrap
-		pXEndstar      = &(   XEndstar.M  [,j])
-		pXExXEndstar   = &(XExXEndstar.M  [,j])
-		pZExclXEndstar = &(ZExclXEndstar.M[,j])
-		for (i=2; i<D; i++) {
-			pXEndstar      = &(*pXEndstar     , XEndstar     [i].M[,j])
-			pXExXEndstar   = &(*pXExXEndstar  , XExXEndstar  [i].M[,j])
-			pZExclXEndstar = &(*pZExclXEndstar, ZExclXEndstar[i].M[,j])
-		}
-
-		pM_Repl->InitEndog(&(Ystar[,j]), pXEndstar, &(ZExclYstar[,j]), &(XExYstar[,j]), (cols(YstarYstar)? YstarYstar[j] : .), pZExclXEndstar, pXExXEndstar)
+		_u = u[IDBootData,j]
+		
+		pM_Repl->InitEndog(&(*M_DGP.pY:+_e:*_u) , &(*pXEnd:+M_DGP.e2:*_u))
 		pM_Repl->InitEstimate()
 		pM_Repl->InitTestDenoms(S) // prepare for replication regressions, null not imposed
 		pM_Repl->Estimate(s)
-		numer = null | j==1? *pR0 * pM_Repl->beta - *pr0 : *pR0 * (pM_Repl->beta - M_DGP.beta0)
+
+		numer = null | thisWeightGrpStart==1 & j==1? *pR0 * pM_Repl->beta - *pr0 : *pR0 * (pM_Repl->beta - M_DGP.beta0)
 
 		if (robust) { // Compute denominator for this WRE test stat
 			denom = smatrix()
@@ -1048,7 +1019,6 @@ real scalar boottestModel::MakeWREStats(real scalar thisWeightGrpStart, real sca
 			denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
 		Dist[j+thisWeightGrpStart-1] = sqrt? numer/sqrt(denom.M) : cross(numer, invsym(denom.M) * numer)
-
 	}
 	if (thisWeightGrpStart==1 & df==2) denom0 = denom.M // original-sample denominator
 
@@ -1092,14 +1062,6 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 	}
 	return(0)
 }
-
-
-
-
-
-
-
-
 
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0
