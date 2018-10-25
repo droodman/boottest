@@ -1,4 +1,4 @@
-*! boottest 2.3.0 8 Octember 2018
+*! boottest 2.3.1 25 Octember 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -682,10 +682,12 @@ program define _boottest, rclass sortpreserve
 						`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
 				}
 				else {
+					local temptempvars
 					foreach var in Y X1 X2 {
 						if "``var''" != "" {
 							ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
 							local `var' _boottest``var''
+							local temptempvars `temptempvars' _boottest``var''
 						}
 					}
 					c_local contourvars `Y' `X1' `X2' // pass these to calling program for dropping in case twoway contour crashes
@@ -694,6 +696,8 @@ program define _boottest, rclass sortpreserve
 						ztitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"', orient(rvert)) ///
 						name(`graphname'`_h', `replace') crule(linear) scolor(gs5) ecolor(white) ccut(0(.05)1) plotregion(margin(zero)) /// // defaults copied from weakiv
 						`graphopt'
+
+					cap drop `temptempvars'
 				}
 			}
 		}
@@ -731,6 +735,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.1 Fixed 2.2.0 bug--left behind temporary variables
 * 2.3.0 Removed optimization hacks from WRE code because they created matrices with 1 row per obs and 1 col per replication
 * 2.2.2 Allowed quietly option in ado interface to suppress dots. Made sorts in Mata code stable.
 *       For LIML, reverted to finding eigenvalue of I-TT/TPZT instead of TT/TPZT; seems to avoid instances of eigensystem() returning all missing
