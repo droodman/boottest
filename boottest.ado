@@ -1,4 +1,4 @@
-*! boottest 2.3.2 28 Octember 2018
+*! boottest 2.3.3 29 Octember 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -522,9 +522,8 @@ program define _boottest, rclass sortpreserve
 					exit `rc'
 				}
 				if "`quietly'"=="" {
-					_ms_omit_info e(b)
 					tempname t
-					mata st_numscalar("`t'", !all(diagonal(st_matrix("e(V)")) :| st_matrix("r(omit)")'))
+					mata st_numscalar("`t'", any(!diagonal(st_matrix("e(V)")) :& st_matrix("e(b)")'))
 					if `t' {
 						di _n as res _n "{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable." _n
 						di "This may indicate that the constrained optimum is far from the unconstrained one, i.e., that the hypothesis is incompatible with the data." _n
@@ -734,6 +733,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.3 Eliminated false warning that neg Hessian not pos def when a parameter is constrained to 0 in model
 * 2.3.2 Fixed 2.2.0 crash when errors are non-robust
 * 2.3.1 Fixed 2.2.0 bug--left behind temporary variables
 * 2.3.0 Removed optimization hacks from WRE code because they created matrices with 1 row per obs and 1 col per replication

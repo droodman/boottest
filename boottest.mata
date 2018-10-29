@@ -1242,17 +1242,22 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 		} else {
 			denom.M = invsym(*pR0 * *pVR0)
 
-			for (l=cols(u); l; l--) {
-				numer_l = numer[,l]
-				Dist[l+thisWeightGrpStart-1] = cross(numer_l, denom.M * numer_l) 
-				if (!(ML | LIML)) {
-											  eu = u[,l] :* pM->e
+			if (ML | LIML)
+				for (l=cols(u); l; l--) {
+					numer_l = numer[,l]
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, denom.M * numer_l) 
+				}
+			else {
+				for (l=cols(u); l; l--) {
+					numer_l = numer[,l]
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, denom.M * numer_l) 
+												eu = u[,l] :* pM->e
 					if (!scoreBS) eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					if (scoreBS | !(1 |hascons)) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare // Center variance if needed
 					Dist[l+thisWeightGrpStart-1] = Dist[l+thisWeightGrpStart-1] / (t = cross(eu, *pwt, eu))
 				}
+				if (willplot & df==2 & thisWeightGrpStart==1) denom0 = denom.M * t // original-sample denominator
 			}
-			if (willplot & df==2 & (!(ML | LIML)) & thisWeightGrpStart==1) denom0 = denom.M * t // original-sample denominator
 		}
 	}
 }
