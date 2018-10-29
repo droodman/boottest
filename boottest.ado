@@ -1,4 +1,4 @@
-*! boottest 2.3.1 25 Octember 2018
+*! boottest 2.3.2 28 Octember 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -489,7 +489,6 @@ program define _boottest, rclass sortpreserve
 				local coleq: coleq `b'
 				if "`:word 1 of `coleq''"=="_" local coleq
 				local colnames: colnames `b'
-
 				forvalues r=1/`=rowsof(`CC0')' {
 					local terms 0
 					local _constraint
@@ -735,6 +734,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.2 Fixed 2.2.0 crash when errors are non-robust
 * 2.3.1 Fixed 2.2.0 bug--left behind temporary variables
 * 2.3.0 Removed optimization hacks from WRE code because they created matrices with 1 row per obs and 1 col per replication
 * 2.2.2 Allowed quietly option in ado interface to suppress dots. Made sorts in Mata code stable.

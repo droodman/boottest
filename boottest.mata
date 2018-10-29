@@ -1,4 +1,4 @@
-*! boottest 2.2.2 25 September 2018
+*! boottest 2.3.2 28 Octember 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -80,6 +80,7 @@ class boottestModel {
 	real rowvector getpeak()
 	real colvector getdist(), stableorder()
 }
+
 void AnalyticalModel::new()
 	AR = 0
 
@@ -179,7 +180,7 @@ void AnalyticalModel::InitEstimate() {
 				TPZT = Splus ' TPZT * Splus
 			}
 			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val) // eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
-			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks in
+			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks into val
 		}
 
 	pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
@@ -230,7 +231,7 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 					WZVR0[d].M = (*pWZVR0)[,d]
 			}
 
-			if (parent->NFE & parent->robust & !parent->WREnonAR & !parent->FEboot & !parent->scoreBS & parent->granular<parent->NErrClustCombs) {
+			if (parent->NFE & parent->robust & !parent->WREnonAR & !parent->FEboot & !parent->scoreBS & parent->granular < parent->NErrClustCombs) {
 				if (pWZVR0==NULL) pWZVR0 = &(parent->weights? ZVR0 :* *parent->pwt : ZVR0)
 				CT_ZVR0 = smatrix(parent->NErrClustCombs, parent->df)
 				for (d=parent->df;d;d--)
@@ -283,6 +284,20 @@ void AnalyticalModel::Estimate(real colvector s) {
 	}
 }
 
+// partial fixed effects out of a data matrix
+pointer(real matrix) scalar AnalyticalModel::partialFE(pointer(real matrix) scalar pIn) {
+	real matrix Out, t; real scalar i
+	if (parent->NFE & pIn!=NULL) {
+		Out = *pIn
+		for (i=parent->NFE;i;i--) {
+			t = Out[parent->FEs[i].is,]
+			Out[parent->FEs[i].is,] = t :- cross(parent->FEs[i].wt, t)
+		}
+		return(&Out)
+	}
+	return (pIn)
+}
+
 void boottestModel::new() {
 	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = granular = NErrClustCombs = subcluster = reps = repsFeas = 0
 	twotailed = null = dirty = willplot = u_sd = 1
@@ -297,6 +312,7 @@ void boottestModel::setdirty(real scalar _dirty, | real scalar noinitialize) {
 	if (_dirty & noinitialize!=1)
 		initialized = 0
 }
+
 void boottestModel::set_sqrt(real scalar _sqrt) {
 	if (_sqrt < sqrt)
 		if (!dirty) Dist = Dist :* Dist
@@ -304,6 +320,7 @@ void boottestModel::set_sqrt(real scalar _sqrt) {
 		setdirty(1)
 	sqrt = _sqrt
 }
+
 void boottestModel::setptype(string scalar ptype)     {
 	real scalar p
 	p = cross( (strtrim(strlower(ptype)) :== ("symmetric"\"equaltail"\"lower"\"upper")), 1::4 ) - 1
@@ -312,19 +329,20 @@ void boottestModel::setptype(string scalar ptype)     {
 	this.ptype = p
 	this.twotailed = p<=1
 }
-void boottestModel::setXEnd    (real matrix X       ) {
+
+void boottestModel::setXEnd    (real matrix X ) {
 	this.pXEnd  = &X; setdirty(1)
 }
-void boottestModel::setXEx    (real matrix X        ) {
+void boottestModel::setXEx     (real matrix X ) {
 	this.pXEx  = &X; setdirty(1)
 }
-void boottestModel::setY       (real matrix Y       ) {
+void boottestModel::setY       (real matrix Y ) {
 	this.pY  = &Y; setdirty(1)
 }
-void boottestModel::setZExcl   (real matrix Z       ) {
+void boottestModel::setZExcl   (real matrix Z ) {
 	this.pZExcl  = &Z; setdirty(1)
 }
-void boottestModel::setwt       (real matrix wt     ) {
+void boottestModel::setwt      (real matrix wt) {
 	this.pwt  = &wt; setdirty(1)
 }
 void boottestModel::setsc      (real matrix Sc) {
@@ -429,6 +447,7 @@ real colvector boottestModel::getdist(| string scalar diststat) {
 	make_DistCDR(diststat)
 	return(DistCDR)
 }
+
 void boottestModel::make_DistCDR(| string scalar diststat) {
 	pointer (real rowvector) scalar pnumer
 	if (diststat == "numer") {
@@ -468,6 +487,7 @@ real scalar boottestModel::getp(|real scalar analytical) {
 	}
 	return(p)
 }
+
 // Return number of bootstrap replications with feasible results
 // Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 real scalar boottestModel::getrepsFeas()
@@ -518,26 +538,6 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 	else
 		st_view(V, i, j, selectvar)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -677,7 +677,7 @@ void boottestModel::boottest() {
 			if (scoreBS | !(WREnonAR | (1 | hascons)))
 				ClustShare = weights? _panelsum(*pwt, *pinfoErrData)/sumwt : ((*pinfoErrData)[,2]-(*pinfoErrData)[,1]:+ 1)/Nobs // share of observations by group 
 
-		} else { // if no clustering, cast "robust" as Clustering by observation
+		} else { // if no clustering, cast "robust" as clustering by observation
 			pBootClust = &(Clust = boottest_clust())
 			Clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
 			sumN = Clust.N = Nobs
@@ -924,7 +924,6 @@ void boottestModel::boottest() {
 
 
 // draw wild weight matrix of width _reps. If first=1, insert column of 1s at front
-// under Rademacher, if warning recommending Webb weights is triggered, then 
 void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
 	if (enumerate)
 		u = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonAR, 1-WREnonAR) // complete Rademacher set
@@ -1020,7 +1019,7 @@ real scalar boottestModel::MakeWREStats(real scalar thisWeightGrpStart, real sca
 
 		Dist[j+thisWeightGrpStart-1] = sqrt? numer/sqrt(denom.M) : cross(numer, invsym(denom.M) * numer)
 	}
-	if (thisWeightGrpStart==1 & df==2) denom0 = denom.M // original-sample denominator
+	if (willplot & thisWeightGrpStart==1 & df==2) denom0 = denom.M // original-sample denominator
 
 	return(0) // don't skip remaining calcs in calling procedure
 }
@@ -1062,6 +1061,42 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 	}
 	return(0)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0
@@ -1174,7 +1209,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 				Dist[|thisWeightGrpStart \ thisWeightGrpStop|] = (numer :/ sqrt(denom.M))'
 			else
 				Dist                                           = (numer :/ sqrt(denom.M))'
-			if (thisWeightGrpStart==1 & df==2) denom0 = denom.M[1] // original-sample denominator
+			if (willplot & thisWeightGrpStart==1 & df==2) denom0 = denom.M[1] // original-sample denominator
 		} else { // build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			t = J(df,df,.)
 			for (l=cols(u); l; l--) {
@@ -1185,7 +1220,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 				numer_l = numer[,l]
 				Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(t) * numer_l)
 			}
-			if (thisWeightGrpStart==1 & df==2) denom0 = t // original-sample denominator
+			if (willplot & thisWeightGrpStart==1 & df==2) denom0 = t // original-sample denominator
 		}
 
 	} else { // non-robust
@@ -1203,7 +1238,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 				Dist[|thisWeightGrpStart \ thisWeightGrpStop|] = (numer :/ sqrt(denom.M))'
 			else
 				Dist                                           = (numer :/ sqrt(denom.M))'
-			if (thisWeightGrpStart==1 & df==2) denom0 = denom.M[0] // original-sample denominator
+			if (willplot & thisWeightGrpStart==1 & df==2) denom0 = denom.M[0] // original-sample denominator
 		} else {
 			denom.M = invsym(*pR0 * *pVR0)
 
@@ -1217,7 +1252,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					Dist[l+thisWeightGrpStart-1] = Dist[l+thisWeightGrpStart-1] / (t = cross(eu, *pwt, eu))
 				}
 			}
-			if (thisWeightGrpStart==1 & df==2) denom0 = denom.M * t // original-sample denominator
+			if (willplot & df==2 & (!(ML | LIML)) & thisWeightGrpStart==1) denom0 = denom.M * t // original-sample denominator
 		}
 	}
 }
@@ -1300,20 +1335,6 @@ real matrix boottestModel::count_binary(real scalar N, real scalar lo, real scal
 	if (N<=1) return (lo , hi)
 	t = count_binary(N-1, lo, hi)
 	return (J(1, cols(t), lo), J(1, cols(t), hi) \ t, t)
-}
-
-// partial fixed effects out of a data matrix
-pointer(real matrix) scalar AnalyticalModel::partialFE(pointer(real matrix) scalar pIn) {
-	real matrix Out, t; real scalar i
-	if (parent->NFE & pIn!=NULL) {
-		Out = *pIn
-		for (i=parent->NFE;i;i--) {
-			t = Out[parent->FEs[i].is,]
-			Out[parent->FEs[i].is,] = t :- cross(parent->FEs[i].wt, t)
-		}
-		return(&Out)
-	}
-	return (pIn)
 }
 
 // cross-tab sum of a column vector w.r.t. intersection-of-error & bootstrap-clustering-vars and fixed-effect var
