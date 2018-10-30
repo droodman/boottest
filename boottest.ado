@@ -675,27 +675,23 @@ program define _boottest, rclass sortpreserve
 					local 0, `graphopt'
 					syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
 					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) xtitle("`constraintLHS1'") ///
-						ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"') ///
+						ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted ", "")' p value"') ///
 						yscale(range(0 .)) name(`graphname'`_h', `replace') ///
 						`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
 				}
 				else {
-					local temptempvars
 					foreach var in Y X1 X2 {
 						if "``var''" != "" {
 							ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
 							local `var' _boottest``var''
-							local temptempvars `temptempvars' _boottest``var''
 						}
 					}
 					c_local contourvars `Y' `X1' `X2' // pass these to calling program for dropping in case twoway contour crashes
 					
 					twoway contour `Y' `X2' `X1' if _n<=rowsof(`plotmat'), xtitle("`constraintLHS1'") ytitle("`constraintLHS2'") ///
-						ztitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted r", "R")'ejection p value"', orient(rvert)) ///
+						ztitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted ", "")' p value"', orient(rvert)) ///
 						name(`graphname'`_h', `replace') crule(linear) scolor(gs5) ecolor(white) ccut(0(.05)1) plotregion(margin(zero)) /// // defaults copied from weakiv
 						`graphopt'
-
-					cap drop `temptempvars'
 				}
 			}
 		}
