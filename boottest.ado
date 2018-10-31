@@ -451,6 +451,13 @@ program define _boottest, rclass sortpreserve
 					}
 				}
 			}
+			
+			foreach option in gridmin gridmax gridpoints {
+				if `df' != `:word count ``option''' {
+					di as err "{cmd:`option'()} option needs " `df' " entries"
+					exit 199
+				}
+			}
 		}
 
 		if `ML' {
@@ -729,6 +736,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.4 Dropped "Rejection" from axis labels. Added check for righ number of entries in gridmin(), gridmax(), gridpoints().
 * 2.3.3 Eliminated false warning that neg Hessian not pos def when a parameter is constrained to 0 in model
 * 2.3.2 Fixed 2.2.0 crash when errors are non-robust
 * 2.3.1 Fixed 2.2.0 bug--left behind temporary variables
