@@ -1,4 +1,4 @@
-*! boottest 2.3.3 29 Octember 2018
+*! boottest 2.3.5 7 November 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -120,8 +120,7 @@ program define _boottest, rclass sortpreserve
 	}
 	else local graphname Graph
 
-	if `"`gridpoints'"'=="" local gridpoints . .
-	else {
+	if `"`gridpoints'"'!="" {
 		foreach g of local gridpoints {
 			cap confirm integer number `g'
 			local rc = _rc
@@ -136,8 +135,7 @@ program define _boottest, rclass sortpreserve
 	}
 
 	foreach macro in gridmin gridmax {
-		if `"``macro''"'=="" local `macro' . .
-		else {
+		if `"``macro''"'!="" {
 			foreach g of local `macro' {
 				if `"`g'"' != "." {
 					cap confirm number `g'
@@ -453,8 +451,9 @@ program define _boottest, rclass sortpreserve
 			}
 			
 			foreach option in gridmin gridmax gridpoints {
-				if `df' != `:word count ``option''' {
-					di as err "{cmd:`option'()} option needs " `df' " entries"
+				if "``option''" == "" local `option' = `df' * ". "
+				else if `df' != `:word count ``option''' {
+					di as err "{cmd:`option'()} option needs " cond(`df'==1, "one entry", "two entries")
 					exit 199
 				}
 			}
@@ -736,7 +735,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.3.4 Dropped "Rejection" from axis labels. Added check for righ number of entries in gridmin(), gridmax(), gridpoints().
+* 2.3.5 Fixed stupid 2.3.4 crash
+* 2.3.4 Dropped "Rejection" from axis labels. Added check for right number of entries in gridmin(), gridmax(), gridpoints().
 * 2.3.3 Eliminated false warning that neg Hessian not pos def when a parameter is constrained to 0 in model
 * 2.3.2 Fixed 2.2.0 crash when errors are non-robust
 * 2.3.1 Fixed 2.2.0 bug--left behind temporary variables
