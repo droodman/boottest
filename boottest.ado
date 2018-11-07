@@ -435,17 +435,19 @@ program define _boottest, rclass sortpreserve
 
 		if `df'>1 & "`ptype'"!="symmetric" di as txt "Note: {cmd:ptype(`ptype')} ignored for multi-constraint null hypotheses."
 
-		if `df'<=2 & "`graph'"=="" { // a bit duplicative of code in the if-`ML' block just below...
-			local coleq: coleq `b'
-			if "`:word 1 of `coleq''"=="_" local coleq
-			local colnames: colnames `b'
-			forvalues r=1/2 {
-				local terms 0
-				local constraintLHS`r'
-				forvalues c=1/`=colsof(`C0')-1' {
-					if `C0'[`r',`c'] {
-						if `terms++' local constraintLHS`r' `constraintLHS`r''+
-						local constraintLHS`r' `constraintLHS`r'' `=cond(`C0'[`r',`c']!=1,"`=`C0'[`r',`c']'*","")'`=cond("`coleq'"=="","","[`:word `c' of `coleq'']")'`:word `c' of `colnames''
+		if `df'<=2 { // a bit duplicative of code in the if-`ML' block just below...
+			if  "`graph'"=="" {
+				local coleq: coleq `b'
+				if "`:word 1 of `coleq''"=="_" local coleq
+				local colnames: colnames `b'
+				forvalues r=1/2 {
+					local terms 0
+					local constraintLHS`r'
+					forvalues c=1/`=colsof(`C0')-1' {
+						if `C0'[`r',`c'] {
+							if `terms++' local constraintLHS`r' `constraintLHS`r''+
+							local constraintLHS`r' `constraintLHS`r'' `=cond(`C0'[`r',`c']!=1,"`=`C0'[`r',`c']'*","")'`=cond("`coleq'"=="","","[`:word `c' of `coleq'']")'`:word `c' of `colnames''
+						}
 					}
 				}
 			}

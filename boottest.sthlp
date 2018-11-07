@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.2.2 26 August 2018}{...}
+{* *! version 2.3.5 7 November 2018}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -406,9 +406,9 @@ Has {cmd:boottest} improved your career or marriage? Consider
 giving back through a {browse "http://j.mp/1iptvDY":donation} to support the work of its author, {browse "http://davidroodman.com":David Roodman}.
 
 
-{title:Citation}
+{title:Authorship and citation}
 
-{p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community.
+{p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community, by David Roodman.
 Please cite: {p_end}
 {p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2018. Fast and wild: bootstrap inference in Stata using boottest. Queen's Economics Department Working Paper No. 1406.{p_end}
 
