@@ -108,7 +108,7 @@ For exact replication of earlier results, an older version, 2.0.5, is available 
 {title:Description}
 
 {pstd}
-{cmd:boottest} is a post-estimation command that tests linear hypotheses about parameters. Roodman et al. (2018) documents it more fully than this help file.
+{cmd:boottest} is a post-estimation command that tests linear hypotheses about parameters. Roodman et al. (forthcoming) documents it more fully than this help file.
 
 {pstd}
 {cmd:boottest} offers several bootstraps--algorithms for generating simulated data sets--and
@@ -322,7 +322,7 @@ used in the estimation.
 {phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. If the option 
 includes more than one variable, then for the bootstrap observations are grouped by intersections of all the variables in the option. The default is to cluster the bootstrap on all
 the {cmd:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (2017) tend to favor clustering the bootstrap just on the one variable with the smallest
-number of clusters. However, MacKinnon and Webb (forthcoming) show that in the extreme case of a treatment model with very few (un)treated clusters, it can be better to 
+number of clusters. However, MacKinnon and Webb (2018) show that in the extreme case of a treatment model with very few (un)treated clusters, it can be better to 
 to perform a "subcluster" bootstrap, such as bootstrapping at the individual observation level.
 
 {phang}{opt ar} requests the Anderson-Rubin test. It applies only to instrumental variables estimation. If the null is specified explicitly, it must fix
@@ -410,7 +410,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community, by David Roodman.
 Please cite: {p_end}
-{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2018. Fast and wild: bootstrap inference in Stata using boottest. Queen's Economics Department Working Paper No. 1406.{p_end}
+{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. Forthcoming. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal}.{p_end}
 
 
 {title:Examples}
@@ -503,11 +503,11 @@ inference. {it:Journal of Human Resources} 50(2): 317-72.{p_end}
 inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
 {p 4 8 2}Liu, R. Y. 1988. Bootstrap procedures under some non-I.I.D. models. {ir:Annals of Statistics} 16: 1696-1708.{p_end}
 {p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2017. Bootstrap and asymptotic inference with multiway clustering. Queen's Economics Department Working Paper No. 1386.{p_end}
-{p 4 8 2}MacKinnon, J.G., and M.D. Webb. Forthcoming. The Wild Bootstrap for Few (Treated) Clusters. {it:Econometrics Journal}.{p_end}
+{p 4 8 2}MacKinnon, J.G., and M.D. Webb. 2018. The wild bootstrap for few (treated) clusters. {it:Econometrics Journal} 21: 114-35.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of
 estimation. {it:Proc. Cambridge Philos. Soc.} 44: 50-57.{p_end}
-{p 4 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2018. Fast and wild: bootstrap inference in Stata using boottest. Queen's Economics Department Working Paper No. 1406.{p_end}
+{p 4 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. Forthcoming. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal}.{p_end}
 {p 4 8 2}Wald, A. 1943. Tests of statistical hypotheses concerning several parameters when the number of observations is
 large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
