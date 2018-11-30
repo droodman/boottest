@@ -19,7 +19,6 @@
 cap program drop boottest
 program define boottest
 	version 11
-	
 	cap noi _boottest `0'
 	local rc = _rc
 	constraint drop `anythingh0'
@@ -156,8 +155,8 @@ program define _boottest, rclass sortpreserve
 		di as txt _n "Overriding estimator's cluster/robust settings with " as res `"`=cond("`clustvars'"=="", "robust", "cluster(`clustvars')")'"'
 	}
 	else {
-		local hasrobust = "`e(vcetype)'" == "Robust"
 		local clustvars `e(clustvar)'
+		local hasrobust = "`e(vcetype)'" == "Robust" | "`clustvars'" != ""
 	}
 
 	local hasclust = `"`clustvars'"' != ""
@@ -194,7 +193,7 @@ program define _boottest, rclass sortpreserve
 	local IV = "`e(instd)'`e(endogvars)'" != ""
 	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| ("`cmd'"=="reghdfe" & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
-	local small = e(df_r) != . | "`small'" != ""
+	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
 
 	local fuller `e(fuller)' // "" if missing
 	local K = e(kclass) // "." if missing
