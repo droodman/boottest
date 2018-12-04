@@ -1,4 +1,4 @@
-*! boottest 2.3.5 7 November 2018
+*! boottest 2.3.6 4 December 2018
 *! Copyright (C) 2015-18 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -496,6 +496,7 @@ program define _boottest, rclass sortpreserve
 				local coleq: coleq `b'
 				if "`:word 1 of `coleq''"=="_" local coleq
 				local colnames: colnames `b'
+				local _constraints
 				forvalues r=1/`=rowsof(`CC0')' {
 					local terms 0
 					local _constraint
@@ -736,6 +737,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.6 Fixed crash in score test/bootstrap with multiple independent hypotheses
 * 2.3.5 Fixed stupid 2.3.4 crash
 * 2.3.4 Dropped "Rejection" from axis labels. Added check for right number of entries in gridmin(), gridmax(), gridpoints().
 * 2.3.3 Eliminated false warning that neg Hessian not pos def when a parameter is constrained to 0 in model
