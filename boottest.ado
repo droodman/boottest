@@ -1,5 +1,5 @@
-*! boottest 2.3.6 4 December 2018
-*! Copyright (C) 2015-18 David Roodman
+*! boottest 2.3.7 7 January 2019
+*! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -512,7 +512,7 @@ program define _boottest, rclass sortpreserve
 					constraint `r(free)' `_constraint'
 				}
 
-				cap `=cond("`quietly'"=="", "noisily", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `max' `options'
+				cap `=cond("`quietly'"=="", "noisily", "")' `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `max' `options'
 				local rc = _rc
 				constraint drop `_constraints'
 				if e(converged)==0 {
@@ -522,7 +522,7 @@ program define _boottest, rclass sortpreserve
 				if !`rc' {
 					tempname b0
 					mat `b0' = e(b)
-					cap `anything' if e(sample), `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `options' `max'
+					cap `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if e(sample), `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `options' `max'
 					local rc = _rc
 				}
 				if `rc' {
@@ -737,6 +737,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.7 Fixed crash after tobit estimation in Stata 15
 * 2.3.6 Fixed crash in score test/bootstrap with multiple independent hypotheses
 * 2.3.5 Fixed stupid 2.3.4 crash
 * 2.3.4 Dropped "Rejection" from axis labels. Added check for right number of entries in gridmin(), gridmax(), gridpoints().
