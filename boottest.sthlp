@@ -501,7 +501,7 @@ inference. {it:Journal of Human Resources} 50(2): 317-72.{p_end}
 {p 4 8 2}Fisher, N.I., and P. Hall. 1990. On bootstrap hypothesis testing. {it:Australian Journal of Statistics} 32(2): 177-90.{p_end}
 {p 4 8 2}Kline, P., and Santos, A. 2012. A score based approach to wild bootstrap 
 inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
-{p 4 8 2}Liu, R. Y. 1988. Bootstrap procedures under some non-I.I.D. models. {ir:Annals of Statistics} 16: 1696-1708.{p_end}
+{p 4 8 2}Liu, R. Y. 1988. Bootstrap procedures under some non-I.I.D. models. {it:Annals of Statistics} 16: 1696-1708.{p_end}
 {p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2017. Bootstrap and asymptotic inference with multiway clustering. Queen's Economics Department Working Paper No. 1386.{p_end}
 {p 4 8 2}MacKinnon, J.G., and M.D. Webb. 2018. The wild bootstrap for few (treated) clusters. {it:Econometrics Journal} 21: 114-35.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
