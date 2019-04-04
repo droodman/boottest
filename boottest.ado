@@ -1,4 +1,4 @@
-*! boottest 2.3.7 7 January 2019
+*! boottest 2.3.8 4 April 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -40,7 +40,13 @@ program define _boottest, rclass sortpreserve
 			cap findfile "lboottest.mlib"
 		}
 		qui findfile "boottest.mata"
-		run "`r(fn)'"
+		cap run "`r(fn)'"
+		if _rc & c(stata_version) >= 13 {
+			di _n "Warning: Could not recompile boottest.mata, probably for lack of write access to the directory where it is stored."
+			di    "For backward compatibility, boottest is distributed as compiled in Stata 11. Recompiling in Stata 13 or later"
+			di   `"allows it to run faster. To compile it manually, type or click on {stata "which boottest.mata"}; then run the displayed file like a Stata .do file."'
+			di    "This only needs to be done once per installation." _n
+		}
 	}
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
@@ -737,6 +743,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.8 Prevented crash when it can't recompile boottest.mata; instead issues an explanatory warning
 * 2.3.7 Fixed crash after tobit estimation in Stata 15
 * 2.3.6 Fixed crash in score test/bootstrap with multiple independent hypotheses
 * 2.3.5 Fixed stupid 2.3.4 crash

@@ -1377,7 +1377,7 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 		return(search(alpha, _p, mid, p_hi, hi))
 	return(search(alpha, p_lo, lo, _p, mid))
 }
-	
+
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot() {
 	real scalar t, alpha, _quietly, c, i, j; real colvector lo, hi; pointer (real colvector) scalar _pr0
