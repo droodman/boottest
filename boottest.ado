@@ -1,4 +1,4 @@
-*! boottest 2.3.8 4 April 2019
+*! boottest 2.3.9 4 May 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -743,6 +743,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.3.9 Prevented crash in pure "robust" non-WRE
 * 2.3.8 Prevented crash when it can't recompile boottest.mata; instead issues an explanatory warning
 * 2.3.7 Fixed crash after tobit estimation in Stata 15
 * 2.3.6 Fixed crash in score test/bootstrap with multiple independent hypotheses

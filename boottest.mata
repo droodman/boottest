@@ -1,5 +1,5 @@
-*! boottest 2.3.5 29 Octember 2018
-*! Copyright (C) 2015-18 David Roodman
+*! boottest 2.3.9 4 May 2018
+*! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -698,7 +698,7 @@ void boottestModel::boottest() {
 			else
 				pinfoBootData = &infoAllData
 		} else
-			pinfoBootData = &(infoAllData = J(Nobs,0,0)) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
+			pinfoErrData = pinfoBootData = &(infoAllData = J(Nobs,0,0)) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
 		NBootClust  = rows(*pinfoBootData)
 
 		purerobust = NClustVar & !scoreBS & NBootClust==Nobs & !subcluster // do we ever error-cluster *and* bootstrap-cluster by individual?
