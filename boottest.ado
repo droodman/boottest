@@ -1,4 +1,4 @@
-*! boottest 2.3.9 4 May 2019
+*! boottest 2.4.0 28 May 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -232,7 +232,7 @@ program define _boottest, rclass sortpreserve
 	local scoreBS = "`boottype'"=="score"
 	
 	local FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
-	local NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), 0`e(K1)'))
+	local NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), max(0`e(K1)',0`e(df_a)')))
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -743,6 +743,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.4.0 After reghdfe look for FE count in e(df_a) as well as e(K1)
 * 2.3.9 Prevented crash in pure "robust" non-WRE
 * 2.3.8 Prevented crash when it can't recompile boottest.mata; instead issues an explanatory warning
 * 2.3.7 Fixed crash after tobit estimation in Stata 15
