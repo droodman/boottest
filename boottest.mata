@@ -1,4 +1,4 @@
-*! boottest 2.3.9 4 May 2018
+*! boottest 2.4.1 5 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1064,8 +1064,6 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 	}
 	return(0)
 }
-
-
 
 
 
