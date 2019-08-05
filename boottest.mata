@@ -27,7 +27,7 @@ struct smatrix {
 }
 
 struct boottest_clust {
-	real scalar N, multiplier
+	real scalar N, multiplier, c
 	real colvector order
 	real matrix info
 }
@@ -386,7 +386,10 @@ void boottestModel::setscoreBS (real scalar scoreBS ) {
 	this.scoreBS = scoreBS; setdirty(1)
 }
 void boottestModel::setreps    (real scalar reps    ) {
-	this.reps = reps; setdirty(1)
+	this.reps = reps
+	if (reps==0)
+		setscoreBS(1)
+	setdirty(1)
 }
 void boottestModel::setnull    (real scalar null    ) {
 	this.null = null; setdirty(1)
@@ -709,7 +712,7 @@ void boottestModel::boottest() {
 			if (subcluster | granular)
 				infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 			if (scoreBS)
-				J_ClustN_NBootClust = J(Clust.N, reps? NBootClust : 1, 0)
+				J_ClustN_NBootClust = J(Clust.N, NBootClust, 0)
 		}
 
 		if (NFE) {
@@ -719,11 +722,12 @@ void boottestModel::boottest() {
 			for (i=Nobs-1;i;i--) {
 				if (sortID[i] != sortID[i+1]) {
 					FEs[i_FE].is = o[|i+1\j|]
-					if (weights) {
-						t  = (*pwt)[FEs[i_FE].is]
-						wtFE[FEs[i_FE].is] = FEs[i_FE].wt = t / colsum(t)
-					} else
-						wtFE[FEs[i_FE].is] = FEs[i_FE].wt = J(j-i, 1, 1/(j-i))
+					if (reps & robust & granular < NErrClustCombs)
+						if (weights) {
+							t  = (*pwt)[FEs[i_FE].is]
+							wtFE[FEs[i_FE].is] = FEs[i_FE].wt = t / colsum(t)
+						} else
+							wtFE[FEs[i_FE].is] = FEs[i_FE].wt = J(j-i, 1, 1/(j-i))
 					j = i
 					
 					if (reps & FEboot & NClustVar) { // are all of this FE's obs in same bootstrapping cluster? (But no need to check if reps=0 for then CT_WE in 2nd term of (62) orthogonal to u = col of 1's)
@@ -735,11 +739,12 @@ void boottestModel::boottest() {
 				_FEID[o[i]] = i_FE
 			}
 			FEs[NFE].is = FEs[NFE].is = o[|.\j|]
-			if (weights) {
-				t  = (*pwt)[FEs[NFE].is]
-				wtFE[FEs[NFE].is] = FEs[NFE].wt = t / colsum(t)
-			} else
-				wtFE[FEs[NFE].is] = FEs[NFE].wt = J(j-i,1,1/(j-i))
+			if (reps & robust & granular < NErrClustCombs)
+				if (weights) {
+					t  = (*pwt)[FEs[NFE].is]
+					wtFE[FEs[NFE].is] = FEs[NFE].wt = t / colsum(t)
+				} else
+					wtFE[FEs[NFE].is] = FEs[NFE].wt = J(j-i,1,1/(j-i))
 			if (reps & FEboot & NClustVar) { // are all of this FE's obs in same bootstrapping cluster?
 				t = (*pID)[FEs[NFE].is, 1..NBootClustVar]
 				FEboot = all(t :== t[1,])
@@ -848,7 +853,7 @@ void boottestModel::boottest() {
 			if (NClustVar)
 				XZi = eZi = smatrix(NBootClust)
 		} else if (robust) {
-			Kcd = smatrix(df)
+			if (reps) Kcd = smatrix(df)
 			pQ = J(NErrClustCombs, df, NULL)
 		}
 
@@ -1038,10 +1043,10 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 			else if (scoreBS | (robust & granular < NErrClustCombs))
 				eZVR0 = pM->e :* pM->ZVR0
 		if (scoreBS)
-			numer = reps? cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights? eZVR0:* *pwt : eZVR0), u) :
-			              weights? cross(*pwt, eZVR0) : colsum(eZVR0)
+			numer = reps? (cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights?       *pwt :* eZVR0  :        eZVR0), u)) :
+			              (                                                           weights? cross(*pwt  , eZVR0) : colsum(eZVR0))
 		else { // same calc as in score BS but broken apart to grab intermediate stuff
-			if (thisWeightGrpStart == 1) { // first/only weight group? initialize some things
+			if (thisWeightGrpStart == 1 & reps & granular<NErrClustCombs) { // first/only weight group? initialize some things
 				pewt = weights? &(pM->e :* *pwt) : &pM->e
 				pt = &_panelsum(*pXEx, *pewt, *pinfoBootData)
 				if (AR)
@@ -1093,34 +1098,31 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 
 
 
-
-
-
-
-
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
-	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0
+	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0, pt
 
 	if (robust) {
 		if (granular < NErrClustCombs & thisWeightGrpStart==1) { // unless pure robust and no multi-way clustering, initialize stuff that depends on r0 but not u
-			if (scoreBS)
-				for (d=df;d;d--)
-					Kcd[d].M = J_ClustN_NBootClust // inefficient, but we're not optimizing for the score bootstrap
-			else
-				for (d=df;d;d--) {
-					t = pM->ZVR0[,d]; if (weights) t = t :* *pwt
-					if (AR) // final term in (64) in paper, for c=intersection of all error clusters
-						Kcd[d].M = (_panelsum(*pXEx, t, *pinfoErrData), _panelsum(*pZExcl, t, *pinfoErrData)) * SewtXV
-					else
-						Kcd[d].M =  _panelsum(*pXEx, t, *pinfoErrData                                       ) * SewtXV
-				}
 
-			if (NFE & !FEboot)
-				CT_WE = _panelsum(crosstab(wtFE :* pM->e), infoBootAll)'
-
-			// subtract crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
 			peZVR0 = &_panelsum(eZVR0, *pwt, infoAllData) // collapse data to all-boot & error-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
-			if (reps)
+
+			if (reps) {
+				if (scoreBS)
+					for (d=df;d;d--)
+						Kcd[d].M = J_ClustN_NBootClust // inefficient, but we're not optimizing for the score bootstrap
+				else
+					for (d=df;d;d--) {
+						t = pM->ZVR0[,d]; if (weights) t = t :* *pwt
+						if (AR) // final term in (64) in paper, for c=intersection of all error clusters
+							Kcd[d].M = (_panelsum(*pXEx, t, *pinfoErrData), _panelsum(*pZExcl, t, *pinfoErrData)) * SewtXV
+						else
+							Kcd[d].M =  _panelsum(*pXEx, t, *pinfoErrData                                       ) * SewtXV
+					}
+
+				if (NFE & !FEboot)
+					CT_WE = _panelsum(crosstab(wtFE :* pM->e), infoBootAll)'
+
+				// subtract crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
 				if (*pBootClust == Clust[1]) // crosstab c,c* is square
 					for (d=df;d;d--) { // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
 						for (i=Clust.N;i;i--)
@@ -1148,18 +1150,26 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 							if (scoreBS | ! (1 |hascons))
 								Kcd[d].M = Kcd[d].M - ClustShare * colsum(Kcd[d].M) // for score bootstrap, recenter
 						}
-			else  // reps = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
-				for (d=df;d;d--)
-					Kcd[d].M = (*peZVR0)[,d]
 
-			for (c=1+granular; c<=NErrClustCombs; c++) {
-				if (rows(Clust[c].order))
+				for (c=1+granular; c<=NErrClustCombs; c++) {
+					if (rows(Clust[c].order))
+						for (d=df;d;d--)
+							Kcd[d].M = Kcd[d].M[Clust[c].order,]
+					for (d=df;d;d--) {
+						pQ[c,d] = &_panelsum(Kcd[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
+						if (NFE & !FEboot)
+							pQ[c,d] = &(*pQ[c,d] + _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
+					}
+				}
+			} else {  // reps = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
+				peZVR0 = &(*peZVR0 - ClustShare * colsum(*peZVR0))
+
+				for (c=1; c<=NErrClustCombs; c++) {
+					if (rows(Clust[c].order))
+						peZVR0 = &((*peZVR0)[Clust[c].order,])
+					pt = &_panelsum((*peZVR0), Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
 					for (d=df;d;d--)
-						Kcd[d].M = Kcd[d].M[Clust[c].order,]
-				for (d=df;d;d--) {
-					pQ[c,d] = &_panelsum(Kcd[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
-					if (NFE & !FEboot)
-						pQ[c,d] = &(*pQ[c,d] + _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
+						pQ[c,d] = &((*pt)[,d])
 				}
 			}
 		}
