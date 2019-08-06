@@ -236,13 +236,18 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se stat df df_r hold C C0 CC0 b V keepC keepW repsname repsFeasname
+	tempname p padj se stat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname
 	mat `b' = e(b)
 	local k = colsof(`b') // column count before possible removal of _cons term in FE models
 
 	if "`e(wtype)'" != "" {
-		tempname wtname
-		qui gen double `wtname' `e(wexp)'
+		tokenize `e(wexp)'
+		cap confirm var `2'
+		if _rc {
+			tempname wtname
+			qui gen double `wtname' `e(wexp)'
+		}
+		else local wtname `2'
 	}
 
 	if `"`h0s'"' != "" {
@@ -400,7 +405,6 @@ program define _boottest, rclass sortpreserve
 		local allclustvars `_allclustvars'
 	}
 
-	tempname b0 V0
 	forvalues h=1/`N_h0s' { // loop over multiple independent constraints
 		_estimates hold `hold', restore
 		ereturn post `b'
@@ -520,6 +524,7 @@ program define _boottest, rclass sortpreserve
 				}
 
 				cap `=cond("`quietly'"=="", "noisily", "")' `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `max' `options'
+
 				local rc = _rc
 				constraint drop `_constraints'
 				if e(converged)==0 {
