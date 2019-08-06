@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.02.02" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.04.02" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -400,6 +400,7 @@ program define _boottest, rclass sortpreserve
 		local allclustvars `_allclustvars'
 	}
 
+	tempname b0 V0
 	forvalues h=1/`N_h0s' { // loop over multiple independent constraints
 		_estimates hold `hold', restore
 		ereturn post `b'
@@ -526,7 +527,6 @@ program define _boottest, rclass sortpreserve
 					exit 430
 				}
 				if !`rc' {
-					tempname b0
 					mat `b0' = e(b)
 					cap `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if e(sample), `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `options' `max'
 					local rc = _rc
@@ -610,7 +610,7 @@ program define _boottest, rclass sortpreserve
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="")
+												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'")
 		_estimates unhold `hold'
 
 		local reps = `repsname' // in case reduced to 2^G
@@ -625,6 +625,9 @@ program define _boottest, rclass sortpreserve
 			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
 		}
 		
+		return matrix b`_h' = `b0'
+		return matrix V`_h' = `V0'
+
 		di
 		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c

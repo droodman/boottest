@@ -1,4 +1,4 @@
-*! boottest 2.4.1 5 August 2019
+*! boottest 2.4.2 5 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("02.02.02")
+string scalar      boottestVersion() return("02.04.02")
 
 struct smatrix {
 	real matrix M
@@ -493,11 +493,11 @@ real scalar boottestModel::getp(|real scalar analytical) {
 
 // numerator for full-sample test stat
 real colvector boottestModel::getb()
-	return(numer0)
+	return(numer0 / u_sd)
 
 // denominator for full-sample test stat
 real matrix boottestModel::getV()
-	return(denom0)
+	return(denom0 / (u_sd * u_sd) / (multiplier * df))
 
 
 // Return number of bootstrap replications with feasible results
@@ -967,7 +967,8 @@ void boottestModel::MakeWildWeights(real scalar _reps, real scalar first) {
 
 		if (first)
 			u[,1] = J(NBootClust, 1, WREnonAR? 0 : u_sd)  // keep original residuals in first entry to compute base model stat
-	}
+	} else
+		u = J(0,1,0)  // in places, cols(u) indicates number of reps -- 1 for classical test
 }
 
 real scalar boottestModel::MakeWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
@@ -1053,10 +1054,10 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 			else if (scoreBS | (robust & granular < NErrClustCombs))
 				eZVR0 = pM->e :* pM->ZVR0
 		if (scoreBS)
-			numer = reps? (cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights?       *pwt :* eZVR0  :        eZVR0), u)) :
-			              (                                                           weights? cross(*pwt  , eZVR0) : colsum(eZVR0))
+			numer = reps? (cross(NClustVar? _panelsum(eZVR0, *pwt, *pinfoBootData) : (weights?       eZVR0 :* *pwt  :        eZVR0), u)) :
+			              (                                                           weights? cross(eZVR0  , *pwt) : colsum(eZVR0)'   )
 		else { // same calc as in score BS but broken apart to grab intermediate stuff
-			if (thisWeightGrpStart == 1 & reps & granular<NErrClustCombs) { // first/only weight group? initialize some things
+			if (thisWeightGrpStart == 1) { // first/only weight group? initialize some things
 				pewt = weights? &(pM->e :* *pwt) : &pM->e
 				pt = &_panelsum(*pXEx, *pewt, *pinfoBootData)
 				if (AR)
@@ -1222,7 +1223,6 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 			for (i=df;i;i--)
 				for (j=i;j;j--) {
 					denom[i,j].M = purerobust? cross(pM->WZVR0[i].M, pM->WZVR0[j].M, eueu) : colsum(*pQ[1,i] :* *pQ[1,j])
-
 					if (Clust.multiplier!=1) denom[i,j].M = denom[i,j].M  * Clust.multiplier
 
 					for (c=2;c<=NErrClustCombs;c++) {
@@ -1278,12 +1278,12 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 				numer0 = numer[1]
 			}
 		} else {
-			denom.M = invsym(*pR0 * *pVR0)
+			denom.M = *pR0 * *pVR0
 
 			if (ML | LIML) {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, denom.M * numer_l) 
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M) * numer_l) 
 				}
 				if (thisWeightGrpStart==1) {
 					denom0 = denom.M * t // original-sample denominator
@@ -1292,7 +1292,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 			} else {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, denom.M * numer_l) 
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M) * numer_l) 
 												eu = u[,l] :* pM->e
 					if (!scoreBS) eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					if (scoreBS | !(1 |hascons)) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare // Center variance if needed
@@ -1616,7 +1616,8 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	string scalar XExnames, string scalar XEndnames, real scalar hascons, string scalar Ynames, string scalar bname, string scalar Vname, string scalar Wname, 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
 	string scalar FEname, real scalar NFE, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
-	real scalar small, string scalar diststat, string scalar distname, string scalar gridstart, string scalar gridstop, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly) {
+	real scalar small, string scalar diststat, string scalar distname, string scalar gridstart, string scalar gridstop, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly,
+	string scalar b0name, string scalar V0name) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, FEID, sc, XEnd, XEx
 	real colvector r, wt, r0, Y
@@ -1683,6 +1684,8 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	st_numscalar(padjname, M.getpadj())
 	st_numscalar(dfname  , M.getdf  ())
 	st_numscalar(dfrname , M.getdf_r())
+	st_matrix(b0name, M.getb()')
+	st_matrix(V0name, M.getV())
 	if (distname != "") st_matrix(distname, M.getdist(diststat))
 	if (plotname != "" | (level<100 & ciname != "")) {
 		if (plotname != "") st_matrix(plotname, M.getplot())
