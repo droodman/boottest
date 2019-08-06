@@ -1,12 +1,12 @@
 {smcl}
-{* *! version 2.3.5 7 November 2018}{...}
+{* *! version 2.4.3 6 August 2019}{...}
 {help boottest:boottest}
 {hline}{...}
 
 {title:Title}
 
 {pstd}
-Test linear hypotheses using wild or score bootstrap or Rao or Wald test for OLS, 2SLS, LIML, Fuller, k-class, linear GMM, or general ML estimation with classical, heteroskedasticity-robust, 
+Test linear hypotheses using wild or score bootstrap or Rao or Wald test for OLS, 2SLS, LIML, Fuller, {it:k}-class, linear GMM, or general ML estimation with classical, heteroskedasticity-robust, 
 or (multi-way-) clustered standard errors and optional fixed effects{p_end}
 
 {title:Syntax}
@@ -40,7 +40,7 @@ and {it:test} is
 
 {pstd}
 In words, {it:indeplist} is a list of hypotheses to be tested separately; if there is more than one, then each must be enclosed in curly braces. Each independent hypothesis
-in turn consists of one or more jointly tested constraint expressions, linear in parameters; if there is more than one, then each must be enclosed in parantheses. Finally, each 
+in turn consists of one or more jointly tested constraint expressions, linear in parameters; if there is more than one, then each must be enclosed in parentheses. Finally, each 
 individual constraint expression must conform to the syntax for {help constraint:constraint define}.
 
 {synoptset 45 tabbed}{...}
@@ -48,7 +48,6 @@ individual constraint expression must conform to the syntax for {help constraint
 {synoptline}
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
-{synopt:{cmdab:matsize:gb(#)}}set maximum size of wild weight matrix, in gigabytes{p_end}
 {synopt:{opt boot:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
@@ -61,9 +60,10 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt bootcl:uster(varname)}}sets cluster variable(s) to boostrap on; default is all {cmdab:cl:uster()} variables{p_end}
 {synopt:{opt ar}}request Anderson-Rubin test{p_end}
 {synopt:{opt seed(#)}}initialize random number seed to {it:#}{p_end}
+{synopt:{cmdab:matsize:gb(#)}}set maximum size of wild weight matrix, in gigabytes{p_end}
 {synopt:{opt qui:etly}}suppress display of null-imposed estimate; relevant after ML estimation{p_end}
 {synopt:{opt cmd:line(string)}}provide estimation command line; needed only after custom ML estimation{p_end}
-{synopt:{cmd:h0}({it:{help estimation options##constraints():constraints}}{cmd:)}}({it:deprecated}) specify linear hypotheses expressed as constraints; default is "1" if {it:indeplist} empty{p_end}
+{synopt:{cmd:h0}({it:{help estimation options##constraints():constraints}}{cmd:)}}({it:deprecated}) specify linear hypotheses stored as constraints; default is "1" if {it:indeplist} empty{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -108,7 +108,7 @@ For exact replication of earlier results, an older version, 2.0.5, is available 
 {title:Description}
 
 {pstd}
-{cmd:boottest} is a post-estimation command that tests linear hypotheses about parameters. Roodman et al. (forthcoming) documents it more fully than this help file.
+{cmd:boottest} is a post-estimation command that tests linear hypotheses about parameters. Roodman et al. (2019) documents it more fully than this help file, at least as of its late-2018 instantiation.
 
 {pstd}
 {cmd:boottest} offers several bootstraps--algorithms for generating simulated data sets--and
@@ -119,7 +119,7 @@ several tests to run on the data sets. The bootstraps are:
 
 {p 4 6 0}
 * The wild restricted efficient bootstrap (WRE; Davidson and MacKinnon 2010), which extends the wild bootstrap to instrumental variables estimators including
-2SLS, LIML, Fuller LIML, and k-class estimation.
+2SLS, LIML, Fuller LIML, and {it:k}-class estimation.
 
 {p 4 6 0}
 * The score bootstrap developed by Kline and Santos (2012) as an adaptation of the wild bootstrap to the general extremum estimator, including 2SLS, LIML, ML, and GMM. In 
@@ -152,17 +152,16 @@ after estimation commands that do not support those adjustments.
 {pstd}
 The tests are available after OLS, constrained OLS, 2SLS, LIML, and GMM estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
 {stata ssc describe cmp:ivreg2}. The
-program works with Fuller LIML and k-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
+program works with Fuller LIML and {it:k}-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
 effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; or {help reghdfe:reghdfe}. And it works after most Stata 
 ML-based estimation commands, including {help probit}, {help glm}, {stata ssc describe cmp:cmp}, and, in Stata 14.0 or later, 
-{help sem} and {help gsem} (score bootstrap only). A 
-notable ML exception before Stata 15 was {help tobit}. (To work with {cmd:boottest}, an iterative optimization command must accept
+{help sem} and {help gsem} (score bootstrap only). (To work with {cmd:boottest}, an iterative optimization command must accept
 the {opt const:raints()}, {opt iter:ate()}, {opt from()}, and {opt sc:ore} options.)
 
 {pstd}
 {cmd:boottest} is designed in partial analogy with {help test}. Like {help test}, {cmd:boottest} can jointly or separately test multiple hypotheses expressed as linear constraints on 
-parameters. {cmd:boottest} deviates in syntax from {help test} in the specification of the null hypothesis. In fact, it offers two syntaxes for specifying hypotheses, both
-different from the syntax of {help test}. In the first syntax, now deprecated, one first expresses the null in 
+parameters. {cmd:boottest} deviates in syntax from {help test} in the specification of the null hypothesis. In fact, it offers two syntaxes for specifying hypotheses. In the first syntax, 
+now deprecated, one first expresses the null in 
 one or more {help estimation options##constraints():constraints}, which are then listed by number in {cmd:boottest}'s {opt h0()} option. All constraints are tested 
 jointly. In the second, modern syntax, one places the constraint expressions directly in the {cmd:boottest} command line before the comma. Each expression must conform to the syntax
 of {help constraint:constraint define}, meaning a list of parameters (all of which are implicitly hypothesized to equal zero) or an equation in the form 
@@ -171,23 +170,23 @@ of hypotheses, list them all, placing each in braces. Omitting both syntaxes imp
 tests the hypothesis that all coefficients on instrumented variables are zero.
 
 {pstd}
-When testing multiple independent hypotheses, the {opt madj:ust()} option requests the Bonferroni or Sidak correction for multiple hypothesis tests.
+When testing multiple independent hypotheses, the {opt madj:ust()} option requests the Bonferroni or Sidak correction for multiple hypothesis testing.
 
 {pstd}
-{cmd:boottest} supports multi-way clustering (Cameron, Gelbach, and Miller 2006), in which case the user must choose which clustering variable to {it:bootstrap}
+{cmd:boottest} supports multi-way error clustering (Cameron, Gelbach, and Miller 2006), which, if applied, forces the user to choose which clustering variable(s) to {it:bootstrap}
 on. When multiway clustering is combined with {cmd:small}, 
 the finite-sample correction multiplier is a component-specific (G/(G-1)*(N-1)/(N-k), as described in Cameron, Gelbach, and Miller (2006, pp. 8-9) and simulated therein. In
 contrast, {stata ssc describe ivreg2:ivreg2} uses one multiplier for all components, based on the clustering variable with the lowest G. Thus after estimation with
-{cmd:ivreg2} with multi-way clustering, {cmd:waldtest} produces slightly different results from {cmd:test}, which relies purely on ivreg2's computed covariance matrix.
+{cmd:ivreg2} with multi-way clustering, {cmd:waldtest} produces slightly different results from {cmd:test}, which relies purely on {cmd:ivreg2}'s computed covariance matrix.
 
 {pstd}
 Because {cmd:boottest} has its own {opt r:obust}, {opt cl:uster()}, and {opt sm:all} options, you can override the choices made in running the 
 original estimate. In particular, you can perform inference with multi-way clustered errors after all the estimation commands that are compatible with
-{cmd:boottest}, even though few can themselves multi-way cluster. They include many ML-based estimators, after which {cmd:boottest} uses the score bootstrap.
+{cmd:boottest}, even though few can themselves multi-way cluster. Those include many ML-based estimators, after which {cmd:boottest} uses the score bootstrap.
 
 {pstd}
-By default, the null is imposed before bootstrapping (Fisher and Hall 1990; Davidson and MacKinnon 1999; Cameron, Gelbach, and Miller 2008). The {opt nonul:l} option overrides this behavior. After 2SLS
-estimation, the null is imposed only on the second-stage equation. Thus, after {cmd:ivregress 2sls Y X1 (X2 = Z)}, imposing the null of X1 = 0 results in 
+By default, the null is imposed before bootstrapping (Fisher and Hall 1990; Davidson and MacKinnon 1999; Cameron, Gelbach, and Miller 2008). The {opt nonul:l} option overrides this behavior. With IV
+estimation, the null is imposed only on the second-stage equation. Thus, after {cmd:ivregress 2sls Y X1 (X2 = Z)}, imposing the null of X1 = 0 results in the equivalent of 
 {cmd:ivregress 2sls Y (X2 = X1 Z)}, not {cmd:ivregress 2sls Y (X2 = Z)}.
 
 {pstd}
@@ -218,7 +217,7 @@ creates spurious precision, since some replications will be duplicates. Webb (20
 in the first four moments. The 6 values are +/-sqrt(3/2), +/-1, +/-sqrt(1/2).
 
 {p 4 6 0}
-* {cmd:boottest}'s fourth weight type is the normal distribution.
+* The fourth weight type is the normal distribution.
 
 {p 4 6 0}
 * The fifth weight type is the gamma distribution with shape parameter 4 and scale parameter 0.5, as suggested by Liu (1988). Much like the Mammen distribution, 
@@ -248,8 +247,8 @@ To find the confidence set, {cmd:boottest} starts by choosing lower and upper bo
 options. Then it tests potential values at equally spaced intervals within this range--by default 25, but this too is subject to override, via
 {opt gridpoints(#)}. If it discovers that, for example X + Y = 2 is rejected at 0.04 and X + Y = 3 is rejected at 0.06, it then seeks to zero in on the value in between
 that is rejected at 0.05, in order to bound the confidence set. The confidence curve is then plotted, at all the grid points as well as the detected crossover points and the
-original point estimate. The graph may look coarse with only 25 grid points, but the confidence set bounds will nevertheless be computed precisely.  Specifying 
-{opt level(100)} suppresses this entire search process while still requesting a plot of the confidence function.
+original point estimate. The graph may look coarse with only 25 grid points, but the confidence set bounds will nevertheless be computed precisely. Specifying 
+{cmd:level(100)} suppresses this entire search process while still requesting a plot of the confidence curve.
 
 {pstd}
 Similarly, when testing a two-dimensional hypothesis after linear estimation, {cmd:boottest} automatically renders the p value surface with a {help twoway contour:contour plot}. In
@@ -387,6 +386,8 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 {synopt:{cmd:r(CI)}}bounds of confidence sets, if any{p_end}
 {synopt:{cmd:r(plot)}}data for p value plot, if any{p_end}
 {synopt:{cmd:r(dist)}}t/z distribution, if requested with {opt svm:at}{p_end}
+{synopt:{cmd:r(b)}}numerator of test statistic{p_end}
+{synopt:{cmd:r(V)}}denominator (variance matrix) of test statistic{p_end}
 
 {pstd}
 If more than one independent hypotheses is tested, many return values listed above will be supplied
@@ -399,18 +400,18 @@ separately for each hypothesis, using suffixes 1, 2, ....
 {p 4}david@davidroodman.com{p_end}
 
 
+{title:Citation}
+
+{p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community.
+Please cite: {p_end}
+{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2019. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal}.{p_end}
+
+
 {title:Donate?}
 
 {pstd}
 Has {cmd:boottest} improved your career or marriage? Consider
 giving back through a {browse "http://j.mp/1iptvDY":donation} to support the work of its author, {browse "http://davidroodman.com":David Roodman}.
-
-
-{title:Authorship and citation}
-
-{p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community, by David Roodman.
-Please cite: {p_end}
-{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. Forthcoming. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal}.{p_end}
 
 
 {title:Examples}
@@ -507,7 +508,7 @@ inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of
 estimation. {it:Proc. Cambridge Philos. Soc.} 44: 50-57.{p_end}
-{p 4 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. Forthcoming. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal}.{p_end}
+{p 4 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2019. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal} 19(1): 4-60.{p_end}
 {p 4 8 2}Wald, A. 1943. Tests of statistical hypotheses concerning several parameters when the number of observations is
 large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}

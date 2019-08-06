@@ -1,4 +1,4 @@
-*! boottest 2.4.2 5 August 2019
+*! boottest 2.4.3 6 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -42,10 +42,11 @@ program define _boottest, rclass sortpreserve
 		qui findfile "boottest.mata"
 		cap run "`r(fn)'"
 		if _rc & c(stata_version) >= 13 {
-			di _n "Warning: Could not recompile boottest.mata, probably for lack of write access to the directory where it is stored."
-			di    "For backward compatibility, boottest is distributed as compiled in Stata 11. Recompiling in Stata 13 or later"
-			di   `"allows it to run faster. To compile it manually, type or click on {stata "which boottest.mata"}; then run the displayed file like a Stata .do file."'
-			di    "This only needs to be done once per installation." _n
+			di
+			di  "Warning: Could not recompile boottest.mata, probably for lack of write access to the directory where it is stored."
+			di  "For backward compatibility, boottest is distributed as compiled in Stata 11. Recompiling in Stata 13 or later"
+			di `"allows it to run faster. To compile it manually, type or click on {stata "which boottest.mata"}; then run the displayed file like a Stata .do file."'
+			di  "This only needs to be done once per installation." _n
 		}
 	}
 
@@ -751,6 +752,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.4.3 minor bug fixes and edits
 * 2.4.2 Fixed 2.4.1 bug. Added r(b) and r(V) return values.
 * 2.4.1 Optimized classical tests; removed bug in score test after FE est (wrongly droped term 2 in (63) in non-classical use of score test)
 * 2.4.0 After reghdfe look for FE count in e(df_a) as well as e(K1)

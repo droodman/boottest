@@ -1,4 +1,4 @@
-*! boottest 2.4.2 5 August 2019
+*! boottest 2.4.3 6 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ struct smatrix {
 }
 
 struct boottest_clust {
-	real scalar N, multiplier, c
+	real scalar N, multiplier
 	real colvector order
 	real matrix info
 }
@@ -173,13 +173,13 @@ void AnalyticalModel::InitEstimate() {
 			(TPZT = TT)[|parent->kEx+1,parent->kEx+1\.,.|] = _ZY ' (*pinvZZ) * _ZY
 
 			A = *pinvZZ * ZX
-			H_2SLS = A ' ZX // Hessian
+			H_2SLS = A ' ZX  // Hessian
 
-			if (rows(*pS)) { // includes H0 if pSAll really points to SAll rather than S
+			if (rows(*pS)) {  // includes H0 if pSAll really points to SAll rather than S
 				TT = Splus ' TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val) // eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val)  // eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks into val
 		}
 
@@ -197,7 +197,7 @@ void AnalyticalModel::InitEstimate() {
 			dbetads = I(rows(beta0)) - *pbetadenom * A ' ZX
 		} else { // k-class, LIML
 			beta0 = *pbetadenom * (K * A ' ZY + (1-K) * *pXY)
-			dbetads = I(rows(beta0)) -  *pbetadenom * (K * A ' ZX + (1-K) * *pXX)
+			dbetads = I(rows(beta0)) - *pbetadenom * (K * A ' ZX + (1-K) * *pXX)
 		}
 	else { // OLS / AR
 		beta0 = *pbetadenom * *pXY
@@ -497,8 +497,7 @@ real colvector boottestModel::getb()
 
 // denominator for full-sample test stat
 real matrix boottestModel::getV()
-	return(denom0 / (u_sd * u_sd) / (multiplier * df))
-
+	return(denom0 / (u_sd * u_sd * multiplier * df))
 
 // Return number of bootstrap replications with feasible results
 // Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
@@ -550,14 +549,6 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 	else
 		st_view(V, i, j, selectvar)
 }
-
-
-
-
-
-
-
-
 
 
 
@@ -1107,10 +1098,6 @@ real scalar boottestModel::MakeNonWRENumers(real scalar thisWeightGrpStart, real
 
 
 
-
-
-
-
 void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0, pt
 
@@ -1286,7 +1273,7 @@ void boottestModel::MakeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M) * numer_l) 
 				}
 				if (thisWeightGrpStart==1) {
-					denom0 = denom.M * t // original-sample denominator
+					denom0 = denom.M // original-sample denominator
 					numer0 = numer_l
 				}
 			} else {
