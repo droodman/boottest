@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.4.3 6 August 2019}{...}
+{* *! version 2.4.4 10 August 2019}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -49,6 +49,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
 {synopt:{opt boot:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
+{synopt:{opt stat:istic(t | c)}}specify statistc type to bootstrap; default is {it:t}{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
@@ -96,13 +97,19 @@ In addition, these options are relevant when testing a single hypothesis after O
 {pstd}
 {cmd:waldtest}, {cmd:artest}, and {cmd:scoretest} accept all options listed above except {cmdab:weight:type()}, {cmdab:boot:type()}, {opt r:eps(#)}, {opt svm:at}, and {opt seed(#)}.
 
-{title:Update}
+{title:Updates}
 
 {pstd} Version 2.0.6 of {cmd:boottest}, released in May 2018, introduced two changes that can slightly affect results. The default for {opt r:eps(#)}
 is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
 For exact replication of earlier results, an older version, 2.0.5, is available as a
 {browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed in Stata 13 or later via
 {net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}.
+
+{pstd} Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
+which bootstraps the distribution of the coefficient(s) of interest (or linear combinations thereof) rather than the distribution of a t/z/F/chi2 statistic. 
+Theory favors the latter
+as pivotal, but Young (2019) pragmatically advocates for the bootstrap-c, at least in instrumental variables estimation. The option 
+{cmdab:stat:istic(c)}} invokes the new feature.
 
 {marker description}{...}
 {title:Description}
@@ -131,6 +138,14 @@ computationally prohibitive with many ML-based estimators.
 {cmd:boottest} uses the first two to bootstrap the empirical distribution of a Wald test of the null hypothesis. For instrumental variables models, the 
 WRE may also be used to bootstrap the Anderson-Rubin (1949) test, which is itself a Wald test based on an auxilliary OLS regression 
 (Baum, Schaffer, and Stillman 2007, p. 491). The score bootstrap, as its name suggests, is best seen as bootstrapping the Rao score/LM test.
+
+{pstd} All of these tests may be considered bootstrap-t tests in that they simulate the distribution of a pivotal quantities--t, z, F, or chi2 statistics. For each
+replication, they compute the numerator and denominator of the statistic of interest, then determine the quantile of the ratio from the original sample in the simulated
+distribution from the bootstrap replications. In contrast, the bootstrap-c, uses the same bootstrap data-generating processes to simulate only the numerators--i.e., coefficients or linear 
+combinations. The bootstrap-c computes a single covariance matrix for use in all the denominators, from the bootstrapped numerators. For one-dimensional hypotheses,
+dividing the test statistic numerator and its bootstrap replications by this common denominator has only a cosmetic effect. Under standard asumptions, the
+bootstrap-t offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) provides evidence
+that in instrumental variables estimation in economics, the bootstrap-c is more reliable. {cmd:boottest} offers it via the {cmdab:stat:istic(c)} option.
 
 {p 4 6 0}
 If one instructs {cmd:boottest} to generate zero bootstrap replications ({cmd:reps(0)}), then, depending on the bootstrap chosen and whether {cmd:ar} is specified, it will default to:
@@ -266,8 +281,11 @@ bootstrapping. The default is {it:rademacher}. However if the number of replicat
 Rademacher draws--{cmd:boottest} will take each possible draw once. It will not do that with Mammen weights even though the same issue arises. In all such cases,
 Webb weights are probably better.
 
-{phang}{opt boot:type(wild | score)}} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
+{phang}{opt boot:type(wild | score)} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
 restricted efficient bootstrap is the default, which {cmd:boottype(score)} overrides in favor of the score bootstrap.
+
+{phang}{opt stat:istic(t | c)} specifies the boostrapped statistic. The default, {it:t}, invokes the bootstrap-t, meaning the bootstrapping of
+distributions for t, z, F, or chi2 statistics. The alternative, {it:c}, requests the bootstrap-c.
 
 {phang}{opt r:eps(#)} sets the number of bootstrap replications. The default is 999. Especially when clusters are few, increasing this number costs little in run 
 time. {opt r:eps(0)} requests a Wald test or--if {opt boottype(score)} is also specified and {opt nonul:l} is not--a Rao test. The wrappers {cmd:waldtest}
@@ -442,6 +460,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {phang}. {stata ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, ptype(equaltail) seed(987654321)} // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps{p_end}
+{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c)} // same but bootstrap-c; drowning witch{p_end}
+{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c) gridmin(-2) gridmax(2)} // same but limit graphing bounds{p_end}
 {phang}. {stata boottest, ar} // same bootstrap, but Anderson-Rubin test (much faster){p_end}
 {phang}. {stata scoretest tenure} // Rao/LM test of same{p_end}
 {phang}. {stata waldtest tenure} // Wald test of same{p_end}
@@ -514,3 +534,4 @@ large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
 {p 4 8 2}Wu, C.F.J. 1986. Jackknife, bootstrap and other resampling methods in regression analysis (with discussions). {it:Annals of Statistics}
 14: 1261-1350.{p_end}
+{p 4 8 2}Young, A. 2019. Consistency without inference: instrumental variables in practical applications. http://personal.lse.ac.uk/YoungA/ConsistencyWithoutInference.pdf.{p_end}

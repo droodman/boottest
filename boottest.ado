@@ -1,4 +1,4 @@
-*! boottest 2.4.3 6 August 2019
+*! boottest 2.5.0 10 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -33,7 +33,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.04.02" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.05.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -88,7 +88,7 @@ program define _boottest, rclass sortpreserve
 		macro shift
 	}
 	local 0 `*'
-	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) NOCI Level(real `c(level)') SMall SVMat ///
+	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) *]
 
 	if `matsizegb'==1000000 local matsizegb .
@@ -195,6 +195,17 @@ program define _boottest, rclass sortpreserve
 		syntax, [SYMmetric EQualtail LOWer UPper]
 		local ptype `symmetric'`equaltail'`lower'`upper'
 	}
+ 
+
+	if `"`statistic'"'=="" local statistic t
+	else if !inlist(`"`statistic'"', "t", "c") {
+		di as err "The {cmd:stat:istic} option must be {cmd:t} or {cmd:c}."
+		exit 198
+	}
+	else if "`statistic'"=="c" & `reps'==0 {
+		di as err "{cmdab:stat:istic(c)} not allowed with non-bootstrap tests."
+		exit 198
+	}
 
 	local ML = e(converged) != .
 	local IV = "`e(instd)'`e(endogvars)'" != ""
@@ -202,8 +213,8 @@ program define _boottest, rclass sortpreserve
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
 
-	local fuller `e(fuller)' // "" if missing
-	local K = e(kclass) // "." if missing
+	local fuller `e(fuller)'  // "" if missing
+	local K = e(kclass)  // "." if missing
 
 	local tz = cond(`small', "t", "z")
 	local symmetric Prob>|`tz'|
@@ -237,9 +248,9 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se stat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname
+	tempname p padj se teststat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname
 	mat `b' = e(b)
-	local k = colsof(`b') // column count before possible removal of _cons term in FE models
+	local k = colsof(`b')  // column count before possible removal of _cons term in FE models
 
 	if "`e(wtype)'" != "" {
 		tokenize `e(wexp)'
@@ -612,7 +623,7 @@ program define _boottest, rclass sortpreserve
 
 		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
-		mata boottest_stata("`stat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", ///
+		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
@@ -628,14 +639,14 @@ program define _boottest, rclass sortpreserve
 		if `N_h0s'>1 local _h _`h'
 
 		if `df'==1 {
-			return scalar `=cond(`small', "t", "z")'`_h' = `stat'
+			return scalar `=cond(`small', "t", "z")'`_h' = `teststat'
 		}
 		
-		return matrix b`_h' = `b0'
-		return matrix V`_h' = `V0'
+		cap return matrix b`_h' = `b0'
+		cap return matrix V`_h' = `V0'
 
 		di
-		if `reps' di as txt strproper("`boottype'") " bootstrap, null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
+		if `reps' di as txt strproper("`boottype'") " bootstrap-`statistic', null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
 		if ("`bootcluster'"!="" | `:word count `clustvars'' > 1) & `reps' di as txt ", bootstrap clustering by " as inp "`bootcluster'" _c
@@ -650,8 +661,8 @@ program define _boottest, rclass sortpreserve
 
 		if `df'==1 {
 			local line1 = cond(`small', "t(`=`df_r'')", "z")
-			di _n as txt _col(`=45-strlen("`line1'")') "`line1' = " as res %10.4f `stat' _n _col(`=45-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
-			local `stat' = `stat' * `stat'
+			di _n as txt _col(`=45-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n _col(`=45-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
+			local `teststat' = `teststat' * `teststat'
 		}
 		else {
 			if `small' {
@@ -662,7 +673,7 @@ program define _boottest, rclass sortpreserve
 				local line1 chi2(`=`df'')
 				local line2 Prob > chi2
 			}
-			di _n as txt _col(`=21-strlen("`line1'")') "`line1' = " as res %10.4f `stat' _n as txt _col(`=21-strlen("`line2'")') "`line2' = " as res %10.4f `p'
+			di _n as txt _col(`=21-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n as txt _col(`=21-strlen("`line2'")') "`line2' = " as res %10.4f `p'
 		}
 
 		if "`madjust'" != "" {
@@ -736,7 +747,7 @@ program define _boottest, rclass sortpreserve
 			return matrix CI`_h' = `cimat'
 		}
 		
-		return scalar `=cond(`small', "F", "chi2")'`_h' = cond(`df'==1, `stat'*`stat', `stat')
+		return scalar `=cond(`small', "F", "chi2")'`_h' = cond(`df'==1, `teststat'*`teststat', `teststat')
 		if `small' return scalar df_r`_h' = `df_r'
 		return scalar df`_h' = `df'
 		return scalar p`_h' = `p'
@@ -744,6 +755,7 @@ program define _boottest, rclass sortpreserve
 		if "`svmat'"!="" return matrix dist`_h' = `dist'
 	}
 	return scalar level = `level'
+	return local statistic `statistic'
 	return local weighttype `weighttype'
 	return local boottype `boottype'
 	return local clustvars `clustvars'
@@ -752,6 +764,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.0 Added bootstrap-c
 * 2.4.3 minor bug fixes and edits
 * 2.4.2 Fixed 2.4.1 bug. Added r(b) and r(V) return values.
 * 2.4.1 Optimized classical tests; removed bug in score test after FE est (wrongly droped term 2 in (63) in non-classical use of score test)
