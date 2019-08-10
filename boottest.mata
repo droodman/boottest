@@ -1,4 +1,4 @@
-*! boottest 2.5.0 10 August 2019
+*! boottest 2.5.1 10 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -597,7 +597,6 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 
 
 
-
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, sortID, o, _FEID
@@ -1083,7 +1082,7 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 		if (thisWeightGrpStart == 1) // first/only weight group? initialize some things
 			if (ML)
 				eZVR0 = *pSc * (VR0 = *pV * *pR0')
-			else if (scoreBS | (robust & granular < NErrClust))
+			else if (scoreBS | (robust & granular < NErrClustCombs))
 				eZVR0 = pM->e :* pM->ZVR0
 		if (scoreBS)
 			numer = reps? (cross(NClustVar? _panelsum(eZVR0, *pwt, infoBootData) : (weights?       eZVR0 :* *pwt  :        eZVR0), u)) :
@@ -1117,14 +1116,15 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 }
 
 
+
+
 void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0, pt
 
 	if (robust) {
-		if (granular < NErrClust & thisWeightGrpStart==1) { // unless pure robust and no multi-way clustering, initialize stuff that depends on r0 but not u
+		if (granular < NErrClustCombs & thisWeightGrpStart==1) { // unless pure robust and no multi-way clustering, initialize stuff that depends on r0 but not u
 
 			peZVR0 = &_panelsum(eZVR0, *pwt, *pinfoAllData) // collapse data to all-boot & error-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
-
 			if (reps) {
 				if (scoreBS)
 					for (d=df;d;d--)

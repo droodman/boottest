@@ -1,4 +1,4 @@
-*! boottest 2.5.0 10 August 2019
+*! boottest 2.5.1 10 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -52,7 +52,11 @@ program define _boottest, rclass sortpreserve
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
 	local ivcmd = cond("`cmd'"=="reghdfe", "`e(subcmd)'", cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
-	
+
+	if "`e(cmd)'" == "" {
+		di as err "No estimates detected."
+		error 198
+	}
 	if "`e(prefix)'" == "svy" {
 		di as err "Doesn't work after {cmd:svy}."
 		exit 198
@@ -764,6 +768,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.1 Fixed 2.5.0 bug after "robust" estimation
 * 2.5.0 Added bootstrap-c
 * 2.4.3 minor bug fixes and edits
 * 2.4.2 Fixed 2.4.1 bug. Added r(b) and r(V) return values.
