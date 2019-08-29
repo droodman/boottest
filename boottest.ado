@@ -1,4 +1,4 @@
-*! boottest 2.5.1 10 August 2019
+*! boottest 2.5.2 29 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@ program define boottest
 	constraint drop `anythingh0'
 	cap mata mata drop _boottestp
 	cap mata mata drop _boottestC
+	cap mata mata drop _boottestkeepC
 	cap drop `contourvars'
 	exit `rc'
 end
@@ -309,6 +310,7 @@ program define _boottest, rclass sortpreserve
 		local hascns 1
 		mat `C' = e(Cns)
 	}
+
 	cap _estimates drop `hold'
 	if !`ML' {
 		if ("`ivcmd'"=="ivreg2" & !inlist("`e(model)'", "ols", "iv", "gmm2s", "liml")) | ("`ivcmd'"=="ivregress" & !inlist("`e(estimator)'", "liml", "2sls", "gmm")) {
@@ -370,7 +372,7 @@ program define _boottest, rclass sortpreserve
 			forvalues i=1/`:word count `revarlist'' {
 				local var: word `i' of ``varlist''
 				_ms_parse_parts `var'
-				if !r(omit) {
+				if !r(omit) | 1 {
 					local _revarlist `_revarlist' `:word `i' of `revarlist''
 					if inlist("`varlist'", "Xnames_exog", "Xnames_endog") {
 						local pos: list posof "`var'" in colnamesC
@@ -385,11 +387,13 @@ program define _boottest, rclass sortpreserve
 			local `varlist' `_revarlist'
 		}
 
-		if 0`hascns' mata _boottestC = st_matrix("`C'")[,(st_matrix("`keepC'"),cols(st_matrix("`C'")))]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'" , _boottestC)
-
+		mata _boottestkeepC = st_matrix("`keepC'"); if (cols(_boottestkeepC)==0) _boottestkeepC=J(1,0,0) ;;
+		if 0`hascns' mata _boottestC = st_matrix("`C'")[,(_boottestkeepC,cols(st_matrix("`C'")))]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'", _boottestC)
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
 		if `cons' local Xnames_exog `hold' `Xnames_exog' // add constant term
 	}
+
+	local Nclustvars: word count `clustvars'
 
 	if `hasclust' {
 		if 0`override' {
@@ -402,7 +406,7 @@ program define _boottest, rclass sortpreserve
 
 		if `"`bootcluster'"' == "" {
 			local bootcluster `clustvars'
-			if `reps' & `:word count `clustvars''>1 di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
+			if `reps' & `Nclustvars'>1 di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
 		}
 		local    clustvars `:list clustvars & bootcluster' `:list clustvars - bootcluster'
 		local allclustvars `:list bootcluster - clustvars' `clustvars' // put bootstrapping clusters first, error clusters last, overlap in middle
@@ -425,8 +429,10 @@ program define _boottest, rclass sortpreserve
 		_estimates hold `hold', restore
 		ereturn post `b'
 		mat `b' = e(b)
+
 		// process hypothesis constraints into e(Cns)
 		qui makecns `h0_`h''
+
 		if "`h0_`h''" != "`r(clist)'" {
 			local clist `r(clist)'
 			local clist: list h0_`h' - clist
@@ -608,7 +614,7 @@ program define _boottest, rclass sortpreserve
 			_est hold `hold', restore
 
 			mata st_matrix("`C0'", st_matrix("`C0'")[,_boottestp]) // ensure constraint matrix in order cons-other exog-endog
-			mata st_matrix("`C0'", st_matrix("`C0'" )[,(st_matrix("`keepC'"),`=colsof(`C0')')]) // drop columns for 0-variance vars
+			mata st_matrix("`C0'", st_matrix("`C0'" )[,(_boottestkeepC,`=colsof(`C0')')]) // drop columns for 0-variance vars
 
 			if `ar' {
 				if !`IV' | `GMM' {
@@ -629,13 +635,13 @@ program define _boottest, rclass sortpreserve
 
 		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `:word count `clustvars'', ///
+												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'")
 		_estimates unhold `hold'
 
 		local reps = `repsname' // in case reduced to 2^G
-		if !`ML' & `reps' & `:word count `clustvars''>1 {
+		if !`ML' & `reps' & `Nclustvars'>1 & `teststat'<. {
 			return scalar repsFeas = `repsFeasname'
 			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replications returned an infeasible test statistic and were deleted from the bootstrap distribution."
 		}
@@ -643,7 +649,8 @@ program define _boottest, rclass sortpreserve
 		if `N_h0s'>1 local _h _`h'
 
 		if `df'==1 {
-			return scalar `=cond(`small', "t", "z")'`_h' = `teststat'
+			local tz = cond(`small', "t", "z")
+			return scalar `tz'`_h' = `teststat'
 		}
 		
 		cap return matrix b`_h' = `b0'
@@ -653,7 +660,7 @@ program define _boottest, rclass sortpreserve
 		if `reps' di as txt strproper("`boottype'") " bootstrap-`statistic', null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
-		if ("`bootcluster'"!="" | `:word count `clustvars'' > 1) & `reps' di as txt ", bootstrap clustering by " as inp "`bootcluster'" _c
+		if ("`bootcluster'"!="" | `Nclustvars' > 1) & `reps' di as txt ", bootstrap clustering by " as inp "`bootcluster'" _c
 		if `reps'	di as txt ", " strproper("`weighttype'") " weights" _c
 		di as txt ":"
 		
@@ -685,7 +692,10 @@ program define _boottest, rclass sortpreserve
 			return scalar padj`_h' = `padj'
 		}
 
-		if "`plotmat'" != "" {
+		if `Nclustvars'>1 & `teststat'==. di _n "Test statistic could not be computed. Most likely the multiway-clustered variance estimate " cond(`df'==1, "", "matrix ") "is not positive" cond(`df'==1, "", "-definite") "."
+
+		cap confirm mat `plotmat'
+		if _rc == 0 {
 			tempvar X1 Y _plotmat
 			if rowsof(`C0')==2 tempvar X2
 			mat `_plotmat' = `plotmat'
@@ -734,7 +744,8 @@ program define _boottest, rclass sortpreserve
 			}
 		}
 
-		if "`cimat'" != "" {
+		cap confirm mat `cimat'
+		if _rc==0 {
 			di _n as res `level' "%" as txt " confidence set for null hypothesis expression: " _c
 			forvalues i=1/`=rowsof(`cimat')' {
 				if `i'>1 di " U " _c
@@ -749,6 +760,10 @@ program define _boottest, rclass sortpreserve
 			}
 			mat colnames `cimat' = lo hi
 			return matrix CI`_h' = `cimat'
+		}
+		
+		if "`statistic'" == "c" & `df'==1 {
+			di "Note: denominator for `tz' statistic computed from the bootstrap replications of the numerator."
 		}
 		
 		return scalar `=cond(`small', "F", "chi2")'`_h' = cond(`df'==1, `teststat'*`teststat', `teststat')
@@ -768,6 +783,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.2 More graceful handling of degenerate cases: multiway t stat = .; test hypothesis refers to dropped/constrained variable
 * 2.5.1 Fixed 2.5.0 bug after "robust" estimation
 * 2.5.0 Added bootstrap-c
 * 2.4.3 minor bug fixes and edits

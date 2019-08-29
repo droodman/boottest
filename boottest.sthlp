@@ -106,10 +106,9 @@ For exact replication of earlier results, an older version, 2.0.5, is available 
 {net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}.
 
 {pstd} Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
-which bootstraps the distribution of the coefficient(s) of interest (or linear combinations thereof) rather than the distribution of a t/z/F/chi2 statistic. 
-Theory favors the latter
-as pivotal, but Young (2019) pragmatically advocates for the bootstrap-c, at least in instrumental variables estimation. The option 
-{cmdab:stat:istic(c)}} invokes the new feature.
+which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather than that of t/z/F/chi2 statistics. Theory favors the latter, 
+but Young (2019) presents evidence that the bootstrap-c is more reliable, at least in instrumental variables estimation in economics. The option 
+{cmdab:stat:istic(c)}} invokes the feature.
 
 {marker description}{...}
 {title:Description}
@@ -139,13 +138,14 @@ computationally prohibitive with many ML-based estimators.
 WRE may also be used to bootstrap the Anderson-Rubin (1949) test, which is itself a Wald test based on an auxilliary OLS regression 
 (Baum, Schaffer, and Stillman 2007, p. 491). The score bootstrap, as its name suggests, is best seen as bootstrapping the Rao score/LM test.
 
-{pstd} All of these tests may be considered bootstrap-t tests in that they simulate the distribution of a pivotal quantities--t, z, F, or chi2 statistics. For each
-replication, they compute the numerator and denominator of the statistic of interest, then determine the quantile of the ratio from the original sample in the simulated
-distribution from the bootstrap replications. In contrast, the bootstrap-c, uses the same bootstrap data-generating processes to simulate only the numerators--i.e., coefficients or linear 
-combinations. The bootstrap-c computes a single covariance matrix for use in all the denominators, from the bootstrapped numerators. For one-dimensional hypotheses,
-dividing the test statistic numerator and its bootstrap replications by this common denominator has only a cosmetic effect. Under standard asumptions, the
-bootstrap-t offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) provides evidence
-that in instrumental variables estimation in economics, the bootstrap-c is more reliable. {cmd:boottest} offers it via the {cmdab:stat:istic(c)} option.
+{pstd} All of these tests may be considered bootstrap-t tests in that they simulate the distribution of pivotal quantities--t, z, F, or chi2 statistics. That means that for each
+replication, the algorithm computes the numerator and denominator of the statistic of interest, then determines the quantile of the ratio from the original sample in this simulated
+distribution. In contrast, the bootstrap-c, uses the same bootstrap data-generating processes to simulate only the numerators--i.e., coefficients or linear 
+combinations thereof. From the bootstrap numerators, the bootstrap-c algorithm then computes a single covariance matrix for use in all the statistics. For one-dimensional hypotheses,
+dividing the test statistic numerator and its bootstrap replications by this universal denominator has no substantive effect; but it is needed for higher-dimensional hypothesis in order
+to norm the numerators, which are vectors. Under standard asumptions, the
+bootstrap-t, unlike the bootstrap-c, offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) provides evidence
+that in instrumental variables estimation in economics, the bootstrap-c is more reliable. {cmd:boottest} offers both through the {cmdab:stat:istic()} option, {cmd:stat(t)} being the default.
 
 {p 4 6 0}
 If one instructs {cmd:boottest} to generate zero bootstrap replications ({cmd:reps(0)}), then, depending on the bootstrap chosen and whether {cmd:ar} is specified, it will default to:

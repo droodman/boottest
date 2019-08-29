@@ -1,4 +1,4 @@
-*! boottest 2.5.1 10 August 2019
+*! boottest 2.5.2 29 August 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -179,14 +179,14 @@ void AnalyticalModel::InitEstimate() {
 				TT = Splus ' TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val)  // eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			eigensystemselecti( I(rows(TT)) - lusolve(TT, TPZT), 1\1, vec, val)  // eigensystemselecti(lusolve(TT, TPZT), rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks into val
 		}
 
 	pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
 
 	if (rows(*pS)) {
-		pbetadenom = &(*pS * invsym(*pS ' (*pH) * *pS) * *pS')
+		pbetadenom = &(*pS * lusolve(*pS ' (*pH) * *pS, *pS'))
 		invH = J(0,0,0)
 	} else
 		pbetadenom = &(invH = invsym(*pH))
@@ -209,7 +209,7 @@ void AnalyticalModel::InitEstimate() {
 void AnalyticalModel::InitTestDenoms(real matrix S) {
 	real matrix AVR0; real scalar d, c; struct smatrix rowvector _CT_ZVR0; pointer (real matrix) scalar pWZVR0
 
-	pV = rows(S)? &(S * invsym(S ' (*pH) * S) * S') : ///
+	pV = rows(S)? &(S * lusolve(S ' (*pH) * S, S')) : ///
 	              &(rows(invH)? invH : invsym(*pH))
 
 	VR0 = *pV * *parent->pR0'
@@ -254,7 +254,7 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 
 // stuff that depends on r0 and endogenous variables: compute beta and residuals
 void AnalyticalModel::Estimate(real colvector s) {
-	real matrix invZMeZ; real colvector negZeinvee
+	real colvector negZeinvee
 
 	beta = rows(s)? beta0 + dbetads * s : beta0
 	if (DGP==NULL | parent->bootstrapt | parent->WREnonAR==0) {  // don't need residuals in replication regressions in bootstrap-c on WRE/non-AR
@@ -279,8 +279,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 	if (DGP==NULL & LIML) {
 		Ze = ZY - ZX * beta
 		negZeinvee = Ze / -ee
-		invZMeZ = invsym(ZZ + negZeinvee * Ze')
-		pi = (invZMeZ * negZeinvee) * (YXEnd - beta ' XXEnd) + invZMeZ * ZXEnd  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
+		pi = lusolve(ZZ + negZeinvee * Ze', negZeinvee * (YXEnd - beta ' XXEnd) + ZXEnd)  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
 
 		e2 = *pXEnd - *parent->pZExcl * pi[|parent->kEx+1,.\.,.|]; if (parent->kEx) e2 = e2 - *parent->pXEx * pi[|.,.\parent->kEx,.|]
 		if (parent->AR)
@@ -476,13 +475,12 @@ void boottestModel::makeDistCDR(| string scalar diststat) {
 }
 
 // Robust to missing bootstrapped values interpreted as +infinity.
-real scalar boottestModel::getp(|real scalar clasical) {
+real scalar boottestModel::getp(|real scalar classical) {
 	real scalar t
 	if (dirty) boottest()
 	t = Dist[1]
 	if (t == .) return (.)
-	if (reps & clasical==.) {
-		repsFeas = colnonmissing(Dist) - 1
+	if (reps & classical==.)
 		if (sqrt & ptype != 3) {
 			if (ptype==0)
 				p = colsum(-abs(t):>-abs(Dist)) / repsFeas  // symmetric p value; do so as not to count missing entries in Dist
@@ -492,7 +490,7 @@ real scalar boottestModel::getp(|real scalar clasical) {
 				p = colsum( t:> Dist) / repsFeas  // lower-tailed p value
 		} else
 				p = colsum(-t:>-Dist) / repsFeas  // upper-tailed p value or p value based on squared stats
-	} else {
+	else {
 		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
 		if (sqrt & !twotailed) {
 			p = p / 2
@@ -515,12 +513,13 @@ real matrix boottestModel::getV()
 // Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 real scalar boottestModel::getrepsFeas()
 	return (repsFeas)
+
 // return number of replications, possibly reduced to 2^G
 real scalar boottestModel::getreps()
 	return (reps)
 
-real scalar boottestModel::getpadj(|real scalar clasical) {
-	(void) getp(clasical)
+real scalar boottestModel::getpadj(|real scalar classical) {
+	(void) getp(classical)
 	if (madjtype=="bonferroni") return(min((1, NumH0s*p)))
 	if (madjtype=="sidak"     ) return(1 - (1 - p)^NumH0s)
 	return(p)
@@ -561,6 +560,7 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 	else
 		st_view(V, i, j, selectvar)
 }
+
 
 
 
@@ -708,7 +708,7 @@ void boottestModel::boottest() {
 
 			if (robust & !purerobust) {
 				if (subcluster | granular)
-					infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar) // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
+					infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 				if (scoreBS & reps)
 					J_ClustN_NBootClust = J(Clust.N, NBootClust, 0)
 			}
@@ -722,15 +722,17 @@ void boottestModel::boottest() {
 			for (i=Nobs-1;i;i--) {
 				if (sortID[i] != sortID[i+1]) {
 					FEs[i_FE].is = o[|i+1\j|]
+					if (weights) {
+						t  = (*pwt)[FEs[i_FE].is]
+						FEs[i_FE].wt = t / colsum(t)
+					} else
+						FEs[i_FE].wt = J(j-i, 1, 1/(j-i))
 					if (reps & robust & granular < NErrClust)
-						if (weights) {
-							t  = (*pwt)[FEs[i_FE].is]
-							wtFE[FEs[i_FE].is] = FEs[i_FE].wt = t / colsum(t)
-						} else
-							wtFE[FEs[i_FE].is] = FEs[i_FE].wt = J(j-i, 1, 1/(j-i))
+						wtFE[FEs[i_FE].is] = FEs[i_FE].wt
+
 					j = i
 					
-					if (reps & FEboot & NClustVar) { // are all of this FE's obs in same bootstrapping cluster? (But no need to check if reps=0 for then CT_WE in 2nd term of (62) orthogonal to u = col of 1's)
+					if (reps & FEboot & NClustVar) {  // are all of this FE's obs in same bootstrapping cluster? (But no need to check if reps=0 for then CT_WE in 2nd term of (62) orthogonal to u = col of 1's)
 						t = (*pID)[FEs[i_FE].is, 1..NBootClustVar]
 						FEboot = all(t :== t[1,])
 					}
@@ -739,18 +741,20 @@ void boottestModel::boottest() {
 				_FEID[o[i]] = i_FE
 			}
 			FEs[NFE].is = FEs[NFE].is = o[|.\j|]
+			if (weights) {
+				t  = (*pwt)[FEs[NFE].is]
+				FEs[NFE].wt = t / colsum(t)
+			} else
+				FEs[NFE].wt = J(j-i,1,1/(j-i))
 			if (reps & robust & granular < NErrClust)
-				if (weights) {
-					t  = (*pwt)[FEs[NFE].is]
-					wtFE[FEs[NFE].is] = FEs[NFE].wt = t / colsum(t)
-				} else
-					wtFE[FEs[NFE].is] = FEs[NFE].wt = J(j-i,1,1/(j-i))
-			if (reps & FEboot & NClustVar) { // are all of this FE's obs in same bootstrapping cluster?
+				wtFE[FEs[NFE].is] = FEs[NFE].wt
+
+			if (reps & FEboot & NClustVar) {  // are all of this FE's obs in same bootstrapping cluster?
 				t = (*pID)[FEs[NFE].is, 1..NBootClustVar]
 				FEboot = all(t :== t[1,])
 			}
 
-			pFEID = &_FEID // ordinal fixed effect ID
+			pFEID = &_FEID  // ordinal fixed effect ID
 
 			if (robust & !FEboot & granular < NErrClust & reps & !FEboot & bootstrapt)
 				infoBootAll = _panelsetup(*pIDAll, 1..NBootClustVar)  // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
@@ -766,9 +770,10 @@ void boottestModel::boottest() {
 			df = rows(*pR0)
 		else {
 			if (REst) {
-				symeigensystem(*pR ' invsym(*pR * *pR') * (*pR), vec, val) // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
-				L = vec[|.,.\.,rows(*pR)|] // eigenvectors not in kernel of projection onto R
-				S = vec[|.,rows(*pR)+1\.,.|] // eigenvectors in kernel
+				t = rows(*pR)
+				symeigensystem(*pR ' lusolve(*pR * *pR', *pR), vec, val)  // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
+				L = vec[|.,.\.,t|]  // eigenvectors not in kernel of projection onto R
+				S = t<cols(vec)? vec[|.,t+1\.,.|] : J(rows(vec),0,0)  // eigenvectors in kernel
 				s = L * luinv(*pR * L) * *pr
 				if (AR) {
 					SAR = blockdiag(S[|.,. \ rows(S)-cols(*pXEnd) , cols(S)-cols(*pXEnd)|] , I(cols(*pZExcl))) // adapt S,s from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
@@ -778,7 +783,7 @@ void boottestModel::boottest() {
 
 			// Estimation with null imposed along with any model constraints; in IV, Z is unconstrained regardless of overlap with potentially constrained X
 			_pR0 = null? pR0 : &J(0, k, 0)
-			RAll = REst? *pR \ *_pR0 : *_pR0 // combine model and hypothesis constraints to prepare to "invert" them as a group too
+			RAll = REst? *pR \ *_pR0 : *_pR0  // combine model and hypothesis constraints to prepare to "invert" them as a group too
 			if (rows(RAll)) {
 				LAll = invsym(RAll * RAll')
 				if (!all(diagonal(LAll)))
@@ -937,8 +942,8 @@ void boottestModel::boottest() {
 	} else
 		denom0 = denom0 / smallsample
 
-	if (multiplier!=1)
-		Dist = Dist * multiplier
+	if (multiplier!=1) Dist = Dist * multiplier
+	repsFeas = Dist[1]==.? 0 : colnonmissing(Dist) - 1
 
 	DistCDR = J(0,0,0)
 	setdirty(0)
@@ -957,7 +962,7 @@ void boottestModel::makeBootstrapcDenom(real scalar thisWeightGrpStart, real sca
 	if (thisWeightGrpStop==reps+1) {  // last weight group?
 		numersum = rowsum(numer) - numer0
 		denom0 = (numer * numer' - numer0 * numer0' - numersum * numersum' / reps) / reps
-		Dist = (sqrt? numer:/sqrt(denom0) : colsum(numer :* invsym(denom0) * numer))'
+		Dist = (sqrt? numer:/sqrt(denom0) : colsum(numer :* lusolve(denom0, numer)))'
 	}
 }
 
@@ -1060,7 +1065,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
-			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, invsym(denom.M) * numer_j)
+			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, lusolve(denom.M, numer_j))
 		} else
 			numer[,thisWeightGrpStart+j-1] = numer_j
 	}
@@ -1215,7 +1220,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 						if (NFE) {
 							eu = *M_DGP.partialFE(&(pM->e :* u[IDBootData,]))
 							for (d=df;d;d--)
-								pQ[1,d] = &(_panelsum(eu, pM->WZVR0[d].M, *pinfoErrData)                                          - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
+								pQ[1,d] = &(_panelsum(eu, pM->WZVR0[d].M, *pinfoErrData)                                            - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
 						} else
 							for (d=df;d;d--)
 								pQ[1,d] = &(_panelsum(_panelsum(pM->e, pM->WZVR0[d].M, *pinfoAllData) :* u[IDBootAll,], infoErrAll) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
@@ -1230,7 +1235,6 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 				for (j=i;j;j--) {
 					denom[i,j].M = purerobust? cross(pM->WZVR0[i].M, pM->WZVR0[j].M, eueu) : colsum(*pQ[1,i] :* *pQ[1,j])
 					if (Clust.multiplier!=1) denom[i,j].M = denom[i,j].M * Clust.multiplier
-
 					for (c=2;c<=NErrClustCombs;c++) {
 						t = colsum(*pQ[c,i] :* *pQ[c,j])
 						if (Clust[c].multiplier!=1) t = t * Clust[c].multiplier
@@ -1254,7 +1258,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 						t[i,j] = denom[i,j].M[l]
 				_makesymmetric(t)
 				numer_l = numer[,l]
-				Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(t) * numer_l)
+				Dist[l+thisWeightGrpStart-1] = cross(numer_l, lusolve(t, numer_l))
 			}
 			if (thisWeightGrpStart==1)
 				denom0 = t // original-sample denominator
@@ -1283,14 +1287,14 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 			if (ML | LIML) {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M) * numer_l) 
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, lusolve(denom.M, numer_l)) 
 				}
 				if (thisWeightGrpStart==1)
 					denom0 = denom.M // original-sample denominator
 			} else {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M) * numer_l) 
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, lusolve(denom.M, numer_l)) 
 												eu = u[,l] :* pM->e
 					if (!scoreBS) eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					if (scoreBS | !(1 |hascons)) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare // Center variance if needed
@@ -1427,112 +1431,114 @@ void boottestModel::plot() {
 	setquietly(1)
 	boottest() // run in order to get true number of replications
 
-	alpha = 1 - level*.01
-	if (alpha>0 & cols(u)-1 <= 1/alpha-1e6) {
-		setquietly(_quietly)
-		if (!quietly) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
-		return (.\.)
-	}
-	
-	_pr0 = pr0
-	_editmissing(gridpoints, 25)
-
-	if (gridstart[1]==. | gridstop[1]==.) {
-		if (reps)
-			if (AR) {
-				t = abs(cuepoint) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
-				lo = editmissing(gridstart[1], cuepoint - t)
-				hi = editmissing(gridstop [1], cuepoint + t)
-			} else {
-				makeDistCDR()
-				lo = editmissing(gridstart[1], numer0 + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer0/Dist[1])) // initial guess based on distribution from main test
-				hi = editmissing(gridstop [1], numer0 + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer0/Dist[1]))
-			}
-		else {
-			t = abs(numer0/Dist) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
-			lo = editmissing(gridstart[1], (numer0 - t) + *pr0)
-			hi = editmissing(gridstop [1], (numer0 + t) + *pr0)
-			if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
-				CI = lo, hi
-				return
-			}
+	if (repsFeas | reps==0) {
+		alpha = 1 - level*.01
+		if (alpha > 0 & cols(u)-1 <= 1/alpha-1e6) {
+			setquietly(_quietly)
+			if (!quietly) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
+			return (.\.)
 		}
 		
-		if (gridstart[1]==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
-			for (i=10; i & -r0_to_p(lo)<-alpha; i--) {
-				t = hi - lo
-				lo = lo - t
-				if (gridstop[1]==.) hi = hi + t // maintain rough symmetry unless user specified upper bound
-			}
-		if (gridstop[1]==. & ptype!=2) // ditto for high side
-			for (i=10; i & -r0_to_p(hi)<-alpha; i--) {
-				t = hi - lo
-				if (gridstart[1]==.) lo = lo - t // maintain rough symmetry unless user specified lower bound
-				hi = hi + t
-			}
-	} else {
-		lo = gridstart[1]
-		hi = gridstop [1]
-	}
+		_pr0 = pr0
+		_editmissing(gridpoints, 25)
 
-	plotX = rangen(lo, hi, gridpoints[1])
-	if (cuepoint == .) cuepoint = numer0 + *pr0 // non-AR case
-	if (cuepoint < lo) { // insert original point estimate into grid
-		if (gridstart[1] == .) {
-			plotX = cuepoint \ plotX
-			c = 1
-		}
-	} else if (cuepoint > hi) {
-		if (gridstop[1] == .) {
-			plotX = plotX \ cuepoint
-			c = gridpoints[1]+1
-		}
-	} else {
-		c = floor((cuepoint - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
-		plotX = plotX[|.\c-1|] \ cuepoint \ plotX[|c\.|]
-	}
-
-	plotY = J(rows(plotX), 1, .)
-	printf("{txt}")
-	for (i = rows(plotX); i; i--) {
-		plotY[i] = r0_to_p(plotX[i])
-		if (!_quietly) {
-			printf(".")
-			if (mod(i-rows(plotX)-1,50)) displayflush()
-				else printf("\n")
-		}
-	}
-	printf("\n")
-
-	if (level<100) {
-		CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
-		lo = boottest_selectindex(CI:== 1)
-		hi = boottest_selectindex(CI:==-1)
-		if (rows(lo)==0 & rows(hi)==0)
-			CI = . , .
-		else {
-					 if (rows(lo)==0) lo = .
-			else if (rows(hi)==0) hi = .
+		if (gridstart[1]==. | gridstop[1]==.) {
+			if (reps)
+				if (AR) {
+					t = abs(cuepoint) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
+					lo = editmissing(gridstart[1], cuepoint - t)
+					hi = editmissing(gridstop [1], cuepoint + t)
+				} else {
+					makeDistCDR()
+					lo = editmissing(gridstart[1], numer0 + *pr0 + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * abs(numer0/Dist[1])) // initial guess based on distribution from main test
+					hi = editmissing(gridstop [1], numer0 + *pr0 + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * abs(numer0/Dist[1]))
+				}
 			else {
-				if ( lo[1       ] >  hi[1       ]) lo = .  \ lo // non-rejection ranges that are not bounded within grid
-				if (-lo[rows(lo)] < -hi[rows(hi)]) hi = hi \ .
+				t = abs(numer0/Dist) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
+				lo = editmissing(gridstart[1], (numer0 - t) + *pr0)
+				hi = editmissing(gridstop [1], (numer0 + t) + *pr0)
+				if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
+					CI = lo, hi
+					return
+				}
 			}
-			CI = lo, hi
-			for (i=rows(lo); i; i--)
-				for (j=2; j; j--)
-					if (CI[i,j]<.)
-						CI[i,j] = search(alpha, plotY[CI[i,j]], plotX[CI[i,j]], plotY[CI[i,j]+1], plotX[CI[i,j]+1])
-		}
-	}
-
-	if (c < .) { // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
-		peak = plotX[c], plotY[c]
-		if (c==1) { // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
-			plotX = plotX[|2\.|]; plotY = plotY[|2\.|]
-		} else if (c==gridpoints[1]+1) {
-			plotX = plotX[|.\gridpoints[1]|]; plotY = plotY[|.\gridpoints[1]|]
+			
+			if (gridstart[1]==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+				for (i=10; i & -r0_to_p(lo)<-alpha; i--) {
+					t = hi - lo
+					lo = lo - t
+					if (gridstop[1]==.) hi = hi + t // maintain rough symmetry unless user specified upper bound
+				}
+			if (gridstop[1]==. & ptype!=2) // ditto for high side
+				for (i=10; i & -r0_to_p(hi)<-alpha; i--) {
+					t = hi - lo
+					if (gridstart[1]==.) lo = lo - t // maintain rough symmetry unless user specified lower bound
+					hi = hi + t
+				}
 		} else {
-			plotX = plotX[|.\c-1|] \ plotX[|c+1\.|]; plotY = plotY[|.\c-1|] \ plotY[|c+1\.|]
+			lo = gridstart[1]
+			hi = gridstop [1]
+		}
+
+		plotX = rangen(lo, hi, gridpoints[1])
+		if (cuepoint == .) cuepoint = numer0 + *pr0 // non-AR case
+		if (cuepoint < lo) { // insert original point estimate into grid
+			if (gridstart[1] == .) {
+				plotX = cuepoint \ plotX
+				c = 1
+			}
+		} else if (cuepoint > hi) {
+			if (gridstop[1] == .) {
+				plotX = plotX \ cuepoint
+				c = gridpoints[1]+1
+			}
+		} else {
+			c = floor((cuepoint - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
+			plotX = plotX[|.\c-1|] \ cuepoint \ plotX[|c\.|]
+		}
+
+		plotY = J(rows(plotX), 1, .)
+		printf("{txt}")
+		for (i = rows(plotX); i; i--) {
+			plotY[i] = r0_to_p(plotX[i])
+			if (!_quietly) {
+				printf(".")
+				if (mod(i-rows(plotX)-1,50)) displayflush()
+					else printf("\n")
+			}
+		}
+		printf("\n")
+
+		if (level<100) {
+			CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
+			lo = boottest_selectindex(CI:== 1)
+			hi = boottest_selectindex(CI:==-1)
+			if (rows(lo)==0 & rows(hi)==0)
+				CI = . , .
+			else {
+						 if (rows(lo)==0) lo = .
+				else if (rows(hi)==0) hi = .
+				else {
+					if ( lo[1       ] >  hi[1       ]) lo = .  \ lo // non-rejection ranges that are not bounded within grid
+					if (-lo[rows(lo)] < -hi[rows(hi)]) hi = hi \ .
+				}
+				CI = lo, hi
+				for (i=rows(lo); i; i--)
+					for (j=2; j; j--)
+						if (CI[i,j]<.)
+							CI[i,j] = search(alpha, plotY[CI[i,j]], plotX[CI[i,j]], plotY[CI[i,j]+1], plotX[CI[i,j]+1])
+			}
+		}
+
+		if (c < .) { // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
+			peak = plotX[c], plotY[c]
+			if (c==1) { // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
+				plotX = plotX[|2\.|]; plotY = plotY[|2\.|]
+			} else if (c==gridpoints[1]+1) {
+				plotX = plotX[|.\gridpoints[1]|]; plotY = plotY[|.\gridpoints[1]|]
+			} else {
+				plotX = plotX[|.\c-1|] \ plotX[|c+1\.|]; plotY = plotY[|.\c-1|] \ plotY[|c+1\.|]
+			}
 		}
 	}
 
