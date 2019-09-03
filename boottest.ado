@@ -253,7 +253,7 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se teststat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname
+	tempname p padj se teststat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname t
 	mat `b' = e(b)
 	local k = colsof(`b')  // column count before possible removal of _cons term in FE models
 
@@ -563,7 +563,6 @@ program define _boottest, rclass sortpreserve
 					exit `rc'
 				}
 				if "`quietly'"=="" {
-					tempname t
 					mata st_numscalar("`t'", any(!diagonal(st_matrix("e(V)")) :& st_matrix("e(b)")'))
 					if `t' {
 						di _n as res _n "{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable." _n
@@ -652,9 +651,6 @@ program define _boottest, rclass sortpreserve
 			local tz = cond(`small', "t", "z")
 			return scalar `tz'`_h' = `teststat'
 		}
-		
-		cap return matrix b`_h' = `b0'
-		cap return matrix V`_h' = `V0'
 
 		di
 		if `reps' di as txt strproper("`boottype'") " bootstrap-`statistic', null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
@@ -692,7 +688,12 @@ program define _boottest, rclass sortpreserve
 			return scalar padj`_h' = `padj'
 		}
 
-		if `Nclustvars'>1 & `teststat'==. di _n "Test statistic could not be computed. Most likely the multiway-clustered variance estimate " cond(`df'==1, "", "matrix ") "is not positive" cond(`df'==1, "", "-definite") "."
+		if `Nclustvars' > 1 {
+			cap mat `t' = syminv(`V0')
+			cap noi if diag0cnt(`t') di _n "Test statistic could not be computed. The multiway-clustered variance estimate " cond(`df'==1, "", "matrix ") "is not positive" cond(`df'==1, "", "-definite") "."
+		}
+		cap return matrix b`_h' = `b0'
+		cap return matrix V`_h' = `V0'
 
 		cap confirm mat `plotmat'
 		if _rc == 0 {
