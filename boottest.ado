@@ -1,4 +1,4 @@
-*! boottest 2.5.2 29 August 2019
+*! boottest 2.5.3 16 September 2019
 *! Copyright (C) 2015-19 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -784,6 +784,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.3 Fixed crash in score test (including waldtest) after "robust" estimation without observation weights
 * 2.5.2 More graceful handling of degenerate cases: multiway t stat = .; test hypothesis refers to dropped/constrained variable
 * 2.5.1 Fixed 2.5.0 bug after "robust" estimation
 * 2.5.0 Added bootstrap-c
