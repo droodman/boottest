@@ -1,5 +1,5 @@
-*! boottest 2.5.3 16 September 2019
-*! Copyright (C) 2015-19 David Roodman
+*! boottest 2.5.4 14 January 2020
+*! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ program define _boottest, rclass sortpreserve
 	}
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
-	local ivcmd = cond("`cmd'"=="reghdfe", "`e(subcmd)'", cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
+	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
 
 	if "`e(cmd)'" == "" {
 		di as err "No estimates detected."
@@ -74,8 +74,8 @@ program define _boottest, rclass sortpreserve
 		di as err "Doesn't work after {`cmd', `e(xtmodel)'}."
 		exit 198
 	}
-	if "`cmd'"=="reghdfe" & `:word count `e(absvars)''>1 {
-		di as err "Doesn't work after {cmd:reghdfe) with more than one set of fixed effects."
+	if inlist("`cmd'","reghdfe","ivreghdfe") & `:word count `e(absvars)''>1 {
+		di as err "Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects."
 		exit 198
 	}
 	if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
@@ -214,7 +214,7 @@ program define _boottest, rclass sortpreserve
 
 	local ML = e(converged) != .
 	local IV = "`e(instd)'`e(endogvars)'" != ""
-	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| ("`cmd'"=="reghdfe" & strpos("`e(title)'", "LIML"))
+	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| (inlist("`cmd'","reghdfe","ivreghdfe") & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
 
@@ -784,6 +784,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.4 Added support for ivreghdfe
 * 2.5.3 Fixed crash in score test (including waldtest) after "robust" estimation without observation weights
 * 2.5.2 More graceful handling of degenerate cases: multiway t stat = .; test hypothesis refers to dropped/constrained variable
 * 2.5.1 Fixed 2.5.0 bug after "robust" estimation
