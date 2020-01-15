@@ -1,4 +1,4 @@
-*! boottest 2.5.4 14 January 2020
+*! boottest 2.5.5 15 January 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -52,7 +52,7 @@ program define _boottest, rclass sortpreserve
 	}
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
-	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
+	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
 
 	if "`e(cmd)'" == "" {
 		di as err "No estimates detected."
@@ -248,8 +248,16 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-	local FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
-	local NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), max(0`e(K1)',0`e(df_a)')))
+	local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), max(0`e(K1)',0`e(df_a)')))
+	local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
+	if `"`_FEname'"' != "" {
+		cap confirm numeric var `_FEname'
+		if _rc {
+			tempvar FEname
+			qui egen long `FEname' = group(`_FEname') if e(sample)
+		}
+		else local FEname `_FEname'
+	}
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -784,6 +792,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.5 Fixed wrong results when absorbed variable is type string
 * 2.5.4 Added support for ivreghdfe
 * 2.5.3 Fixed crash in score test (including waldtest) after "robust" estimation without observation weights
 * 2.5.2 More graceful handling of degenerate cases: multiway t stat = .; test hypothesis refers to dropped/constrained variable
