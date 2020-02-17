@@ -1,4 +1,4 @@
-*! boottest 2.5.6 14 February 2020
+*! boottest 2.5.7 17 February 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -676,7 +676,7 @@ program define _boottest, rclass sortpreserve
 
 		if `df'==1 {
 			local line1 = cond(`small', "t(`=`df_r'')", "z")
-			di _n as txt _col(`=45-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n _col(`=45-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
+			di _n as txt _col(`=21-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n _col(`=21-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
 			local `teststat' = `teststat' * `teststat'
 		}
 		else {
@@ -792,6 +792,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.5.7 If lusolve() fails on non-invertible matrix, resort to invsym() for generalized inverse.
 * 2.5.6 Fixed 2.4.0 bug: look in e(df_a_initial) rather than e(df_a). Matters if clustering on the absorbed var.
 * 2.5.5 Fixed wrong results when absorbed variable is type string
 * 2.5.4 Added support for ivreghdfe

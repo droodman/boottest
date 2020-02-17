@@ -1,5 +1,5 @@
-*! boottest 2.5.3 16 September 2019
-*! Copyright (C) 2015-19 David Roodman
+*! boottest 2.5.7 17 September 2019
+*! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -179,14 +179,13 @@ void AnalyticalModel::InitEstimate() {
 				TT = Splus ' TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti( I(rows(TT)) - lusolve(TT, TPZT), 1\1, vec, val)  // eigensystemselecti(lusolve(TT, TPZT), rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			eigensystemselecti( I(rows(TT)) - boottest_lusolve(TT, TPZT), 1\1, vec, val)  // eigensystemselecti(lusolve(TT, TPZT), rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks into val
 		}
 
 	pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
-
 	if (rows(*pS)) {
-		pbetadenom = &(*pS * lusolve(*pS ' (*pH) * *pS, *pS'))
+		pbetadenom = &(*pS * boottest_lusolve(*pS ' (*pH) * *pS, *pS'))
 		invH = J(0,0,0)
 	} else
 		pbetadenom = &(invH = invsym(*pH))
@@ -209,9 +208,8 @@ void AnalyticalModel::InitEstimate() {
 void AnalyticalModel::InitTestDenoms(real matrix S) {
 	real matrix AVR0; real scalar d, c; struct smatrix rowvector _CT_ZVR0; pointer (real matrix) scalar pWZVR0
 
-	pV = rows(S)? &(S * lusolve(S ' (*pH) * S, S')) : ///
+	pV = rows(S)? &(S * boottest_lusolve(S ' (*pH) * S, S')) : ///
 	              &(rows(invH)? invH : invsym(*pH))
-
 	VR0 = *pV * *parent->pR0'
 
 	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->NClustVar==1 & !parent->NFE))) {
@@ -255,7 +253,6 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 // stuff that depends on r0 and endogenous variables: compute beta and residuals
 void AnalyticalModel::Estimate(real colvector s) {
 	real colvector negZeinvee
-
 	beta = rows(s)? beta0 + dbetads * s : beta0
 	if (DGP==NULL | parent->bootstrapt | parent->WREnonAR==0) {  // don't need residuals in replication regressions in bootstrap-c on WRE/non-AR
 		if (AR) {
@@ -279,7 +276,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 	if (DGP==NULL & LIML) {
 		Ze = ZY - ZX * beta
 		negZeinvee = Ze / -ee
-		pi = lusolve(ZZ + negZeinvee * Ze', negZeinvee * (YXEnd - beta ' XXEnd) + ZXEnd)  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
+		pi = boottest_lusolve(ZZ + negZeinvee * Ze', negZeinvee * (YXEnd - beta ' XXEnd) + ZXEnd)  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
 
 		e2 = *pXEnd - *parent->pZExcl * pi[|parent->kEx+1,.\.,.|]; if (parent->kEx) e2 = e2 - *parent->pXEx * pi[|.,.\parent->kEx,.|]
 		if (parent->AR)
@@ -771,7 +768,7 @@ void boottestModel::boottest() {
 		else {
 			if (REst) {
 				t = rows(*pR)
-				symeigensystem(*pR ' lusolve(*pR * *pR', *pR), vec, val)  // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
+				symeigensystem(*pR ' boottest_lusolve(*pR * *pR', *pR), vec, val)  // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
 				L = vec[|.,.\.,t|]  // eigenvectors not in kernel of projection onto R
 				S = t<cols(vec)? vec[|.,t+1\.,.|] : J(rows(vec),0,0)  // eigenvectors in kernel
 				s = L * luinv(*pR * L) * *pr
@@ -941,7 +938,6 @@ void boottestModel::boottest() {
 		denom0 = denom0 / (u_sd * u_sd * smallsample)
 	} else
 		denom0 = denom0 / smallsample
-
 	if (multiplier!=1) Dist = Dist * multiplier
 	repsFeas = Dist[1]==.? 0 : colnonmissing(Dist) - 1
 
@@ -962,7 +958,7 @@ void boottestModel::makeBootstrapcDenom(real scalar thisWeightGrpStart, real sca
 	if (thisWeightGrpStop==reps+1) {  // last weight group?
 		numersum = rowsum(numer) - numer0
 		denom0 = (numer * numer' - numer0 * numer0' - numersum * numersum' / reps) / reps
-		Dist = (sqrt? numer:/sqrt(denom0) : colsum(numer :* lusolve(denom0, numer)))'
+		Dist = (sqrt? numer:/sqrt(denom0) : colsum(numer :* boottest_lusolve(denom0, numer)))'
 	}
 }
 
@@ -1065,7 +1061,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
-			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, lusolve(denom.M, numer_j))
+			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
 		} else
 			numer[,thisWeightGrpStart+j-1] = numer_j
 	}
@@ -1258,7 +1254,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 						t[i,j] = denom[i,j].M[l]
 				_makesymmetric(t)
 				numer_l = numer[,l]
-				Dist[l+thisWeightGrpStart-1] = cross(numer_l, lusolve(t, numer_l))
+				Dist[l+thisWeightGrpStart-1] = numer_l ' boottest_lusolve(t, numer_l)  // in degernate cases, cross() would turn cross(.,.) into 0
 			}
 			if (thisWeightGrpStart==1)
 				denom0 = t // original-sample denominator
@@ -1287,14 +1283,14 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 			if (ML | LIML) {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, lusolve(denom.M, numer_l)) 
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
 				}
 				if (thisWeightGrpStart==1)
 					denom0 = denom.M // original-sample denominator
 			} else {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, lusolve(denom.M, numer_l)) 
+					Dist[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
 												eu = u[,l] :* pM->e
 					if (!scoreBS) eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					if (scoreBS | !(1 |hascons)) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare // Center variance if needed
@@ -1610,6 +1606,14 @@ real matrix boottestModel::combs(real scalar d) {
 // Like Mata's order() but does a stable sort
 real colvector boottestModel::stableorder(real matrix X, real rowvector idx)
 	return (order((X, (1::rows(X))), (idx,cols(X)+1)))
+	
+// do lusolve() for precision, but if that fails, use generalized inverse from invsym()
+real matrix boottest_lusolve(real matrix A, real matrix B) {
+	real matrix retval
+	if (hasmissing(retval = lusolve(A, B)))
+		return (invsym(A) * B)
+	return(retval)
+}
 
 // Stata interface
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
@@ -1679,7 +1683,6 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (Vname != "") M.setV   (st_matrix(Vname) )
 	if (Wname != "") M.setW   (st_matrix(Wname) )
 	M.setwillplot(plotname != "") // can make point estimate a little faster if not going to plot
-
 	st_numscalar(statname, M.getstat())
 	st_numscalar(pname   , M.getp   ())
 	st_numscalar(repsname, M.getreps())
