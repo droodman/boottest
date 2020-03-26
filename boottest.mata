@@ -1,4 +1,4 @@
-*! boottest 2.5.7 17 September 2019
+*! boottest 2.6.0 17 September 2019
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ mata set mataoptimize on
 mata set matalnum off
 
 string scalar boottestStataVersion() return("`c(stata_version)'")
-string scalar      boottestVersion() return("02.05.00")
+string scalar      boottestVersion() return("02.06.00")
 
 struct smatrix {
 	real matrix M
@@ -76,7 +76,7 @@ class boottestModel {
 		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), 
 		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), _st_view(), setstattype()
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), makeNonWRENumers(), makeWREStats()
-	real matrix combs(), count_binary(), crosstab(), getplot(), getCI(), getV()
+	real matrix combs(), count_binary(), crosstab(), getplot(), getCI(), getV(), getv()
 	real rowvector getpeak()
 	real colvector getdist(), stableorder(), getb()
 }
@@ -506,6 +506,10 @@ real colvector boottestModel::getb()
 real matrix boottestModel::getV()
 	return(denom0 / (multiplier * df))
 
+// wild weights
+real matrix boottestModel::getv()
+	return(u_sd==1? u[|.,2\.,.|] : u[|.,2\.,.|] / u_sd)
+
 // Return number of bootstrap replications with feasible results
 // Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 real scalar boottestModel::getrepsFeas()
@@ -636,14 +640,14 @@ void boottestModel::boottest() {
 			else
 				infoBootData = _panelsetup(*pID, 1..NClustVar)
 		} else
-			pinfoErrData = pinfoAllData = &(infoBootData = J(Nobs,0,0)) // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
+			pinfoErrData = pinfoAllData = &(infoBootData = J(Nobs,0,0))  // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
 		NBootClust = rows(infoBootData)
 
 		if (bootstrapt) {
 			if (NClustVar) {
 				minN = .; sumN = 0
 
-				Combs = combs(NErrClust) // represent all error clustering combinations. First is intersection of all error clustering vars
+				Combs = combs(NErrClust)  // represent all error clustering combinations. First is intersection of all error clustering vars
 				Clust = boottest_clust(rows(Combs)-1) // leave out no-cluster combination
 				NErrClustCombs = length(Clust)
 				subcluster = NClustVar - NErrClust
@@ -653,14 +657,14 @@ void boottestModel::boottest() {
 				 IDErr = rows(*pinfoErrData)==Nobs? *pID :   (*pID)[(*pinfoErrData)[,1],]   // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
 				pIDAll = rows(*pinfoAllData)==Nobs?  pID : &((*pID)[(*pinfoAllData)[,1],])  // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
 
-				if (subcluster) { // for subcluster bootstrap, bootstrapping cluster is not among error clustering combinations
+				if (subcluster) {  // for subcluster bootstrap, bootstrapping cluster is not among error clustering combinations
 					pBootClust = &(boottest_clust())
 					pBootClust->info = _panelsetup(*pIDAll, 1..NBootClustVar) // bootstrapping cluster info w.r.t. all-bootstrap & error-cluster intersections
 					NBootClust = rows(pBootClust->info)
 				} else
 					pBootClust = &(Clust[2^(NClustVar - NBootClustVar)]) // location of bootstrap clustering within list of cluster combinations
 
-				for (c=1; c<=NErrClustCombs; c++) { // for each error clustering combination
+				for (c=1; c<=NErrClustCombs; c++) {  // for each error clustering combination
 					ClustCols             = subcluster :+ boottest_selectindex(Combs[c,])
 					Clust[c].multiplier   = 2 * mod(cols(ClustCols),2) - 1
 
@@ -674,10 +678,10 @@ void boottestModel::boottest() {
 						if (any( Combs[|c, min(boottest_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
 							IDErr = IDErr[ Clust[c].order = stableorder(IDErr, ClustCols), ]
 
-						Clust[c].info       = _panelsetup(IDErr, ClustCols)
+						Clust[c].info      = _panelsetup(IDErr, ClustCols)
 					}
 
-					Clust[c].N            = rows(Clust[c].info)
+					Clust[c].N           = rows(Clust[c].info)
 					sumN = sumN + Clust[c].N
 
 					if (small) {
@@ -972,9 +976,9 @@ void boottestModel::makeWildWeights(real scalar _reps, real scalar first) {
 		else if (weighttype==4)
 			u = rgamma(NBootClust, _reps+1, 4, .5) :- (2 + WREnonAR) // Gamma weights
 		else if (weighttype==2)
-			if (WREnonAR) {
+			if (WREnonAR)
 				u = sqrt(2 * ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5) :- 1 // Webb weights, minus 1 for convenience in WRE
-			} else {
+			else {
 				u = sqrt(    ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5)      // Webb weights, divided by sqrt(2)
 				u_sd = sqrt(.5)
 			}
@@ -1623,7 +1627,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
 	string scalar FEname, real scalar NFE, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
 	real scalar small, string scalar diststat, string scalar distname, string scalar gridstart, string scalar gridstop, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly,
-	string scalar b0name, string scalar V0name) {
+	string scalar b0name, string scalar V0name, string scalar vname) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, FEID, sc, XEnd, XEx
 	real colvector r, wt, r0, Y
@@ -1698,7 +1702,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 		if (cols(M.peak)) st_matrix(peakname, M.getpeak())
 		if (level<100 & ciname != "") st_matrix(ciname, M.getCI())
 	}
-
+	if (vname != "" & reps) st_matrix(vname, M.getv())
 	M.M_DGP.setParent(NULL) // actually sets the pointer to &NULL, but suffices to break loop in the data structure topology and avoid Mata garbage-cleaning leak
 }
 

@@ -55,6 +55,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
 {synopt:{opt l:evel(#)}}override default confidence level used for confidence set{p_end}
 {synopt:{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)]}}request the bootstrapped quasi-t/z distribution, or numerators thereof, be saved in return value {cmd:r(dist)}{p_end}
+{synopt:{cmd:svv}}request that the matrix of wild weights be saved in return value {cmd:r(v)}{p_end}
 {synopt:{opt sm:all}}request finite-sample corrections, overriding estimation setting {p_end}
 {synopt:{opt r:obust}}request tests robust to heteroskedasticity only, overriding estimation setting{p_end}
 {synopt:{opt cl:uster(varlist)}}request tests robust to (multi-way) clustering, overriding estimation setting{p_end}
@@ -95,7 +96,7 @@ In addition, these options are relevant when testing a single hypothesis after O
 {cmd:artest} [, {it:options}]
 
 {pstd}
-{cmd:waldtest}, {cmd:artest}, and {cmd:scoretest} accept all options listed above except {cmdab:weight:type()}, {cmdab:boot:type()}, {opt r:eps(#)}, {opt svm:at}, and {opt seed(#)}.
+{cmd:waldtest}, {cmd:artest}, and {cmd:scoretest} accept all options listed above except {cmdab:weight:type()}, {cmdab:boot:type()}, {opt r:eps(#)}, {opt svm:at}, {opt svv}, and {opt seed(#)}.
 
 {title:Updates}
 
@@ -324,10 +325,14 @@ if the confidence level is 95, then the symmetric p value is less than 0.05 if t
 distribution. The equal-tail p value is less than 0.05 if the test statistic is in the top or bottom 2.5 centiles. In addition, {it:lower} and {it:upper} allow
 one-sided tests.
 
-{phang}{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)}] request that the bootstrapped quasi-t/z distribution be saved in return value {cmd:r(dist)}. This 
+{phang}{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)}] requests that the bootstrapped quasi-t/z distribution be saved in return value {cmd:r(dist)}. This 
 can be diagnostically useful, since it allows scrutiny of the simulated distribution that is inferred from. An example is below. Or, 
 if {cmd:svmat(numer)} is specified, over-riding the default, only the numerators are returned. If the null hypothesis is that a coefficient is zero, then these numerators
 are the estiamtes of that coefficient in all the bootstrap replications.
+
+{phang}{cmd:svv} requests that the matrix of wild weights be saved in return value {cmd:r(v)}. Warning: The wild weight matrix is very large under some 
+circumstances: it has one row for each bootstrapping cluster and one column for each bootstrap replication. If it is large, then this option may bring Stata to its knees. If
+the {opt matsize:gb(#)} option is also invoked (see below), then only the last chunk of the wild weight matrix will be returned.
 
 {phang}{opt sm:all} requests finite-sample corrections even after estimates that did not make them, which includes essentially all ML-based Stata 
 commands. Its impact on bootstrap-based tests is merely cosmetic because it scales the test statistic and all the replicated test statistics by the same
@@ -404,6 +409,7 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 {synopt:{cmd:r(CI)}}bounds of confidence sets, if any{p_end}
 {synopt:{cmd:r(plot)}}data for p value plot, if any{p_end}
 {synopt:{cmd:r(dist)}}t/z distribution, if requested with {opt svm:at}{p_end}
+{synopt:{cmd:r(v)}}wild weight matrix, if requested with {opt svv}{p_end}
 {synopt:{cmd:r(b)}}numerator of test statistic{p_end}
 {synopt:{cmd:r(V)}}denominator (variance matrix) of test statistic{p_end}
 

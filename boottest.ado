@@ -1,4 +1,4 @@
-*! boottest 2.5.7 17 February 2020
+*! boottest 2.6.0 25 March 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ program define _boottest, rclass sortpreserve
 	version 11
 
 	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.05.00" {
+	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.06.00" {
 		cap findfile "lboottest.mlib"
 		while !_rc {
 			erase "`r(fn)'"
@@ -94,9 +94,11 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) svv *]
 
 	if `matsizegb'==1000000 local matsizegb .
+  
+  if "`svv'" != "" tempname svv
 
 	if `reps'==0 local svmat
 		else {
@@ -644,7 +646,7 @@ program define _boottest, rclass sortpreserve
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'")
+												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'")
 		_estimates unhold `hold'
 
 		local reps = `repsname' // in case reduced to 2^G
@@ -781,6 +783,7 @@ program define _boottest, rclass sortpreserve
 		return scalar p`_h' = `p'
 		if `hasrobust' return local robust robust
 		if "`svmat'"!="" return matrix dist`_h' = `dist'
+    if "`svv'" != "" return matrix v`_h' = `svv'
 	}
 	return scalar level = `level'
 	return local statistic `statistic'
@@ -792,6 +795,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.6.0 Added svv option.
 * 2.5.7 If lusolve() fails on non-invertible matrix, resort to invsym() for generalized inverse.
 * 2.5.6 Fixed 2.4.0 bug: look in e(df_a_initial) rather than e(df_a). Matters if clustering on the absorbed var.
 * 2.5.5 Fixed wrong results when absorbed variable is type string
