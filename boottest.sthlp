@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.4.4 10 August 2019}{...}
+{* *! version 2.6.0 25 March 2020}{...}
 {help boottest:boottest}
 {hline}{...}
 
