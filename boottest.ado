@@ -1,4 +1,4 @@
-*! boottest 2.6.0 25 March 2020
+*! boottest 2.7.0 26 April 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,12 @@
 cap program drop boottest
 program define boottest
 	version 11
+  cap version 13.1
+  if _rc {
+     di as err "This version of {cmd:boottest} requires Stata version 13 or later. An older version compatible with Stata `c(stata_version)'"
+     di as err "is at https://github.com/droodman/boottest/releases/tag/v2.6.0."
+     exit _rc
+  }
 	cap noi _boottest `0'
 	local rc = _rc
 	constraint drop `anythingh0'
@@ -32,24 +38,6 @@ end
 cap program drop _boottest
 program define _boottest, rclass sortpreserve
 	version 11
-
-	mata st_local("StataVersion", boottestStataVersion()); st_local("CodeVersion", boottestVersion())
-	if `StataVersion' != c(stata_version) | "`CodeVersion'" < "02.06.00" {
-		cap findfile "lboottest.mlib"
-		while !_rc {
-			erase "`r(fn)'"
-			cap findfile "lboottest.mlib"
-		}
-		qui findfile "boottest.mata"
-		cap run "`r(fn)'"
-		if _rc & c(stata_version) >= 13 {
-			di
-			di  "Warning: Could not recompile boottest.mata, probably for lack of write access to the directory where it is stored."
-			di  "For backward compatibility, boottest is distributed as compiled in Stata 11. Recompiling in Stata 13 or later"
-			di `"allows it to run faster. To compile it manually, type or click on {stata "which boottest.mata"}; then run the displayed file like a Stata .do file."'
-			di  "This only needs to be done once per installation." _n
-		}
-	}
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
 	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
@@ -795,6 +783,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.7.0 Require Stata 13 or later, so no need to work around possible lack of panelsum()
 * 2.6.0 Added svv option.
 * 2.5.7 If lusolve() fails on non-invertible matrix, resort to invsym() for generalized inverse.
 * 2.5.6 Fixed 2.4.0 bug: look in e(df_a_initial) rather than e(df_a). Matters if clustering on the absorbed var.

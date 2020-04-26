@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.6.0 25 March 2020}{...}
+{* *! version 2.7.0 26 April 2020}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -110,6 +110,9 @@ For exact replication of earlier results, an older version, 2.0.5, is available 
 which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather than that of t/z/F/chi2 statistics. Theory favors the latter, 
 but Young (2019) presents evidence that the bootstrap-c is more reliable, at least in instrumental variables estimation in economics. The option 
 {cmdab:stat:istic(c)}} invokes the feature.
+
+{pstd} As of version 2.7.0, of 26 April 2020, {cmd:boottest} requires Stata version 13 or later. Version 2.6.0, which also works in Stata versions 11 and 12, can be downloaded
+from {browse "https://github.com/droodman/boottest/releases/tag/v2.6.0"}.
 
 {marker description}{...}
 {title:Description}
