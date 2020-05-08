@@ -1,4 +1,4 @@
-*! boottest 2.7.0 26 April 2020
+*! boottest 2.7.1 8 May 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
