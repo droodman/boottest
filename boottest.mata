@@ -895,7 +895,7 @@ void boottestModel::boottest() {
 
 		if (bootstrapt & (WREnonAR | df>1 | MaxMatSize<.)) // unless nonWRE or df=1 or splitting weight matrix, code will create Dist element-by-element, so pre-allocate vector now
 			Dist = J(reps+1, 1, .)
-		if (bootstrapt==0 & WREnonAR)
+		if ((bootstrapt==0 & WREnonAR) | (null==0 & df<=2))
 			numer = J(df, reps+1, .)
 
 	}  // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
@@ -1008,9 +1008,9 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 	real matrix Subscripts, Zi, AVR0, t, XExi
 	pointer (real matrix) scalar peZVR0
 
-	if (initialized & !null) {  // if not imposing null and we have returned, then df=1; and distribution doesn't change with r0, only test stat
-		numer[1] = *pR0 * pM_Repl->beta - *pr0
-		Dist[1] = numer[1] / sqrt(denom.M[1]) * multiplier
+	if (initialized & null==0) {  // if not imposing null and we have returned, then df=1 or 2; and distribution doesn't change with r0, only test stat
+		numer[,1] = *pR0 * pM_Repl->beta - *pr0
+		Dist[1] = multiplier * (df==1? numer[1] / sqrt(denom.M) : numer[,1] ' boottest_lusolve(denom.M, numer[,1]))
 		return(1)  // no need to continue calc
 	}
 
@@ -1110,8 +1110,8 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 		numer0 = numer[,1]
 	}
 
-	if (initialized & !null) {  // if not imposing null and have returned, then thisWeightGrpStart=df=1; and distribution doesn't change with r0, only test stat
-		Dist[1] = numer0 / sqrt(denom0) * multiplier
+	if (initialized & !null) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
+		Dist[1] = multiplier * (df==1? numer0 / sqrt(denom0) : numer0 ' boottest_lusolve(denom0, numer0))
 		return(1)  // skip rest of calc
 	}
 	return(0)

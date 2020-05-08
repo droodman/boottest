@@ -489,7 +489,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest collgrad tenure, gridpoints(10 10)} // WRE boostrap also with contour plot{p_end}
 
 {phang}. {stata regress wage ttl_exp collgrad tenure, cluster(industry)}{p_end}
-{phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)} // multi-way-clustered test after estimation command not offering such{p_end}
+{phang}. {stata waldtest collgrad tenure, cluster(industry age)} // multi-way-clustered tests after estimation command not offering such{p_end}
+{phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2)}{p_end}
 
 {phang}. {stata areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)}{p_end}
 {phang}. {stata boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph} // override estimate's clustering{p_end}
