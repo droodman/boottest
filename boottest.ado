@@ -74,6 +74,10 @@ program define _boottest, rclass sortpreserve
 		di as err "Doesn't work after {cmd:ivreg2} with the {cmd:partial()} option."
 		exit 198
 	}
+	if "`e(cmd)'"=="regress" & "`e(model)'" == "iv" {
+		di as err "Doesn't support the undocumented IV syntax of {cmd:regress}."
+		exit 198
+	}
 
 	tokenize `"`0'"', parse(",")
 	if `"`1'"' != "," {

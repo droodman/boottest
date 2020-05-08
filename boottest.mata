@@ -302,7 +302,7 @@ void boottestModel::new() {
 	cuepoint = MaxMatSize = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pFEID = pR = pR0 = pwt = &J(0,0,0)
 	pr = pr0 = &J(0,1,0)
-	IDBootData = J(0,1,0)
+	IDBootData = .
 }
 
 void boottestModel::setdirty(real scalar _dirty, | real scalar noinitialize) {
@@ -1030,7 +1030,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 
 	for (j=cols(u); j; j--) {  // WRE bootstrap
 		_u = u[IDBootData,j]
-		
+
 		pM_Repl->InitEndog(&(*M_DGP.pY:+_e:*_u) , &(*pXEnd:+M_DGP.e2:*_u))
 		pM_Repl->InitEstimate()
 		pM_Repl->InitTestDenoms(S)  // prepare for replication regressions, null not imposed
