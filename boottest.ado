@@ -1,4 +1,4 @@
-*! boottest 2.7.1 8 May 2020
+*! boottest 2.7.2 8 July 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -62,9 +62,16 @@ program define _boottest, rclass sortpreserve
 		di as err "Doesn't work after {`cmd', `e(xtmodel)'}."
 		exit 198
 	}
-	if inlist("`cmd'","reghdfe","ivreghdfe") & `:word count `e(absvars)''>1 {
-		di as err "Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects."
-		exit 198
+	if inlist("`cmd'","reghdfe","ivreghdfe") {
+		if `:word count `e(extended_absvars)''>1 {
+			di as err "Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms."
+			exit 198
+		}
+		cap _fv_check_depvar `e(extended_absvars)'
+		if _rc {
+			di as err "Doesn't work after {cmd:`cmd'} with absorbed interaction terms."
+			exit 198
+		}
 	}
 	if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
 		di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
@@ -243,7 +250,7 @@ program define _boottest, rclass sortpreserve
 	local scoreBS = "`boottype'"=="score"
 	
 	local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), /*reghdfe*/ max(0`e(K1)',0`e(df_a_initial)')))
-	local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(absvars)'")
+	local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(extended_absvars)'")
 	if `"`_FEname'"' != "" {
 		cap confirm numeric var `_FEname'
 		if _rc {
@@ -787,6 +794,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.7.2 Added error check for absorbed interaction terms in (iv)reghdfe
 * 2.7.1 Fixed crash after IV without clustering. Added check for regress with undocumented IV syntax. Fixed crash on 2-D test with "nonull" but not "nograph".
 * 2.7.0 Require Stata 13 or later, so no need to work around possible lack of panelsum()
 * 2.6.0 Added svv option.
