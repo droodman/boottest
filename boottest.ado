@@ -1,4 +1,4 @@
-*! boottest 2.6.0 25 March 2020
+*! boottest 2.6.0b 3 August 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -495,7 +495,11 @@ program define _boottest, rclass sortpreserve
 			}
 			
 			foreach option in gridmin gridmax gridpoints {
-				if "``option''" == "" local `option' = `df' * ". "
+				if "``option''" == "" {
+					forvalues i=1/`=`df'' {
+						local `option'  = "``option''" + ". "
+					}
+				}
 				else if `df' != `:word count ``option''' {
 					di as err "{cmd:`option'()} option needs " cond(`df'==1, "one entry", "two entries")
 					exit 199
@@ -795,6 +799,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.6.0b Fixed incompatibility with Stata 11, 12 (no string duplication operator)
 * 2.6.0 Added svv option.
 * 2.5.7 If lusolve() fails on non-invertible matrix, resort to invsym() for generalized inverse.
 * 2.5.6 Fixed 2.4.0 bug: look in e(df_a_initial) rather than e(df_a). Matters if clustering on the absorbed var.
