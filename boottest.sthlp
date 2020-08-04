@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.7.0 26 April 2020}{...}
+{* *! version 2.7.0 3 August 2020}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -112,7 +112,7 @@ but Young (2019) presents evidence that the bootstrap-c is more reliable, at lea
 {cmdab:stat:istic(c)}} invokes the feature.
 
 {pstd} As of version 2.7.0, of 26 April 2020, {cmd:boottest} requires Stata version 13 or later. Version 2.6.0, which also works in Stata versions 11 and 12, can be downloaded
-from {browse "https://github.com/droodman/boottest/releases/tag/v2.6.0"}.
+from {browse "https://github.com/droodman/boottest/archive/For-Stata-11,-12.zip"}.
 
 {marker description}{...}
 {title:Description}
