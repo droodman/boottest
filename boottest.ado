@@ -1,4 +1,4 @@
-*! boottest 2.7.2 9 July 2020
+*! boottest 2.7.3 7 November 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -794,6 +794,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.7.3 Prevented crash on WRE bootstrap-t with svmat(numer)
 * 2.7.2 Added error check for absorbed interaction terms in (iv)reghdfe
 * 2.7.1 Fixed crash after IV without clustering. Added check for regress with undocumented IV syntax. Fixed crash on 2-D test with "nonull" but not "nograph".
 * 2.7.0 Require Stata 13 or later, so no need to work around possible lack of panelsum()

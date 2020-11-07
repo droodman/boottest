@@ -1,4 +1,4 @@
-*! boottest 2.7.1 8 May 2020
+*! boottest 2.7.3 7 November 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -895,7 +895,7 @@ void boottestModel::boottest() {
 
 		if (bootstrapt & (WREnonAR | df>1 | MaxMatSize<.)) // unless nonWRE or df=1 or splitting weight matrix, code will create Dist element-by-element, so pre-allocate vector now
 			Dist = J(reps+1, 1, .)
-		if ((bootstrapt==0 & WREnonAR) | (null==0 & df<=2))
+		if (WREnonAR | (null==0 & df<=2))
 			numer = J(df, reps+1, .)
 
 	}  // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
@@ -1063,8 +1063,8 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
 			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
-		} else
-			numer[,thisWeightGrpStart+j-1] = numer_j
+		}
+		numer[,thisWeightGrpStart+j-1] = numer_j  // slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 	}
 
 	if (thisWeightGrpStart == 1) {
@@ -1388,7 +1388,6 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 	if (mreldif(lo,mid)<1e-6 | mreldif(hi,mid)<1e-6 | (repsFeas & abs(p_hi-p_lo)<(1+(ptype==1))/repsFeas*1.000001))
 		return (mid)
 	if ( ((_p = r0_to_p(mid)) < alpha) == (p_lo < alpha) )
-
 		return(search(alpha, _p, mid, p_hi, hi))
 	return(search(alpha, p_lo, lo, _p, mid))
 }
