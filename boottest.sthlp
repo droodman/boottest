@@ -39,8 +39,8 @@ and {it:test} is
 {it:{help exp}} {cmd:=} {it:{help exp}} | {it:{help test##coeflist:coeflist}}
 
 {pstd}
-In words, {it:indeplist} is a list of hypotheses to be tested separately; if there is more than one, then each must be enclosed in curly braces. Each independent hypothesis
-in turn consists of one or more jointly tested constraint expressions, linear in parameters; if there is more than one, then each must be enclosed in parentheses. Finally, each 
+In words, {it:indeplist} is a list of hypotheses to be tested independently; if there is more than one, then each must be enclosed in curly braces. Each independent hypothesis
+in turn consists of one or more jointly tested constraints, linear in parameters; if there is more than one, then each must be enclosed in parentheses. Finally, each 
 individual constraint expression must conform to the syntax for {help constraint:constraint define}.
 
 {synoptset 45 tabbed}{...}
@@ -49,7 +49,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
 {synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
 {synopt:{opt boot:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
-{synopt:{opt stat:istic(t | c)}}specify statistc type to bootstrap; default is {it:t}{p_end}
+{synopt:{opt stat:istic(t | c)}}specify statistic type to bootstrap; default is {it:t}{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
@@ -109,7 +109,7 @@ For exact replication of earlier results, an older version, 2.0.5, is available 
 {pstd} Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
 which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather than that of t/z/F/chi2 statistics. Theory favors the latter, 
 but Young (2019) presents evidence that the bootstrap-c is more reliable, at least in instrumental variables estimation in economics. The option 
-{cmdab:stat:istic(c)}} invokes the feature.
+{cmdab:stat:istic(c)} invokes the feature.
 
 {pstd} As of version 2.7.0, of 26 April 2020, {cmd:boottest} requires Stata version 13 or later. Version 2.6.0, which also works in Stata versions 11 and 12, can be downloaded
 from {browse "https://github.com/droodman/boottest/archive/For-Stata-11,-12.zip"}.
@@ -144,7 +144,7 @@ WRE may also be used to bootstrap the Anderson-Rubin (1949) test, which is itsel
 
 {pstd} All of these tests may be considered bootstrap-t tests in that they simulate the distribution of pivotal quantities--t, z, F, or chi2 statistics. That means that for each
 replication, the algorithm computes the numerator and denominator of the statistic of interest, then determines the quantile of the ratio from the original sample in this simulated
-distribution. In contrast, the bootstrap-c, uses the same bootstrap data-generating processes to simulate only the numerators--i.e., coefficients or linear 
+distribution. In contrast, the bootstrap-c uses the same bootstrap data-generating processes to simulate only the numerators--i.e., coefficients or linear 
 combinations thereof. From the bootstrap numerators, the bootstrap-c algorithm then computes a single covariance matrix for use in all the statistics. For one-dimensional hypotheses,
 dividing the test statistic numerator and its bootstrap replications by this universal denominator has no substantive effect; but it is needed for higher-dimensional hypothesis in order
 to norm the numerators, which are vectors. Under standard asumptions, the
@@ -192,7 +192,7 @@ tests the hypothesis that all coefficients on instrumented variables are zero.
 When testing multiple independent hypotheses, the {opt madj:ust()} option requests the Bonferroni or Sidak correction for multiple hypothesis testing.
 
 {pstd}
-{cmd:boottest} supports multi-way error clustering (Cameron, Gelbach, and Miller 2006), which, if applied, forces the user to choose which clustering variable(s) to {it:bootstrap}
+{cmd:boottest} supports multi-way error clustering (Cameron, Gelbach, and Miller 2006). Using this feature forces a choice of which clustering variable(s) to {it:bootstrap}
 on. When multiway clustering is combined with {cmd:small}, 
 the finite-sample correction multiplier is a component-specific (G/(G-1)*(N-1)/(N-k), as described in Cameron, Gelbach, and Miller (2006, pp. 8-9) and simulated therein. In
 contrast, {stata ssc describe ivreg2:ivreg2} uses one multiplier for all components, based on the clustering variable with the lowest G. Thus after estimation with
@@ -244,7 +244,7 @@ it improves theoretically on the normal, having third moment equal to 1 as well.
 
 {pstd}
 Despite the seeming superiority of the asymmetric Mammen and gamma distributions, symmetric distributions such as the Rademacher and Webb have performed better
-in Monte Carlo simulations, in the sense of yielding tests of more accurate size (Davidson and Flachaire 2008; Kline and Santos 2012; Finlay and Magnusson 2014)
+in Monte Carlo simulations, in the sense of yielding tests of more accurate size (Davidson and Flachaire 2008; Kline and Santos 2012; Finlay and Magnusson 2014).
 
 {pstd}
 The {opt r:eps(#)} option sets the number of bootstrap replications. 999 is the default but values of 9999 and higher are often feasible. Since bootstrapping
