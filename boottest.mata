@@ -51,9 +51,9 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 }
 
 class boottestModel {
-	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
+	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, doQQ, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps, enumerate, bootstrapt
+		NFE, doQQ, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0
 	real matrix QQ, eZVR0, SewtXV, VR0, betadev, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, denom0
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoAllData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
@@ -103,7 +103,7 @@ void AnalyticalModel::InitExog() {
 		parent->pZExcl = partialFE(parent->pZExcl)
 		ZExclXEx = cross(*parent->pZExcl, *parent->pwt, *parent->pXEx)
 		pZXEx = &(*pXExXEx \ ZExclXEx)
-		if (parent->IV)
+		if (parent->K)
 			pinvZZ = &invsym((ZZ = *pZXEx, (ZExclXEx' \ cross(*parent->pZExcl, *parent->pwt, *parent->pZExcl))))
 	} else
 		pXX = pXExXEx
@@ -136,9 +136,8 @@ void AnalyticalModel::InitEndog(pointer (real colvector) scalar _pY, pointer (re
 		YXEnd = cross(*pY, *parent->pwt, *pXEnd)
 		ZY = *pXExY \ *pZExclY
 		pXY = &(*pXExY \ YXEnd')
-		if (LIML | !(parent->robust | parent->scoreBS))
+		if (LIML | (parent->robust | parent->scoreBS)==0)
 			YY = cross(*pY, *parent->pwt, *pY)
-
 		if (parent->IV)  // if GMM weight matrix not provided, prepare 2SLS one
 			A = (I(parent->kEx) \ J(parent->el-parent->kEx, parent->kEx, 0)), *pinvZZ * ZXEnd // 2SLS is (A' ZX)^-1 * (A'ZY). Also apparently used in k-class and LIML robust VCV by Stata convention
 		else
@@ -173,22 +172,22 @@ void AnalyticalModel::InitEstimate() {
 			H_2SLS = A ' ZX  // Hessian
 
 			if (rows(*pS)) {  // includes H0 if pSAll really points to SAll rather than S
-				TT = Splus ' TT * Splus
+				TT   = Splus '   TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
 			eigensystemselecti( I(rows(TT)) - boottest_lusolve(TT, TPZT), 1\1, vec, val)  // eigensystemselecti(lusolve(TT, TPZT), rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks into val
 		}
 
-	pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
+  pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
 	if (rows(*pS)) {
 		pbetadenom = &(*pS * boottest_lusolve(*pS ' (*pH) * *pS, *pS'))
 		invH = J(0,0,0)
 	} else
 		pbetadenom = &(invH = invsym(*pH))
 
-	if (K)
-		if (K==1) {  // 2SLS
+  if (K)
+		if (K==1) {  // 2SLS, GMM
 			beta0 = *pbetadenom * A ' ZY
 			dbetads = I(rows(beta0)) - *pbetadenom * A ' ZX
 		} else {  // k-class, LIML
@@ -209,7 +208,7 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 	              &(rows(invH)? invH : invsym(*pH))
 	VR0 = *pV * *parent->pR0'
 
-	if (parent->scoreBS | (parent->robust & !(parent->WREnonAR & parent->NClustVar==1 & !parent->NFE))) {
+	if (parent->scoreBS | (parent->robust & (parent->WREnonAR & parent->NClustVar==1 & parent->NFE==0)==0)) {
 		if (K) {
 			AVR0 = A * VR0
 			ZVR0 = *parent->pZExcl * AVR0[|parent->kEx+1,.\.,.|]; if (parent->kEx) ZVR0 = ZVR0 + *parent->pXEx * AVR0[|.,.\parent->kEx,.|]
@@ -228,8 +227,8 @@ void AnalyticalModel::InitTestDenoms(real matrix S) {
 				for (d=parent->df;d;d--)
 					WZVR0[d].M = (*pWZVR0)[,d]
 			}
-
-			if (parent->NFE & parent->robust & !parent->WREnonAR & !parent->FEboot & !parent->scoreBS & parent->granular < parent->NErrClustCombs) {
+			
+      if (parent->NFE & parent->robust & (parent->WREnonAR | parent->FEboot | parent->scoreBS)==0 & parent->granular < parent->NErrClustCombs) {
 				if (pWZVR0==NULL) pWZVR0 = &(parent->weights? ZVR0 :* *parent->pwt : ZVR0)
 				CT_ZVR0 = smatrix(parent->NErrClustCombs, parent->df)
 				for (d=parent->df;d;d--)
@@ -256,7 +255,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 			e = *pY - *parent->pZExcl * beta[|cols(*parent->pXEx)+1\.|]
 			if (cols(*parent->pXEx))
 				e =  e - *parent->pXEx * beta[|.\cols(*parent->pXEx)|]
-		} else if (parent->IV)
+		} else if (K)
 			if (parent->kEx == 0)
 				e = *pY - *pXEnd * beta[|parent->kEx+1\.|]
 			else
@@ -264,9 +263,9 @@ void AnalyticalModel::Estimate(real colvector s) {
 		else
 				e = *pY                                    - *parent->pXEx * beta[|.\parent->kEx|]
 
-		if (!(parent->robust | parent->scoreBS) | (DGP==NULL & LIML))  // useful in non-robust, residual-based bootstrap, and in computing e2 in LIML (just below)
+    if ((parent->robust | parent->scoreBS)==0 | (DGP==NULL & LIML))  // useful in non-robust, residual-based bootstrap, and in computing e2 in LIML (just below)
 			ee = YY - 2 * *pXY ' beta + beta ' (*pXX) * beta
-		if (!(parent->robust | parent->scoreBS))
+		if ((parent->robust | parent->scoreBS)==0)
 			eec = parent->hascons? ee : ee - (parent->weights? cross(e, *parent->pwt) : sum(e))^2 / parent->_Nobs  // sum of squares after centering, N * Var
 	}
 
@@ -313,7 +312,7 @@ void boottestModel::setdirty(real scalar _dirty, | real scalar noinitialize) {
 
 void boottestModel::setsqrt(real scalar _sqrt) {
 	if (_sqrt < sqrt)
-		if (!dirty) Dist = Dist :* Dist
+		if (dirty==0) Dist = Dist :* Dist
 	else
 		setdirty(1)
 	sqrt = _sqrt
@@ -423,10 +422,10 @@ void boottestModel::setrobust  (real scalar robust  ) {
 	setdirty(1)
 }
 void boottestModel::setR (real matrix R, real colvector r ) {
-	this.pR = &R; 	this.pr  = &r; setdirty(1)
+	this.pR = &R; 	this.pr  = &r; q = rows(R); setdirty(1)
 }
 void boottestModel::setR0(real matrix R0, real colvector r0) {
-	this.pR0 = &R0; this.pr0 = &r0; setdirty(1)
+	this.pR0 = &R0; this.pr0 = &r0; q0 = rows(R0); setdirty(1)
 }
 void boottestModel::setwillplot(real scalar willplot) {
 	this.willplot = willplot
@@ -461,7 +460,7 @@ void boottestModel::makeDistCDR(| string scalar diststat) {
 	if (diststat == "numer") {
 		pnumer = u_sd==1? &numer : &(numer / u_sd)
 		_sort( DistCDR = (*pnumer)[|2\.|]' :+ *pr0 , 1)
-	} else if (!rows(DistCDR))
+	} else if (rows(DistCDR)==0)
 		if (rows(Dist)>1)
 			_sort( DistCDR=Dist[|2\.|] , 1)
 		else
@@ -486,7 +485,7 @@ real scalar boottestModel::getp(|real scalar classical) {
 				p = colsum(-t:>-Dist) / repsFeas  // upper-tailed p value or p value based on squared stats
 	else {
 		p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
-		if (sqrt & !twotailed) {
+		if (sqrt & twotailed==0) {
 			p = p / 2
 			if ((ptype==3) == (t<0))
 				p = 1 - p
@@ -536,7 +535,7 @@ real scalar boottestModel::getdf_r() {
 	return(df_r)
 }
 real matrix boottestModel::getplot() {
-	if (!plotted)
+	if (plotted==0)
 		if (rows(*pr0)==1)
 			plot()
 		else if (rows(*pr0)==2)
@@ -544,11 +543,11 @@ real matrix boottestModel::getplot() {
 	return((plotX,plotY))
 }
 real rowvector boottestModel::getpeak() {
-	if (!plotted) plot()
+	if (plotted==0) plot()
 	return(peak)
 }
 real matrix boottestModel::getCI() {
-	if (!plotted) plot()
+	if (plotted==0) plot()
 	return(CI)
 }
 
@@ -595,30 +594,34 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 
 
 
+
+
+
 // main routine
 void boottestModel::boottest() {
 	real colvector rAll, sortID, o, _FEID
 	real rowvector val, ClustCols
 	real matrix RAll, L, LAll, vec, Combs, t, IDErr
-	real scalar i, j, c, minN, sumN, _reps, g, i_FE
+	real scalar i, j, c, minN, sumN, _reps, g, i_FE, qq0
 	pointer (real matrix) scalar _pR0, pIDAll
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unused M_WRE
 
-	if (!initialized) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
+	if (initialized==0) {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
 		Nobs = rows(*pXEx)
-		kEx = cols(*pXEx)
-		if (!cols(*pZExcl)) pZExcl = &J(Nobs,0,0)
-		if (!cols(*pXEnd)) pXEnd = &J(Nobs,0,0)
-		D = cols(*pXEnd) + 1
-		k  = cols(*pR0)
-		REst = rows(*pR)  // base model contains restrictions?
-		if (pZExcl != NULL) el = cols(*pZExcl) + kEx
-		if (K==.) K = cols(*pZExcl)>0
-		IV = K & 1  // & pW==NULL
-		WRE = (IV & !scoreBS) | AR
-		WREnonAR = WRE & !AR
 		NClustVar = cols(*pID)
+		k  = cols(*pR0)
+		kEx = cols(*pXEx)
+		if (cols(*pZExcl)==0) pZExcl = &J(Nobs,0,0)
+		if (cols(*pXEnd)==0) pXEnd = &J(Nobs,0,0)
+		D = cols(*pXEnd) + 1
+		REst = rows(*pR)  // base model contains restrictions?
+		if (pZExcl != NULL) el = cols(*pZExcl) + kEx  // l = # of exogenous variables
+		if (K==.) K = cols(*pZExcl)>0  // if K in K-class estimation not specified, it's 0 or 1 for OLS or 2SLS
+		GMM = pW != NULL
+    IV = K & GMM==0
+		WRE = (K & scoreBS==0) | AR
+		WREnonAR = WRE & AR==0
 
 		if (weights = rows(*pwt)>1)
 			sumwt = sum(*pwt)
@@ -687,7 +690,7 @@ void boottestModel::boottest() {
 					}
 				}
 
-				if (scoreBS | !(WREnonAR | (1 | hascons)))
+				if (scoreBS | WREnonAR==0)
 					ClustShare = weights? _panelsum(*pwt, *pinfoErrData)/sumwt : ((*pinfoErrData)[,2]-(*pinfoErrData)[,1]:+ 1)/Nobs // share of observations by group 
 
 			} else {  // if no clustering, cast "robust" as clustering by observation
@@ -696,15 +699,15 @@ void boottestModel::boottest() {
 				sumN = Clust.N = Nobs
 				Clust.info = J(Nobs, 0, 0)  // signals _panelsum not to aggregate
 				NErrClustCombs = 1
-				if (scoreBS | !(WREnonAR | (1 |hascons)))
+				if (scoreBS | WREnonAR==0)
 					ClustShare = weights? *pwt/sumwt : 1/_Nobs
 			}
 
-			purerobust = NClustVar & !scoreBS & NBootClust==Nobs & !subcluster  // do we ever error-cluster *and* bootstrap-cluster by individual?
-			granular   = NClustVar & !scoreBS & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
-			doQQ = !granular & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
+			purerobust = NClustVar & (scoreBS | subcluster)==0 & NBootClust==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
+			granular   = NClustVar & scoreBS==0 & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
+			doQQ = granular==0 & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c QQ) * U vs. sum_c(colsum((Q_c*U):*(Q_c*U)))
 
-			if (robust & !purerobust) {
+			if (robust & purerobust==0) {
 				if (subcluster | granular)
 					infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
 				if (scoreBS & reps)
@@ -754,11 +757,11 @@ void boottestModel::boottest() {
 
 			pFEID = &_FEID  // ordinal fixed effect ID
 
-			if (robust & !FEboot & granular < NErrClust & reps & !FEboot & bootstrapt)
+			if (robust & FEboot==0 & granular < NErrClust & reps & FEboot==0 & bootstrapt)
 				infoBootAll = _panelsetup(*pIDAll, 1..NBootClustVar)  // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
 		}
 
-		if (granular & !(WREnonAR & purerobust))
+		if (granular & (WREnonAR & purerobust)==0)
 			if (NFE)
 				(void) _panelsetup(*pID   , 1..NBootClustVar, IDBootData)
 			else
@@ -767,28 +770,27 @@ void boottestModel::boottest() {
 		if (ML)
 			df = rows(*pR0)
 		else {
-			if (REst) {
-				t = rows(*pR)
+			if (REst) {  // restricted estimation, e.g., cnsreg?
 				symeigensystem(*pR ' boottest_lusolve(*pR * *pR', *pR), vec, val)  // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
-				L = vec[|.,.\.,t|]  // eigenvectors not in kernel of projection onto R
-				S = t<cols(vec)? vec[|.,t+1\.,.|] : J(rows(vec),0,0)  // eigenvectors in kernel
+				L = vec[|.,.\.,q|]  // eigenvectors not in kernel of projection onto R
+				S = q < k? vec[|.,q+1\.,.|] : J(k,0,0)  // eigenvectors in kernel
 				s = L * luinv(*pR * L) * *pr
 				if (AR) {
-					SAR = blockdiag(S[|.,. \ rows(S)-cols(*pXEnd) , cols(S)-cols(*pXEnd)|] , I(cols(*pZExcl))) // adapt S,s from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
-					sAR = s[|.\rows(s)-cols(*pXEnd)|] \ J(cols(*pZExcl),1,0)
+					SAR = blockdiag(S[|.,. \ k-cols(*pXEnd) , k-q-cols(*pXEnd)|] , I(cols(*pZExcl))) // adapt S,s from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
+					sAR = s[|.\k-cols(*pXEnd)|] \ J(cols(*pZExcl),1,0)
 				}
 			}
 
 			// Estimation with null imposed along with any model constraints; in IV, Z is unconstrained regardless of overlap with potentially constrained X
 			_pR0 = null? pR0 : &J(0, k, 0)
 			RAll = REst? *pR \ *_pR0 : *_pR0  // combine model and hypothesis constraints to prepare to "invert" them as a group too
-			if (rows(RAll)) {
+			if (qq0 = rows(RAll)) {
 				LAll = invsym(RAll * RAll')
 				if (!all(diagonal(LAll)))
 					_error(111, "A null hypothesis constraint is inconsistent or redundant.")
 				symeigensystem(RAll ' LAll * RAll, vec, val)
-				LAll  = vec[|.,. \ .,rows(RAll)|]
-				SAll = rows(RAll) < cols(vec)? vec[|.,rows(RAll)+1 \ .,.|] : J(rows(vec), 0, 0)
+				LAll  = vec[|.,. \ .,qq0|]
+				SAll = qq0 < cols(vec)? vec[|.,qq0+1 \ .,.|] : J(rows(vec), 0, 0)
 				LAll_invRAllLAll = LAll * luinv(RAll * LAll)
 			} else
 				SAll = J(0,0,0)
@@ -800,7 +802,7 @@ void boottestModel::boottest() {
 				pM_Repl = &(M_WRE = M_DGP)
 				pM_Repl->SetDGP(M_DGP)
 				M_DGP.SetLIMLFullerK(1, 0, 1)
-				if (!AR) pM_Repl->SetLIMLFullerK(LIML, Fuller, K)
+				if (AR==0) pM_Repl->SetLIMLFullerK(LIML, Fuller, K)
 				pM_Repl->SetAR(AR)
 				pM_Repl->SetS(AR? SAR : S)
 			} else
@@ -856,25 +858,28 @@ void boottestModel::boottest() {
 			multiplier = (smallsample = (_Nobs - k - NFE) / (_Nobs - robust)) / df  // divide by # of constraints because F stat is so defined
 		else
 			multiplier = smallsample = 1
-		if (!(robust | ML))
-			multiplier = multiplier * _Nobs  // will turn sum of squared errors in denom of t/z into mean
+
+    if (GMM)
+      multiplier = multiplier / _Nobs  // variance of test stat uses GMM weight matrix from ivreg2, ivregress, divided by N
+    else if ((robust | ML)==0)
+			multiplier = multiplier * _Nobs  // will turn sum of squared errors in denom of t/z into mean; but division by N already in GMM weight matrix so skip for GMM
+    
 		if (sqrt) multiplier = sqrt(multiplier)
-			
-		if (!null) M_DGP.beta = J(0,1,0)  // in case model re-dirtied and we're not imposing null, Estimate() will know to recompute beta for first r0 value tried, then stop
+		if (null==0) M_DGP.beta = J(0,1,0)  // in case model re-dirtied and we're not imposing null, Estimate() will know to recompute beta for first r0 value tried, then stop
 
 		enumerate = 0
 		if (weighttype<=1 & reps)
 			if (NBootClust*ln(2) < ln(reps)+1e-6)
 				if (weighttype==1) {
-					if (!quietly)
+					if (quietly==0)
 						printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
 				} else {
-					if (!quietly)
+					if (quietly==0)
 						printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
 					enumerate = 1
 					MaxMatSize = .
 				}
-			else if (!quietly & (NBootClust>12 | weighttype) & floor(level/100 * (reps+1)) != level/100 * (reps+1)) {
+			else if (quietly==0 & (NBootClust>12 | weighttype) & floor(level/100 * (reps+1)) != level/100 * (reps+1)) {
 					printf("\nNote: The bootstrap usually performs best when the confidence level (here, %g%%)\n", level)
 					printf("      times the number of replications plus 1 (%g+1=%g) is an integer.\n", reps, reps+1)
 				}
@@ -900,13 +905,13 @@ void boottestModel::boottest() {
 
 	}  // done with one-time stuff--not dependent on r0--if constructing CI or plotting confidence curve
 
-	if (!ML)  // GMM, 2SLS, analytical LIML
+	if (ML==0)  // GMM, 2SLS, analytical LIML
 		if (AR) {
 			pM_Repl->InitEndog(&(*pY - *pXEnd * *pr0), NULL, &(*M_DGP.pZExclY - M_DGP.ZExclXEnd * *pr0), &(*M_DGP.pXExY - M_DGP.XExXEnd * *pr0))
 			pM_Repl->InitEstimate()
 			pM_Repl->Estimate(sAR)
 			pM_Repl->InitTestDenoms(SAR)
-		} else if (null | !rows(M_DGP.beta)) {  // don't need to recompute if we're not actually imposing the null
+		} else if (null | rows(M_DGP.beta)==0) {  // don't need to recompute if we're not actually imposing the null
 			rAll = null? *pr0 : J(0, 1, 0); if (REst) rAll =  *pr \ rAll  // constant terms of model + null constraints
 			sAll = rows(rAll) ? LAll_invRAllLAll * rAll : J(0,1,0)
 			M_DGP.Estimate(sAll)
@@ -939,9 +944,9 @@ void boottestModel::boottest() {
 		denom0 = denom0 / (u_sd * u_sd * smallsample)
 	} else
 		denom0 = denom0 / smallsample
-	if (multiplier!=1) Dist = Dist * multiplier
-	repsFeas = Dist[1]==.? 0 : colnonmissing(Dist) - 1
 
+  if (multiplier!=1) Dist = Dist * multiplier
+	repsFeas = Dist[1]==.? 0 : colnonmissing(Dist) - 1
 	DistCDR = J(0,0,0)
 	setdirty(0)
 	initialized = 1
@@ -1017,7 +1022,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 	if (thisWeightGrpStart == 1) {  // first/only weight group? initialize a couple of things
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
 
-		if (NClustVar & !NFE)  // prep for optimized computation for bootstrapping cluster when no FE
+		if (NClustVar & NFE==0)  // prep for optimized computation for bootstrapping cluster when no FE
 			for (i=NBootClust; i; i--) {
 				Subscripts = (infoBootData)[i,]', (.\.)
 				XExi = kEx? (*pXEx)[|Subscripts|] : J(Subscripts[2,1]-Subscripts[1,1]+1,0,0)
@@ -1046,7 +1051,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 				for (c=1; c<=NErrClustCombs; c++) {
 					if (NClustVar != 1 & rows(Clust[c].order))
 						peZVR0 = &((*peZVR0)[Clust[c].order,])
-					if (*pBootClust==Clust[c] & NClustVar & !NFE) {  // optimized computation for bootstrapping Cluster when no FE
+					if (*pBootClust==Clust[c] & NClustVar & NFE==0) {  // optimized computation for bootstrapping Cluster when no FE
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						pragma unset t
 						for (i=1; i<=NBootClust; i++) {
@@ -1062,9 +1067,9 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
-			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
+ 			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
 		}
-		numer[,thisWeightGrpStart+j-1] = numer_j  // slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
+		numer[,j+thisWeightGrpStart-1] = numer_j  // slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 	}
 
 	if (thisWeightGrpStart == 1) {
@@ -1080,7 +1085,7 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 	pointer (real matrix) scalar pewt; pointer (real colvector) scalar pt
 	pragma unused thisWeightGrpStop
 
-	if (!initialized | null) {  // if are imposing null or we are not, but this is first call, then build stuff
+	if (initialized==0 | null) {  // if are imposing null or we are not, but this is first call, then build stuff
 		if (thisWeightGrpStart == 1)  // first/only weight group? initialize some things
 			if (ML)
 				eZVR0 = *pSc * (VR0 = *pV * *pR0')
@@ -1088,7 +1093,7 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 				eZVR0 = pM->e :* pM->ZVR0
 		if (scoreBS)
 			numer = reps? (cross(NClustVar? _panelsum(eZVR0, *pwt, infoBootData) : (weights?       eZVR0 :* *pwt  :        eZVR0), u)) :
-			              (                                                           weights? cross(eZVR0  , *pwt) : colsum(eZVR0)'   )
+			              (                                                         weights? cross(eZVR0  , *pwt) : colsum(eZVR0)'   )
 		else {  // same calc as in score BS but broken apart to grab intermediate stuff
 			if (thisWeightGrpStart == 1) {  // first/only weight group? initialize some things
 				pewt = weights? &(pM->e :* *pwt) : &pM->e
@@ -1097,7 +1102,7 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 					pt = &(*pt, _panelsum(*pZExcl, *pewt, infoBootData))
 				SewtXV = *pM->pV * (*pt)'
 			}
-			if (!robust | granular)
+			if (robust==0 | granular)
 				numer = *pR0 * (betadev = SewtXV * u)
 			else
 				numer = (*pR0 * SewtXV) * u
@@ -1105,12 +1110,12 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 	}
 
 	if (thisWeightGrpStart == 1) {
-		if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
-		else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+		if      ( AR    ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
+		else if (null==0) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 		numer0 = numer[,1]
 	}
 
-	if (initialized & !null) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
+	if (initialized & null==0) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
 		Dist[1] = multiplier * (df==1? numer0 / sqrt(denom0) : numer0 ' boottest_lusolve(denom0, numer0))
 		return(1)  // skip rest of calc
 	}
@@ -1118,12 +1123,10 @@ real scalar boottestModel::makeNonWRENumers(real scalar thisWeightGrpStart, real
 }
 
 
-
-
 void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar peZVR0, pVR0, pt
 
-	if (robust) {
+	if (robust & GMM==0) {
 		if (granular < NErrClustCombs & thisWeightGrpStart==1) {  // unless pure robust and no multi-way clustering, initialize stuff that depends on r0 but not u
 
 			peZVR0 = &_panelsum(eZVR0, *pwt, *pinfoAllData)  // collapse data to all-boot & error-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
@@ -1140,7 +1143,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 							Kcd[d].M =  _panelsum(*pXEx, t, *pinfoErrData                                       ) * SewtXV
 					}
 
-				if (NFE & !FEboot)
+				if (NFE & FEboot==0)
 					CT_WE = _panelsum(crosstab(wtFE :* pM->e), infoBootAll)'
 
 				// subtract crosstab of E:*ZVR0 wrt bootstrapping cluster combo and all-cluster-var intersections
@@ -1148,7 +1151,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 					for (d=df;d;d--) {  // if bootstrapping on all-cluster-var intersections (including one-way clustering), the base crosstab is diagonal
 						for (i=Clust.N;i;i--)
 							Kcd[d].M[i,i] = Kcd[d].M[i,i] - (*peZVR0)[i,d]
-						if (scoreBS | !(1 | hascons))
+						if (scoreBS)
 							Kcd[d].M = Kcd[d].M :+ ClustShare * (*peZVR0)[,d]' // for score bootstrap, recenter; "+" because we subtracted *peZVR0
 					}
 				else
@@ -1159,7 +1162,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 								t = infoErrAll[i,]'
 								Kcd.M[|(i\i), t|] = Kcd.M[|(i\i), t|] - (*peZVR0)[|t, (d\d)|]'
 							}
-							if (scoreBS | !(1 |hascons))
+							if (scoreBS)
 								Kcd[d].M = Kcd[d].M - ClustShare * colsum(Kcd[d].M) // for score bootstrap, recenter
 						}
 					else // crosstab c,c* is tall
@@ -1168,7 +1171,7 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 								t = pBootClust->info[i,]'
 								Kcd[d].M[|t, (i\i)|] = Kcd[d].M[|t, (i\i)|] - (*peZVR0)[|t, (d\d)|]
 							}
-							if (scoreBS | ! (1 |hascons))
+							if (scoreBS)
 								Kcd[d].M = Kcd[d].M - ClustShare * colsum(Kcd[d].M) // for score bootstrap, recenter
 						}
 
@@ -1178,17 +1181,18 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 							Kcd[d].M = Kcd[d].M[Clust[c].order,]
 					for (d=df;d;d--) {
 						pQ[c,d] = &_panelsum(Kcd[d].M, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
-						if (NFE & !FEboot)
-							pQ[c,d] = &(*pQ[c,d] + _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
+						if (NFE & FEboot==0)
+								pQ[c,d] = &(*pQ[c,d] + _panelsum(pM->CT_ZVR0[c,d].M, Clust[c].info) * CT_WE)
 					}
 				}
 			} else {  // reps = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
-				peZVR0 = &(*peZVR0 :- ClustShare * colsum(*peZVR0))
+				if (K==0)
+          peZVR0 = &(*peZVR0 :- ClustShare * colsum(*peZVR0))  // recenter if OLS
 
 				for (c=1; c<=NErrClustCombs; c++) {
 					if (rows(Clust[c].order))
 						peZVR0 = &((*peZVR0)[Clust[c].order,])
-					pt = &_panelsum((*peZVR0), Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
+					pt = &_panelsum(*peZVR0, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
 					for (d=df;d;d--)
 						pQ[c,d] = &((*pt)[,d])
 				}
@@ -1222,13 +1226,12 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 							for (d=df;d;d--)
 								pQ[1,d] = &(_panelsum(_panelsum(pM->e, pM->WZVR0[d].M, *pinfoAllData) :* u[IDBootAll,], infoErrAll) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev)
 					}
-
 				for (c=NErrClustCombs; c>granular; c--)
 					for (d=df;d;d--)
 						pQ[c,d] = &(*pQ[c,d] * u)
 			}
 
-			for (i=df;i;i--)
+		for (i=df;i;i--)
 				for (j=i;j;j--) {
 					denom[i,j].M = purerobust? cross(pM->WZVR0[i].M, pM->WZVR0[j].M, eueu) : colsum(*pQ[1,i] :* *pQ[1,j])
 					if (Clust.multiplier!=1) denom[i,j].M = denom[i,j].M * Clust.multiplier
@@ -1258,18 +1261,19 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 				Dist[l+thisWeightGrpStart-1] = numer_l ' boottest_lusolve(t, numer_l)  // in degernate cases, cross() would turn cross(.,.) into 0
 			}
 			if (thisWeightGrpStart==1)
-				denom0 = t // original-sample denominator
+				denom0 = t  // original-sample denominator
 		}
 
-	} else { // non-robust
+	} else { // non-robust or GMM
 
 		pVR0 = ML? &VR0 : &(pM->VR0)
 		if (df == 1) {  // optimize for one null constraint
 			denom.M = *pR0 * *pVR0
-			if (!ML) {
-										  eu = u :* pM->e
-				if (!scoreBS) eu = eu  - (*pXEx, *pZExcl) * betadev // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-				if (scoreBS | !(1 |hascons)) eu = eu :- (weights? cross(ClustShare, eu) : colsum(eu) * ClustShare)  // Center variance if needed
+
+			if ((ML | GMM)==0) {
+									    eu = reps? u :* pM->e : pM->e
+				if (scoreBS) eu = eu :- (weights? cross(ClustShare, eu) : colsum(eu) * ClustShare)  // Center variance if needed
+				        else eu = eu  - (*pXEx, *pZExcl) * betadev  // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 				denom.M = denom.M :* (weights? cross(*pwt, eu :* eu) : colsum(eu :* eu))
 			}
 			if (MaxMatSize < .)
@@ -1277,28 +1281,28 @@ void boottestModel::makeNonWREStats(real scalar thisWeightGrpStart, real scalar 
 			else
 				Dist                                           = (numer :/ sqrt(denom.M))'
 			if (thisWeightGrpStart==1)
-				denom0 = denom.M[1] // original-sample denominator
+				denom0 = denom.M[1]  // original-sample denominator
 		} else {
 			denom.M = *pR0 * *pVR0
 
-			if (ML | LIML) {
+			if (ML | LIML | GMM) {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
 					Dist[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
 				}
 				if (thisWeightGrpStart==1)
-					denom0 = denom.M // original-sample denominator
+					denom0 = denom.M  // original-sample denominator
 			} else {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
 					Dist[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
-												eu = u[,l] :* pM->e
-					if (!scoreBS) eu = eu  - (*pXEx, *pZExcl) * betadev[,l] // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-					if (scoreBS | !(1 |hascons)) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare // Center variance if needed
+												eu = reps? u[,l] :* pM->e : pM->e
+					if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare  // Center variance if needed
+					        else eu = eu  - (*pXEx, *pZExcl) * betadev[,l]  // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
 					Dist[l+thisWeightGrpStart-1] = Dist[l+thisWeightGrpStart-1] / (t = cross(eu, *pwt, eu))
 				}
 				if (thisWeightGrpStart==1)
-					denom0 = denom.M * t // original-sample denominator
+					denom0 = denom.M * t  // original-sample denominator
 			}
 		}
 	}
@@ -1404,7 +1408,7 @@ void boottestModel::plot() {
 		alpha = 1 - level*.01
 		if (alpha > 0 & cols(u)-1 <= 1/alpha-1e6) {
 			setquietly(_quietly)
-			if (!quietly) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
+			if (quietly==0) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
 			return (.\.)
 		}
 		
@@ -1426,7 +1430,7 @@ void boottestModel::plot() {
 				t = abs(numer0/Dist) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
 				lo = editmissing(gridstart[1], (numer0 - t) + *pr0)
 				hi = editmissing(gridstop [1], (numer0 + t) + *pr0)
-				if (scoreBS & !null & !willplot) { // if doing simple Wald test with no graph, we're done
+				if (scoreBS & (null | willplot)==0) { // if doing simple Wald test with no graph, we're done
 					CI = lo, hi
 					return
 				}
@@ -1470,7 +1474,7 @@ void boottestModel::plot() {
 		printf("{txt}")
 		for (i = rows(plotX); i; i--) {
 			plotY[i] = r0_to_p(plotX[i])
-			if (!_quietly) {
+			if (_quietly==0) {
 				printf(".")
 				if (mod(i-rows(plotX)-1,50)) displayflush()
 					else printf("\n")
@@ -1554,7 +1558,7 @@ void boottestModel::contourplot() {
 	printf("{txt}")
 	for (i = rows(plotX); i; i--) {
 		plotY[i] = r0_to_p(plotX[i,]')
-		if (!_quietly) {
+		if (_quietly==0) {
 			printf(".")
 			if (mod(i-rows(plotX)-1,50)) displayflush()
 				else printf("\n")

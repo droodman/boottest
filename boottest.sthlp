@@ -431,7 +431,8 @@ separately for each hypothesis, using suffixes 1, 2, ....
 
 {p 4 8 2}{cmd:boottest} is not an official Stata command. It is a free contribution to the research community.
 Please cite: {p_end}
-{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2019. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal}.{p_end}
+{p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2019. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal} 19(1): 
+4-60. DOI: 10.1177/1536867X19830877.{p_end}
 
 
 {title:Donate?}

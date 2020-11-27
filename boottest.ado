@@ -354,8 +354,8 @@ program define _boottest, rclass sortpreserve
 			mat `W' = e(W)
 			local colnamesW: colnames `W'
 			local colnamesW: list colnamesW - _cons
-			mata _boottestp = J(`cons',1,`k') \ order(tokens("`colnamesW'")', 1)[invorder(order(tokens("`Xnames_exog' `ZExclnames'")', 1))]
-			mata st_matrix("`W'", st_matrix("`W'")[_boottestp,_boottestp]) // ensure weight matrix in order cons-other included exog-excluded exog
+			mata _boottestp = J(`cons',1,cols(st_matrix("`W'"))) \ order(tokens("`colnamesW'")', 1)[invorder(order(tokens("`Xnames_exog' `ZExclnames'")', 1))]
+			mata st_matrix("`W'", st_matrix("`W'")[_boottestp,_boottestp])  // ensure weight matrix in order cons-other included exog-excluded exog
 		}
 
 		mata _boottestp = J(`cons',1,`k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))] \ `k'+1
@@ -399,7 +399,7 @@ program define _boottest, rclass sortpreserve
 		mata _boottestkeepC = st_matrix("`keepC'"); if (cols(_boottestkeepC)==0) _boottestkeepC=J(1,0,0) ;;
 		if 0`hascns' mata _boottestC = st_matrix("`C'")[,(_boottestkeepC,cols(st_matrix("`C'")))]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'", _boottestC)
 		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
-		if `cons' local Xnames_exog `hold' `Xnames_exog' // add constant term
+		if `cons' local Xnames_exog `hold' `Xnames_exog'  // add constant term
 	}
 
 	local Nclustvars: word count `clustvars'
@@ -794,6 +794,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.7.4 Fixed errors affecting results after GMM
 * 2.7.3 Prevented crash on WRE bootstrap-t with svmat(numer)
 * 2.7.2 Added error check for absorbed interaction terms in (iv)reghdfe
 * 2.7.1 Fixed crash after IV without clustering. Added check for regress with undocumented IV syntax. Fixed crash on 2-D test with "nonull" but not "nograph".
