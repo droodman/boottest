@@ -23,12 +23,6 @@ struct smatrix {
 	real matrix M
 }
 
-struct structLinearComponents {
-	real colvector r0
-  real matrix SewtXV
-  struct smatrix matrix Kcd
-}
-
 struct structboottestClust {
 	real scalar N, multiplier
 	real colvector order
@@ -60,19 +54,18 @@ class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolate
-	real matrix KK, SewtXV, VR0, betadev, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, denom0, eZVR0
+	real matrix KK, SewtXV, SewtXV0, dSewtXVdr, VR0, betadev, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, denom0, eZVR0
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoAllData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV
 	string scalar wttype, madjtype, seed
-	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridstart, gridstop, gridpoints, numer0, numersum
+	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridstart, gridstop, gridpoints, numer0, numersum, r00
 	real rowvector peak
 	struct structboottestClust colvector Clust
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
-	struct smatrix matrix denom, Jcd, Kcd
+	struct smatrix matrix denom, Jcd, Kcd, Kcd0, dKcddr
 	struct smatrix colvector Kd, XZi, eZi, euZVR0
 	struct structFE rowvector FEs
-  struct structLinearComponents colvector InterPts
 	pointer (struct structboottestClust scalar) scalar pBootClust
 
 	void new(), setsqrt(), boottest(), makeDistCDR(), plot(), contourplot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
@@ -1088,18 +1081,17 @@ void boottestModel::makeNonWREK() {
 	pointer (real matrix) scalar pewt; real scalar d, dd, i, c, theta; real matrix t; pointer (real matrix) scalar peZVR0, pt
   
   if (interpolate) {  // interpolate from a set of samples at (a1,b1,c1,...), (a2,b1,c1,...), (a2,b2,c1,...), ...
-    theta = ((*pr0)[1] - InterPts.r0[1]) / InterPts[2].r0
-    SewtXV = InterPts.SewtXV + theta * InterPts[2].SewtXV
-    for (c=NErrClustCombs;c;c--)
-      for (d=df;d;d--)
-        Kcd[c,d].M = InterPts.Kcd[c,d].M + theta * InterPts[2].Kcd[c,d].M
-
-    for (dd=df; dd>1; dd--) {
-      theta = ((*pr0)[dd] - InterPts.r0[dd]) / InterPts[dd+1].r0
-      SewtXV = SewtXV + theta * InterPts[dd+1].SewtXV
+   	theta = *pr0 - r00
+    if (df==1) {
+      SewtXV = SewtXV0 + theta * dSewtXVdr
       for (c=NErrClustCombs;c;c--)
         for (d=df;d;d--)
-          Kcd[c,d].M = Kcd[c,d].M + theta * InterPts[dd+1].Kcd[c,d].M
+          Kcd[c,d].M = Kcd0[c,d].M + dKcddr[c,d].M * theta
+    } else {
+      SewtXV = SewtXV0 + colshape(dSewtXVdr * theta, cols(SewtXV0))
+      for (c=NErrClustCombs;c;c--)
+        for (d=df;d;d--)
+          Kcd[c,d].M = Kcd0[c,d].M + colshape(dKcddr[c,d].M * theta, NBootClust)
     }
     return
   }
@@ -1427,10 +1419,9 @@ void boottestModel::plot() {
 	boottest() // run in order to get true number of replications
 
   if (WREnonAR == 0) { // if estimator is linear in sense of appendix A.2, prepare to store elements of two interpolation points
-    InterPts = structLinearComponents(2)
-    InterPts.r0 = *this.pr0
-    InterPts.SewtXV = this.SewtXV
-    InterPts.Kcd = this.Kcd
+    r00 = *this.pr0
+    SewtXV0 = this.SewtXV
+    Kcd0 = this.Kcd
   }
 
 	if (repsFeas | reps==0) {
@@ -1486,11 +1477,12 @@ void boottestModel::plot() {
       if (gridstart[1]==. | gridstop[1]==.)  // when grid bounds fixed, only one p value computed so far; compute 1 more for interpolation
       	(void) r0_to_p(hi)
 
-      InterPts[2].r0 = hi - InterPts.r0
-      InterPts[2].SewtXV = this.SewtXV - InterPts.SewtXV
-      InterPts[2].Kcd = smatrix(NErrClustCombs, df)
+      t = hi - r00
+      dSewtXVdr = (this.SewtXV - SewtXV0) / t
+      dKcddr = smatrix(NErrClustCombs, df)
       for (c=NErrClustCombs; c; c--)
-        InterPts[2].Kcd[c].M = this.Kcd[c].M - InterPts.Kcd[c].M
+        dKcddr[c].M = (this.Kcd[c].M - Kcd0[c].M) / t
+
       interpolate = 1
     }
 
@@ -1571,10 +1563,12 @@ void boottestModel::contourplot() {
 
   if (WREnonAR == 0) { // if estimator is linear in sense of appendix A.2, prepare to store elements of two interpolation points
     boottest()
-    InterPts = structLinearComponents(3)  // need 3 points for interpolation since 3 points define a plane
-    InterPts.r0 = *this.pr0
-    InterPts.SewtXV = this.SewtXV
-    InterPts.Kcd = this.Kcd
+    r00 = *this.pr0
+    SewtXV0 = this.SewtXV
+    Kcd0 = smatrix(NErrClustCombs, 2)
+    for (c=NErrClustCombs; c; c--)
+      for (d=2;d;d--)
+        Kcd0[c,d].M = this.Kcd[c,d].M
   }
 
 	_editmissing(gridpoints, 25)
@@ -1604,23 +1598,24 @@ void boottestModel::contourplot() {
 	}
 
   if (WREnonAR==0) {  // 2 more points for interpolation
-    (void) r0_to_p(hi[1] \ InterPts.r0[2])
-    InterPts[2].r0 = hi[1] - InterPts.r0[1]
-    InterPts[2].SewtXV = this.SewtXV - InterPts.SewtXV
-    InterPts[2].Kcd = smatrix(NErrClustCombs, 2)
+    (void) r0_to_p(hi[1] \ r00[2])
+    t = hi[1] - r00[1]
+    this.SewtXV = colshape(this.SewtXV, 1)
+    (dSewtXVdr = J(length(this.SewtXV), 2, .))[,1] = (this.SewtXV - colshape(SewtXV0, 1)) / t
+    dKcddr = smatrix(NErrClustCombs, 2)  // 2 = df
     for (c=NErrClustCombs; c; c--)
       for (d=2;d;d--)
-        InterPts[2].Kcd[c,d].M = this.Kcd[c,d].M - InterPts.Kcd[c,d].M
+        (dKcddr[c,d].M  = J(Clust[c].N * NBootClust, 2, .))[,1] = colshape(this.Kcd[c,d].M - Kcd0[c,d].M, 1) / t
+
     _SewtXV = SewtXV
     _Kcd = this.Kcd
 
     (void) r0_to_p(hi)
-    InterPts[3].r0 = hi[2] - InterPts.r0[2]
-    InterPts[3].SewtXV = this.SewtXV - _SewtXV
-    InterPts[3].Kcd = smatrix(NErrClustCombs, 2)
+    t = hi[2] - r00[2]
+    dSewtXVdr[,2] = (colshape(this.SewtXV, 1) - _SewtXV) / t
     for (c=NErrClustCombs; c; c--)
       for (d=2;d;d--)
-        InterPts[3].Kcd[c,d].M = this.Kcd[c,d].M - _Kcd[c,d].M
+        dKcddr[c,d].M[,2] = colshape(this.Kcd[c,d].M - _Kcd[c,d].M, 1) / t
 
     interpolate = 1
   }
