@@ -797,7 +797,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.8.0 More fully exploit linearity of numerators and K matrices as in appendix A.2. Recenter classical score test even for non-OLS, reversing 2.4.1 change
+* 2.8.0 More fully exploit linearity of numerators and K matrices as in appendix A.2. Recenter classical score test even for non-OLS, reversing 2.4.1 change. Added ptolerance() option.
 * 2.7.4 Fixed errors affecting results after GMM
 * 2.7.3 Prevented crash on WRE bootstrap-t with svmat(numer)
 * 2.7.2 Added error check for absorbed interaction terms in (iv)reghdfe
