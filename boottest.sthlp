@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.7.0 3 August 2020}{...}
+{* *! version 2.8.0 28 November 2020}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -70,7 +70,8 @@ individual constraint expression must conform to the syntax for {help constraint
 {p2colreset}{...}
 
 {pstd}
-In addition, these options are relevant when testing a single hypothesis after OLS/2SLS/GMM/LIML, when by default a confidence set is derived and plotted:
+These options are relevant when testing one or two hypotheses after OLS/2SLS/GMM/LIML, when by default a confidence function is plotted and, if there is one
+hypothesis, a confidence set is derived:
 
 {synoptset 45 tabbed}{...}
 {synopthdr}
@@ -80,6 +81,7 @@ In addition, these options are relevant when testing a single hypothesis after O
 {synopt:{opt gridpoints(# [#])}}set number of equally space points to compute rejection confidence{p_end}
 {synopt:{opt graphopt(string)}}formatting options to pass to graph command{p_end}
 {synopt:{opt noci}}prevent derivation of confidence set from inverted bootstrap test{p_end}
+{synopt:{opt ptol:erance(#)}}sets precision of identification of confidence set bounds (default 1e-6){p_end}
 {synopt:{cmd:graphname(}{it:name}[{cmd:, replace}]{cmd:)}}name graph; for multiple independent hypotheses, uses {it:name} as stub{p_end}
 {synopt:{opt nogr:aph}}allow derivation of confidence set but don't graph confidence function{p_end}
 {synopt:{opt p:type(symmetric | equaltail | lower | upper)}}for unary hypotheses, set p value type; {it:symmetric} is default{p_end}
@@ -310,6 +312,15 @@ one-costraint hypothesis after OLS/2SLS/GMM/LIML, for only then is the confidenc
 default is controlled by {help level:set level} and is usually 95. Setting it to 100 suppresses computation and plotting of the confidence 
 set while still allowing plotting of the confidence curve.
 
+{phang}{opt ptol:erance(#)} specifies the precision of identification of confidence set bounds. The default is 1e-6. This means that
+if, in searching for the boundaries of a confidence set, {cmd:boottest}'s last two bracketing guesses for a bound have a relative difference less than 
+1e-6, then convergence is declared. This option is useful if the identification of 
+bounds is time consuming. To identify confidence set bounds, {cmd:boottest} first computes the {it:p} value at the evenly spaced
+grid points (see options just below). It prints a dot after each of these evaluations. Then it determines between which grid points the {it:p} value crosses the 
+specified confidence level, usually 0.05, and iteratively searches for exact cross-over points. In this step, no dots are 
+printed. If you experience a long delay after the row of dots has printed, specifying a looser tolerance, such as with {cmd:ptol(1-e3)}, may shorten this step
+while still producing adequately precise results.
+
 {phang}{opt gridmin(# [#])}, {opt gridmax(# [#])}, {opt gridpoints(# [#])} override the default lower and upper bounds and the resolution of the grid search,
 as described above. By default, {cmd:boottest} picks the lower and upper bounds by working
 with the bootstrapped distribution, and uses 25 grid points.
@@ -400,6 +411,7 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 {synopt:{cmd:r(padj)}}p value adjusted for multiple hypothesis testing, if requested{p_end}
 {synopt:{cmd:r(null)}}indicates whether null imposed{p_end}
 {synopt:{cmd:r(level)}}statistical signficance level for confidence interval, if any{p_end}
+{synopt:{cmd:r(ptol)}}preciseion tolerance for identification of confidence set bounds{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(seed)}}value of {opt seed(#)} option, if any, or else c(seed) at command invocation{p_end}

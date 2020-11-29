@@ -1,5 +1,5 @@
-*! waldtest 2.5.0 10 August 2019
-*! Copyright (C) 2015-19 David Roodman
+*! waldtest 2.8.0 28 August 2020
+*! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,6 @@ program define waldtest
 	}
 	local 0 `*'
 
-	syntax, [h0(passthru) BOOTCLuster(passthru)  CLuster(passthru) Robust QUIetly NOCI NOGRaph SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru)]	
-	boottest `h0s', nonull reps(0) boottype(score) `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `nograph' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphopt' `graphname'
+	syntax, [h0(passthru) BOOTCLuster(passthru)  CLuster(passthru) Robust QUIetly NOCI NOGRaph SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru)]	
+	boottest `h0s', nonull reps(0) boottype(score) `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nograph' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphopt' `graphname'
 end

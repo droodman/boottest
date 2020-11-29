@@ -1,4 +1,4 @@
-*! boottest 2.7.3 7 November 2020
+*! boottest 2.8.0 28 November 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -93,7 +93,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) svv *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv *]
 
 	if `matsizegb'==1000000 local matsizegb .
   
@@ -641,7 +641,8 @@ program define _boottest, rclass sortpreserve
 
 		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
-		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
+		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
+                        `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
@@ -677,7 +678,7 @@ program define _boottest, rclass sortpreserve
 
 		if `df'==1 {
 			local line1 = cond(`small', "t(`=`df_r'')", "z")
-			di _n as txt _col(`=21-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n _col(`=21-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
+			di _n as txt _col(`=33-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n _col(`=33-strlen("``ptype''")') as txt "``ptype'' = " as res %10.4f `p'
 			local `teststat' = `teststat' * `teststat'
 		}
 		else {
@@ -689,7 +690,7 @@ program define _boottest, rclass sortpreserve
 				local line1 chi2(`=`df'')
 				local line2 Prob > chi2
 			}
-			di _n as txt _col(`=21-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n as txt _col(`=21-strlen("`line2'")') "`line2' = " as res %10.4f `p'
+			di _n as txt _col(`=27-strlen("`line1'")') "`line1' = " as res %10.4f `teststat' _n as txt _col(`=27-strlen("`line2'")') "`line2' = " as res %10.4f `p'
 		}
 
 		if "`madjust'" != "" {
@@ -740,7 +741,8 @@ program define _boottest, rclass sortpreserve
 				else {
 					foreach var in Y X1 X2 {
 						if "``var''" != "" {
-							ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
+							cap drop _boottest``var''
+              ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
 							local `var' _boottest``var''
 						}
 					}
@@ -785,6 +787,7 @@ program define _boottest, rclass sortpreserve
     if "`svv'" != "" return matrix v`_h' = `svv'
 	}
 	return scalar level = `level'
+	return scalar ptol = `ptolerance'
 	return local statistic `statistic'
 	return local weighttype `weighttype'
 	return local boottype `boottype'
@@ -794,6 +797,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.8.0 More fully exploit linearity of numerators and K matrices as in appendix A.2. Recenter classical score test even for non-OLS, reversing 2.4.1 change
 * 2.7.4 Fixed errors affecting results after GMM
 * 2.7.3 Prevented crash on WRE bootstrap-t with svmat(numer)
 * 2.7.2 Added error check for absorbed interaction terms in (iv)reghdfe
@@ -807,7 +811,7 @@ end
 * 2.5.3 Fixed crash in score test (including waldtest) after "robust" estimation without observation weights
 * 2.5.2 More graceful handling of degenerate cases: multiway t stat = .; test hypothesis refers to dropped/constrained variable
 * 2.5.1 Fixed 2.5.0 bug after "robust" estimation
-* 2.5.0 Added bootstrap-c
+* 2.5.0 Added bootstrap-c. Fixed bug affecting results from WCU when using Mammen/Rademacher/Webb and Rademacher universe not exhausted; doubles test stat in published Conley & Tabor reanalysis.
 * 2.4.3 minor bug fixes and edits
 * 2.4.2 Fixed 2.4.1 bug. Added r(b) and r(V) return values.
 * 2.4.1 Optimized classical tests; removed bug in score test after FE est (wrongly droped term 2 in (63) in non-classical use of score test)
