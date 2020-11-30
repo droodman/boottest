@@ -1,4 +1,4 @@
-*! boottest 2.8.0 28 November 2020
+*! boottest 2.8.1 29 November 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -797,6 +797,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 2.8.1 Fix 2.8.0 bugs. Even more fully exploit linearity, for ~2X speed gain in inverting test after OLS.
 * 2.8.0 More fully exploit linearity of numerators and K matrices as in appendix A.2. Recenter classical score test even for non-OLS, reversing 2.4.1 change. Added ptolerance() option.
 * 2.7.4 Fixed errors affecting results after GMM
 * 2.7.3 Prevented crash on WRE bootstrap-t with svmat(numer)
