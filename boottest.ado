@@ -105,7 +105,7 @@ program define _boottest, rclass sortpreserve
 			local 0, `options'
 			syntax, [SVMat(string) *]
 			if !inlist(`"`svmat'"', "numer", "t", "") {
-				di as err "option " as inp "svmat(" `svmat' ")" as err " not allowed."
+				di as err "option " as res "svmat(" `svmat' ")" as err " not allowed."
 				error 198
 			}
 			if "`svmat'" == "" local svmat `_svmat'
@@ -665,8 +665,8 @@ program define _boottest, rclass sortpreserve
 		di
 		if `reps' di as txt strproper("`boottype'") " bootstrap-`statistic', null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
-		if "`cluster'"!="" di ", clustering by " as inp "`cluster'" _c
-		if ("`bootcluster'"!="" | `Nclustvars' > 1) & `reps' di as txt ", bootstrap clustering by " as inp "`bootcluster'" _c
+		if "`cluster'"!="" di ", clustering by " as res "`cluster'" _c
+		if ("`bootcluster'"!="" | `Nclustvars' > 1) & `reps' di as txt ", bootstrap clustering by " as res "`bootcluster'" _c
 		if `reps'	di as txt ", " strproper("`weighttype'") " weights" _c
 		di as txt ":"
 		
