@@ -446,6 +446,19 @@ Please cite: {p_end}
 {p 8 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2019. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal} 19(1): 
 4-60. DOI: 10.1177/1536867X19830877.{p_end}
 
+{title:Errata}
+{p 4}Appendix A of Roodman et al. (2019) contains these small errors:
+
+{p 4 6 0}
+* In the second expression in (60), the colsum() operator should be inside the sum operation rather than outside. The {bf:J}{it:c} matrices differ in height and so are
+not conformable before colsum() is applied.
+
+{p 4 6 0}
+* In the second term of (64), the second {it:c} subscript needs a * superscript, just as in (62).
+
+{p 4 6 0}
+* In appendix A.2, the mathematical statement of linearity, {bf:P+Qr}, is technically incorrect, because it is meant to represent a linear map from vectors to matrices,
+not merely vectors to vectors. A more precise expression is invvec({bf:P+Qr}), where invvec represents the inverse of vectorization.
 
 {title:Donate?}
 
