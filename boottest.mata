@@ -53,7 +53,7 @@ class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolate, interpolate_e
-	real matrix KK, VR0, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, eZVR0, dedr, numer0, dnumerdr, SewtXV
+	real matrix VR0, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, eZVR0, dedr, numer0, dnumerdr, SewtXV
 	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridstart, gridstop, gridpoints, statNumer, numersum, r00, e0
 	real rowvector peak
 	string scalar wttype, madjtype, seed
@@ -63,12 +63,12 @@ class boottestModel {
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct structboottestClust colvector Clust
 	pointer (struct structboottestClust scalar) scalar pBootClust
-	struct smatrix matrix denom, Kcd, Kcd0, dKcddr
+	struct smatrix matrix KK, denom, Kcd, KJcd0, denom0, ddenomdr, ddenomdr2
 	struct smatrix colvector Kd, XZi, eZi, euZVR0, betadev
 	pointer(struct smatrix matrix) scalar pJcd
 	struct structFE rowvector FEs
 
-	void new(), setsqrt(), boottest(), makeDistCDR(), plot(), contourplot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
+	void new(), setsqrt(), boottest(), makeDistCDR(), makeKK(), makeJ(), plot(), contourplot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(), 
 		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), setptol(), 
 		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeStuffLinearInr0(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), _st_view(), setstattype(), Initialize()
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), makeNonWRENumers(), makeWREStats()
@@ -660,7 +660,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 
     purerobust = NClustVar & (scoreBS | subcluster)==0 & NBootClust==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
     granular   = NClustVar & scoreBS==0 & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
-    doKK = granular==0 & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs) // estimate compute time for U :* (sum_c KK) * U vs. sum_c(colsum((J_c*U):*(J_c*U)))
+    doKK = MaxMatSize<. | (granular==0 & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs)) // estimate compute time for U :* (sum_c KK) * U vs. sum_c(colsum((J_c*U):*(J_c*U)))
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
@@ -802,7 +802,9 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     if (WREnonAR==0 & robust) {
       if (reps) Kd = smatrix(df)
       Kcd = smatrix(NErrClustCombs, df)
-      if (doKK==0 & reps)
+      if (doKK)
+        KK = smatrix(df, df)
+      else if (reps)
         pJcd = &smatrix(NErrClustCombs, df)
     }
   }
@@ -872,7 +874,9 @@ void boottestModel::boottest() {
 
 	if (initialized==0) Initialize()
 
-	makeStuffLinearInr0()  // make stuff that depends linearly on r0 and doesn't depend on u, possibly by interpolating
+	makeStuffLinearInr0()  // make stuff that depends linearly on r0, possibly by interpolating
+
+  if (doKK & interpolate==0) makeKK()
 
 	if (NWeightGrps > 1)
 		rseed(seed)
@@ -1044,18 +1048,17 @@ void boottestModel::makeStuffLinearInr0() {
   if (interpolate) {
    	theta = *pr0 - r00
     if (interpolate_e) pe = &(e0 + dedr * theta)
-    if (rows(*pr0)==1) {
-      numer = numer0 + dnumerdr * theta
-      for (c=rows(Kcd);c;c--)
-        for (d=cols(Kcd);d;d--)
-          Kcd[c,d].M = Kcd0[c,d].M + dKcddr[c,d].M * theta
-    } else {
-      numer = numer0 + colshape(dnumerdr * theta, cols(numer))
-      for (c=rows(Kcd);c;c--)
-        for (d=cols(Kcd);d;d--)
-          Kcd[c,d].M = Kcd0[c,d].M + colshape(dKcddr[c,d].M * theta, cols(Kcd[c,d].M))
-    }
+    numer = numer0 + (rows(*pr0)==1? dnumerdr * theta : colshape(dnumerdr * theta, cols(numer)))
     statNumer = numer[,1]
+    
+if (df==1 & null) {
+    for (c=df;c;c--)
+      for (d=c;d;d--)
+        if (doKK)
+          KK[c,d].M    = denom0[c,d].M + ddenomdr[c,d].M * theta + ddenomdr2[c,d].M * (theta * theta)
+        else
+          denom[c,d].M = denom0[c,d].M + ddenomdr[c,d].M * theta + ddenomdr2[c,d].M * (theta * theta)
+}
     return
   }
 
@@ -1186,8 +1189,31 @@ void boottestModel::makeStuffLinearInr0() {
       }
     }
   }
+
+  makeJ()  // compute J = K * u; if NWeightGrps > 1, then this is for 1st group
 }
 
+// prep K'K-based denominator computation loop
+void boottestModel::makeKK() {
+  real scalar i, j, c; real matrix t
+  if (robust & GMM==0)
+    for (i=df;i;i--)
+      for (j=i;j;j--) {
+        c = NErrClustCombs
+        KK[i,j].M = cross(Kcd[c,i].M, Kcd[c,j].M); if (Clust[c].multiplier!=1)                              KK[i,j].M = KK[i,j].M * Clust[c].multiplier
+        for (c--;c;c--) {
+                t = cross(Kcd[c,i].M, Kcd[c,j].M); if (Clust[c].multiplier!=1) t = t * Clust[c].multiplier; KK[i,j].M = KK[i,j].M + t
+        }
+      }
+}
+
+void boottestModel::makeJ() {
+  real scalar c, d
+  if (robust & GMM==0 & doKK==0 & reps)
+    for (c=NErrClustCombs; c>granular; c--)
+      for (d=df;d;d--)
+        (*pJcd)[c,d].M = Kcd[c,d].M * u
+}
 
 real scalar boottestModel::makeNonWRENumers() {
   if (initialized & null==0) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
@@ -1204,17 +1230,9 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 	if (robust & GMM==0) {
     if (doKK)  // core denominator computation loop
 			for (i=df;i;i--)
-				for (j=i;j;j--) {
-					if (df>1 | thisWeightGrpStart==1) {  // when df=1, only compute KK in first weight group, since doesn't depend on u; could do same for all KK[i,j]'s when df>1, but if we're grouping weights, we're worrying about space over speed
-						c = NErrClustCombs
-						KK = cross(Kcd[c,i].M, Kcd[c,j].M); if (Clust[c].multiplier!=1) KK = KK * Clust[c].multiplier
-						for (c--;c;c--) {
-							t = cross(Kcd[c,i].M, Kcd[c,j].M); if (Clust[c].multiplier!=1) t = t * Clust[c].multiplier; KK = KK + t
-						}
-					}
-					denom[i,j].M = colsum(u :* KK * u)  // (60), 2nd version
-				}
-		else {  // alternative core computational loop, avoiding computing K'K which has cubic time cost in numbers of bootstrapping clusters
+				for (j=i;j;j--)
+					denom[i,j].M = colsum(u :* KK[i,j].M * u)  // (60), 2nd version
+		else if (!(interpolate & df==1)) {  // alternative core computational loop, avoiding computing K'K which has cubic time cost in numbers of bootstrapping clusters
 			if (reps) {
 				if (granular)  // prep optimized treatment when bootstrapping by many/small groups
 					if (purerobust) {
@@ -1229,9 +1247,8 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 							for (d=df;d;d--)
 								(*pJcd)[1,d].M = _panelsum(_panelsum(*pe, pM->WZVR0[d].M, *pinfoAllData) :* u[IDBootAll,], infoErrAll) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev[g].M
 					}
-				for (c=NErrClustCombs; c>granular; c--)
-					for (d=df;d;d--)
-						(*pJcd)[c,d].M = Kcd[c,d].M * u
+				if (g > 1)
+          makeJ()
 			} else  // if reps = 0, Kcd already multiplied by u, which is all 1's
 				pJcd = &Kcd
 
@@ -1399,7 +1416,7 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot() {
-	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth; real colvector lo, hi, _Dist; pointer (real colvector) scalar _pr0
+	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth; real colvector lo, hi, _Dist; pointer (real colvector) scalar _pr0; pointer(struct smatrix matrix) scalar pKJcd; real matrix dKJcddr, t1, t2
 
 	_quietly = quietly
   _Dist = Dist
@@ -1407,10 +1424,19 @@ void boottestModel::plot() {
 	boottest() // run in order to get true number of replications
 
 	if (repsFeas | reps==0) {
-    if (WREnonAR == 0) { // if estimator is linear in sense of appendix A.2, prepare to store elements of two interpolation points
+    if (WREnonAR == 0 & null) { // if estimator is linear in sense of appendix A.2, prepare to store elements of two interpolation points
       r00 = *pr0
-      numer0 = this.numer
-      Kcd0 = this.Kcd
+      numer0 = numer
+      if (robust & GMM==0) {
+        if (doKK) {
+          pKJcd = &Kcd  // interpolate K matrices
+          denom0 = KK
+        } else {
+          pKJcd = pJcd  // interpolate J matrices
+          denom0 = denom
+        }
+        KJcd0 = *pKJcd
+      }
       if (interpolate_e) e0 = *pe
     }
 
@@ -1465,17 +1491,53 @@ void boottestModel::plot() {
 			hi = gridstop [1]
 		}
 
-    if (WREnonAR==0) {
+    if (WREnonAR==0 & null) {
       t = AR? ARTrialHalfWidth : 3 * sqrt(statDenom)
       pr0 = &(r00 + t)
       makeStuffLinearInr0()
 
-      if (interpolate_e) dedr = (*this.pe - e0) / t
-      dnumerdr = (this.numer - numer0) / t
-      dKcddr = smatrix(rows(Kcd),cols(Kcd))
-      for (c=rows(Kcd);c;c--)
-        for (d=cols(Kcd);d;d--)
-          dKcddr[c,d].M = (this.Kcd[c,d].M - Kcd0[c,d].M) / t
+      if (interpolate_e) dedr = (*pe - e0) / t
+
+      dnumerdr = (numer - numer0) / t
+
+      if (robust & GMM==0) {  // prepare to interpolate denominators
+        dKJcddr = smatrix(rows(Kcd),cols(Kcd))  // will become unnecessary?
+        ddenomdr = ddenomdr2 = smatrix(df,df)
+        c = rows(KJcd0)
+        dKJcddr = ((*pKJcd)[c].M - KJcd0[c].M) / t  // will become unnecessary?
+
+        if (doKK) {
+          ddenomdr.M  = cross(KJcd0[c].M , dKJcddr)
+          ddenomdr2.M = cross(dKJcddr    , dKJcddr)
+          ddenomdr.M  = ddenomdr.M + ddenomdr.M'  // Kcheck'Khat + Khat'Kcheck
+        } else {
+          ddenomdr.M  = colsum(KJcd0[c].M :* dKJcddr)
+          ddenomdr2.M = colsum(dKJcddr    :* dKJcddr)
+          ddenomdr.M  = ddenomdr.M + ddenomdr.M
+        }
+        if (Clust[c].multiplier != 1) {
+          ddenomdr.M  = ddenomdr.M  * Clust[c].multiplier
+          ddenomdr2.M = ddenomdr2.M * Clust[c].multiplier
+        }
+        for (c--;c;c--) {
+          dKJcddr = ((*pKJcd)[c].M - KJcd0[c].M) / t
+          if (doKK) {
+            t1 = cross(  KJcd0[c].M , dKJcddr)
+            t2 = cross(dKJcddr , dKJcddr)
+            t1 = t1 + t1'  // Kcheck'Khat + Khat'Kcheck
+          } else {
+            t1 = colsum(KJcd0[c].M :* dKJcddr)
+            t2 = colsum(dKJcddr    :* dKJcddr)
+            t1 = t1 + t1
+          }
+          if (Clust[c].multiplier != 1) {
+            t1 = t1 * Clust[c].multiplier
+            t2 = t2 * Clust[c].multiplier
+          }
+          ddenomdr.M  = ddenomdr.M  + t1
+          ddenomdr2.M = ddenomdr2.M + t2
+        }
+      }
       interpolate = 1
     }
 
@@ -1548,7 +1610,7 @@ void boottestModel::plot() {
 }
 
 void boottestModel::contourplot() {
-	real scalar t, _quietly, i, c, d; real colvector lo, hi, _Dist, _e; pointer (real colvector) scalar _pr0; real matrix _numer; struct smatrix matrix _Kcd
+	real scalar t, _quietly, i, c, d; real colvector lo, hi, _Dist, _e; pointer (real colvector) scalar _pr0; real matrix _numer, dKJcddr; struct smatrix matrix _Kcd
 
 	_quietly = quietly
 	boottest()
@@ -1557,15 +1619,11 @@ void boottestModel::contourplot() {
 	_pr0 = pr0
 
   if (WREnonAR == 0) { // if estimator is linear in sense of appendix A.2, prepare to store elements of two interpolation points
-    r00 = *this.pr0
+    r00 = *pr0
     if (interpolate_e) e0 = *pe
-    numer0 = this.numer
-    if (cols(Kcd)) {
-    	Kcd0 = smatrix(NErrClustCombs, 2)
-      for (c=NErrClustCombs; c; c--)
-        for (d=2;d;d--)
-          Kcd0[c,d].M = this.Kcd[c,d].M
-    }
+    numer0 = numer
+    if (cols(Kcd))
+    	KJcd0 = Kcd
   }
 
 	_editmissing(gridpoints, 25)
@@ -1597,25 +1655,25 @@ void boottestModel::contourplot() {
     t = 3 * sqrt(statDenom[1,1])
     pr0 = &(r00[1] + t \ r00[2])
     makeStuffLinearInr0()
-    if (interpolate_e) (dedr = J(length(e0), 2, .))[,1] = (*this.pe - e0) / t
-    _numer = colshape(this.numer, 1)
+    if (interpolate_e) (dedr = J(length(e0), 2, .))[,1] = (*pe - e0) / t
+    _numer = colshape(numer, 1)
     (dnumerdr = J(length(_numer), 2, .))[,1] = (_numer - colshape(numer0, 1)) / t
-    dKcddr = smatrix(rows(Kcd), cols(Kcd))  // 2 = df
+    dKJcddr = smatrix(rows(Kcd), cols(Kcd))  // 2 = df
     for (c=rows(Kcd); c; c--)
       for (d=cols(Kcd);d;d--)
-        (dKcddr[c,d].M  = J(rows(Kcd[c,d].M) * cols(Kcd[c,d].M), 2, .))[,1] = colshape(Kcd[c,d].M - Kcd0[c,d].M, 1) / t
+        (dKJcddr  = J(rows(Kcd[c,d].M) * cols(Kcd[c,d].M), 2, .))[,1] = colshape(Kcd[c,d].M - KJcd0[c,d].M, 1) / t
 
     _e = *pe
-    _Kcd = this.Kcd
+    _Kcd = Kcd
 
     t = 3 * sqrt(statDenom[2,2])
     pr0 = &(r00 + 3 * sqrt(diagonal(statDenom)))
     makeStuffLinearInr0()
-    if (interpolate_e) dedr[,2] = (*this.pe - _e) / t
-    dnumerdr[,2] = (colshape(this.numer, 1) - _numer) / t
+    if (interpolate_e) dedr[,2] = (*pe - _e) / t
+    dnumerdr[,2] = (colshape(numer, 1) - _numer) / t
     for (c=rows(Kcd); c; c--)
       for (d=cols(Kcd);d;d--)
-        dKcddr[c,d].M[,2] = colshape(Kcd[c,d].M - _Kcd[c,d].M, 1) / t
+        dKJcddr[,2] = colshape(Kcd[c,d].M - _Kcd[c,d].M, 1) / t
 
     interpolate = 1
   }
