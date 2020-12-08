@@ -917,7 +917,7 @@ void boottestModel::makeBootstrapcDenom(real scalar thisWeightGrpStart, real sca
 		statDenom = statDenom + numer * numer'
 		numersum = numersum + rowsum(numer)
 	}
-	if (thisWeightGrpStop==reps+1) {  // last weight group?
+	if (thisWeightGrpStop > reps) {  // last weight group?
 		numersum = rowsum(numer) - statNumer
 		statDenom = (numer * numer' - statNumer * statNumer' - numersum * numersum' / reps) / reps
 		Dist = (sqrt? numer:/sqrt(statDenom) : colsum(numer :* boottest_lusolve(statDenom, numer)))'
@@ -970,6 +970,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 
 	if (initialized & null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r0
 		numer[,1] = *pR0 * pM_Repl->beta - *pr0
+    statNumer = u_sd == 1? numer[,1] : numer[,1] / u_sd
 		Dist[1] = df==1? numer[1] / sqrt(denom.M) : numer[,1] ' boottest_lusolve(denom.M, numer[,1])
 		return(1)  // no need to continue calc
 	}
@@ -1112,6 +1113,7 @@ void boottestModel::makeStuffLinearInr0() {
 
   if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
   else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+
   statNumer = numer[,1]
 
   if (robust & GMM==0 & granular < NErrClustCombs) {
@@ -1189,15 +1191,12 @@ void boottestModel::makeStuffLinearInr0() {
 
 real scalar boottestModel::makeNonWRENumers() {
   if (initialized & null==0) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
-		Dist[1] = df==1? statNumer / sqrt(statDenom) : statNumer ' boottest_lusolve(statDenom, statNumer)
+    statNumer = u_sd == 1? numer[,1] : numer[,1] / u_sd
+		Dist[1] = df==1? numer[1] / sqrt(denom.M[1]) : numer[1,] ' boottest_lusolve(denom.M[1], numer[1,])
 		return(1)  // skip rest of calc
 	}
   return(0)
 }
-
-
-
-
 
 void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar pVR0
@@ -1225,7 +1224,7 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 						if (NFE) {
             	eu = *M_DGP.partialFE(&(*pe :* u[IDBootData,]))
 							for (d=df;d;d--)
-								(*pJcd)[1,d].M = _panelsum(eu, pM->WZVR0[d].M, *pinfoErrData)                                          - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev[g].M
+								(*pJcd)[1,d].M = _panelsum(eu,            pM->WZVR0[d].M, *pinfoErrData)                               - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev[g].M
 						} else
 							for (d=df;d;d--)
 								(*pJcd)[1,d].M = _panelsum(_panelsum(*pe, pM->WZVR0[d].M, *pinfoAllData) :* u[IDBootAll,], infoErrAll) - _panelsum(*pX, pM->WZVR0[d].M, *pinfoErrData) * betadev[g].M
@@ -1477,7 +1476,6 @@ void boottestModel::plot() {
       for (c=rows(Kcd);c;c--)
         for (d=cols(Kcd);d;d--)
           dKcddr[c,d].M = (this.Kcd[c,d].M - Kcd0[c,d].M) / t
-
       interpolate = 1
     }
 
@@ -1501,7 +1499,7 @@ void boottestModel::plot() {
 		printf("{txt}")
 		for (i = rows(plotX); i; i--) {
 			plotY[i] = r0_to_p(plotX[i])
-			if (_quietly==0) {
+      if (_quietly==0) {
 				printf(".")
 				if (mod(i-rows(plotX)-1, 50)) displayflush()
 					else printf("\n")
