@@ -892,12 +892,10 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 // main routine
 void boottestModel::boottest() {
 	real scalar g
-timer_on(1)
+
 	if (initialized==0) Initialize()
-timer_off(1)
-timer_on(2)
+
 	makeStuffLinearInr0()  // make stuff that depends linearly on r0, possibly by interpolating
-timer_off(2)
 
   if (doKK & interpolate==0 & WREnonAR==0) makeKK()
 
@@ -917,11 +915,7 @@ timer_off(2)
 			if (makeNonWRENumers())
 				return
 			if (bootstrapt)
-{
-timer_on(5)
-					makeNonWREStats(g, WeightGrpStart[g], WeightGrpStop[g])
-timer_off(5)
-}
+				makeNonWREStats(g, WeightGrpStart[g], WeightGrpStop[g])
 			else
 				makeBootstrapcDenom(WeightGrpStart[g], WeightGrpStop[g])
 		}
@@ -1102,7 +1096,6 @@ void boottestModel::makeStuffLinearInr0() {
     pe = &(pM->e)
   }
 	if (WREnonAR) return
-timer_on(22)
 
   if (initialized==0 | null) {  // if are imposing null or we are not, but this is first call, then build stuff
     if (ML)
@@ -1120,19 +1113,14 @@ timer_on(22)
       SewtXV = *pM->pV * (*pt)'
     }
   }
-timer_off(22)
-timer_on(23)
 
 	if (initialized==0 | null) {  // if are imposing null or we are not, but this is first call, then build numerators
     if (NWeightGrps == 1)
       if (scoreBS)
         numer = reps? cross(SewtXV, u) : SewtXV * u_sd
       else if (robust==0 | granular)
-{
-timer_on(24)
-	        numer = *pR0 * (betadev.M = SewtXV * u)
-timer_off(24)
-}      else
+	      numer = *pR0 * (betadev.M = SewtXV * u)
+      else
         numer = (*pR0 * SewtXV) * u
     else
       if (scoreBS)
@@ -1145,7 +1133,6 @@ timer_off(24)
         for (g=NWeightGrps; g; g--)
 	        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = (*pR0 * SewtXV) * u
   }
-timer_off(23)
 
   if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
   else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
