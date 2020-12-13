@@ -54,14 +54,14 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 
 class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
-		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, cuepoint, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, dH0, ///
+		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, confpeak, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, dH0, ///
 		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolate, interpolate_e, interpolate_denom
 	real matrix VR0, numer, u, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, eZVR0, SewtXV, numer0
-	real colvector Dist, DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridstart, gridstop, gridpoints, statNumer, numersum, r00, e0
+	real colvector DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridstart, gridstop, gridpoints, numersum, r00, e0
 	real rowvector peak
 	string scalar wttype, madjtype, seed
 	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoAllData, pinfoErrData
-	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV, pe
+	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV, pe, pDist
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct structboottestClust colvector Clust
@@ -79,7 +79,7 @@ class boottestModel {
   private void makeKK(), makeJ(), _clustAccum()
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), makeNonWRENumers(), makeWREStats()
 	real matrix getplot(), getCI(), getV(), getv()
-  private real matrix combs(), count_binary(), crosstab()
+  private real matrix combs(), count_binary(), crosstab() /*, QuarticRoots()*/
 	real rowvector getpeak()
 	real colvector getdist(), stableorder(), getb()
 }
@@ -294,7 +294,7 @@ void boottestModel::new() {
 	twotailed = null = dirty = willplot = u_sd = bootstrapt = 1
 	level = 95
   ptol = 1e-6
-	cuepoint = MaxMatSize = .
+	confpeak = MaxMatSize = .
 	pXEnd = pXEx = pZExcl = pY = pSc = pID = pFEID = pR = pR0 = pwt = &J(0,0,0)
 	pr = pr0 = &J(0,1,0)
 	IDBootData = .
@@ -309,7 +309,7 @@ void boottestModel::setdirty(real scalar _dirty, | real scalar noinitialize) {
 void boottestModel::setsqrt(real scalar _sqrt) {
 	if (_sqrt < sqrt) {
 		if (dirty==0) {
-    	Dist = Dist :* Dist
+    	pDist = &(*pDist :* *pDist)
       multiplier = multiplier * multiplier
     }
 	} else
@@ -462,8 +462,8 @@ void boottestModel::makeDistCDR(| string scalar diststat) {
 		pnumer = u_sd==1? &numer : &(numer / u_sd)
 		_sort( DistCDR = (*pnumer)[|2\.|]' :+ *pr0 , 1)
 	} else if (rows(DistCDR)==0)
-		if (rows(Dist)>1)
-			_sort( DistCDR=Dist[|2\.|] , 1)
+		if (rows(*pDist)>1)
+			_sort( DistCDR=(*pDist)[|2\.|] , 1)
 		else
 			DistCDR = J(0,1,0)
 }
@@ -472,18 +472,18 @@ void boottestModel::makeDistCDR(| string scalar diststat) {
 real scalar boottestModel::getp(|real scalar classical) {
 	real scalar t
 	if (dirty) boottest()
-	t = Dist[1]
+	t = (*pDist)[1]
 	if (t == .) return (.)
 	if (reps & classical==.)
 		if (sqrt & ptype != 3) {
 			if (ptype==0)
-					p = colsum(-abs(t):>-abs(Dist)) / repsFeas  // symmetric p value; do so as not to count missing entries in Dist
+					p = colsum(-abs(t) :> -abs(*pDist)) / repsFeas  // symmetric p value; do so as not to count missing entries in Dist
 			else if (ptype==1)  // equal-tail p value
-				p = 2*min((colsum(t:>Dist) , colsum(-t:>-Dist))) / repsFeas
+				p = 2 * min((colsum(t :> *pDist) , colsum(-t:>- *pDist))) / repsFeas
 			else
-				p = colsum( t:> Dist) / repsFeas  // lower-tailed p value
+				p = colsum( t :>   *pDist) / repsFeas  // lower-tailed p value
 		} else
-				p = colsum(-t:>-Dist) / repsFeas  // upper-tailed p value or p value based on squared stats
+				p = colsum(-t :> - *pDist) / repsFeas  // upper-tailed p value or p value based on squared stats
 	else {
 		t = t * multiplier
     p = small? Ftail(df, df_r, sqrt? t*t : t) : chi2tail(df, sqrt? t*t : t)
@@ -497,12 +497,16 @@ real scalar boottestModel::getp(|real scalar classical) {
 }
 
 // numerator for full-sample test stat
-real colvector boottestModel::getb()
-	return(statNumer)
+real colvector boottestModel::getb() {
+	if (dirty) boottest()
+	return(u_sd == 1? numer[,1] : numer[,1] / u_sd)
+}
 
 // denominator for full-sample test stat
-real matrix boottestModel::getV()
-	return(statDenom / ((sqrt? multiplier*multiplier : multiplier) * df))
+real matrix boottestModel::getV() {
+	if (dirty) boottest()
+	return (statDenom / ((u_sd == 1? smallsample : u_sd * u_sd * smallsample)  * (sqrt? multiplier*multiplier : multiplier) * df))
+}
 
 // wild weights
 real matrix boottestModel::getv()
@@ -526,7 +530,7 @@ real scalar boottestModel::getpadj(|real scalar classical) {
 
 real scalar boottestModel::getstat() {
 	if (dirty) boottest()
-	return(multiplier * Dist[1])
+	return(multiplier * (*pDist)[1])
 }
 real scalar boottestModel::getdf() {
 	if (dirty) boottest()
@@ -561,12 +565,12 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 // replace X with Y if c=1; otherwise add it
 void boottestModel::_clustAccum(real matrix X, real scalar c, real matrix Y)
   X = c == 1?
-       (Clust.   even?
-         (Clust.   multiplier != 1?   Clust.   multiplier  * Y :  Y) :
-         (Clust.   multiplier != 1? (-Clust.   multiplier) * Y : -Y)) :
-       (Clust[c].even?
-         (Clust[c].multiplier != 1?   Clust[c].multiplier  * Y :  Y) :
-         (Clust[c].multiplier != 1? (-Clust[c].multiplier) * Y : -Y))
+          (Clust.   even?
+            (Clust.   multiplier != 1?   Clust.   multiplier  * Y :  Y) :
+            (Clust.   multiplier != 1? (-Clust.   multiplier) * Y : -Y)) :
+      X + (Clust[c].even?                
+            (Clust[c].multiplier != 1?   Clust[c].multiplier  * Y :  Y) :
+            (Clust[c].multiplier != 1? (-Clust[c].multiplier) * Y : -Y))
 
 void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
   real colvector sortID, o, _FEID
@@ -635,7 +639,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 
       for (c=1; c<=NErrClustCombs; c++) {  // for each error clustering combination
         ClustCols = subcluster :+ boottest_selectindex(Combs[c,])
-        Clust.even = mod(cols(ClustCols),2)
+        Clust[c].even = mod(cols(ClustCols),2)
 
         if (c == 1)
           if (subcluster) {
@@ -789,7 +793,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
         M_DGP.SetS(S)  // no-null model in DGP
         M_DGP.InitEstimate()
         M_DGP.Estimate(s)
-        cuepoint = *pR0 * M_DGP.beta - *pr0  // not true CUE estimate unless classical errors, but serves same purpose as weakiv cuepoint option
+        confpeak = *pR0 * M_DGP.beta  // estimated coordinate of confidence peak
       }
       pR0 = &(J(cols(*pZExcl),kEx,0), I(cols(*pZExcl)))  // for AR test, picks out coefs on excluded exogenous variables
     }
@@ -877,7 +881,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
   }
 
   if (bootstrapt & (WREnonAR | df>1 | MaxMatSize<.)) // unless nonWRE or df=1 or splitting weight matrix, code will create Dist element-by-element, so pre-allocate vector now
-    Dist = J(reps+1, 1, .)
+    pDist = &J(reps+1, 1, .)
   if (NWeightGrps>1 | WREnonAR | (null==0 & df<=2))
     numer = J(df, reps+1, .)
     
@@ -888,10 +892,12 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 // main routine
 void boottestModel::boottest() {
 	real scalar g
-
+timer_on(1)
 	if (initialized==0) Initialize()
-
+timer_off(1)
+timer_on(2)
 	makeStuffLinearInr0()  // make stuff that depends linearly on r0, possibly by interpolating
+timer_off(2)
 
   if (doKK & interpolate==0 & WREnonAR==0) makeKK()
 
@@ -910,20 +916,18 @@ void boottestModel::boottest() {
 		} else {
 			if (makeNonWRENumers())
 				return
-			if (bootstrapt==0)
-				makeBootstrapcDenom(WeightGrpStart[g], WeightGrpStop[g])
+			if (bootstrapt)
+{
+timer_on(5)
+					makeNonWREStats(g, WeightGrpStart[g], WeightGrpStop[g])
+timer_off(5)
+}
 			else
-				makeNonWREStats(g, WeightGrpStart[g], WeightGrpStop[g])
+				makeBootstrapcDenom(WeightGrpStart[g], WeightGrpStop[g])
 		}
 	}
 
-	if (u_sd != 1) {
-		statNumer = statNumer /  u_sd
-		statDenom = statDenom / (u_sd * u_sd * smallsample)
-	} else
-		statDenom = statDenom / smallsample
-
-	repsFeas = Dist[1]==.? 0 : colnonmissing(Dist) - 1
+	repsFeas = (*pDist)[1]==.? 0 : colnonmissing(*pDist) - 1
 	DistCDR = J(0,0,0)
 	setdirty(0)
 	initialized = 1
@@ -931,17 +935,18 @@ void boottestModel::boottest() {
 
 // compute bootstrap-c denominator from all bootstrap numerators
 void boottestModel::makeBootstrapcDenom(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
-	if (thisWeightGrpStart == 1) {
-		statDenom = numer * numer' - statNumer * statNumer'
-		numersum = rowsum(numer) - statNumer
+	real colvector t
+  if (thisWeightGrpStart == 1) {
+		t = numer[,1]
+    statDenom = numer * numer' - t * t'
+		numersum = rowsum(numer) - t
 	} else {
 		statDenom = statDenom + numer * numer'
 		numersum = numersum + rowsum(numer)
 	}
 	if (thisWeightGrpStop > reps) {  // last weight group?
-		numersum = rowsum(numer) - statNumer
-		statDenom = (numer * numer' - statNumer * statNumer' - numersum * numersum' / reps) / reps
-		Dist = (sqrt? numer:/sqrt(statDenom) : colsum(numer :* boottest_lusolve(statDenom, numer)))'
+		statDenom = (statDenom - numersum * numersum' / reps) / reps
+		pDist = &((sqrt? numer:/sqrt(statDenom) : colsum(numer :* boottest_lusolve(statDenom, numer)))')
 	}
 }
 
@@ -991,8 +996,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 
 	if (initialized & null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r0
 		numer[,1] = *pR0 * pM_Repl->beta - *pr0
-    statNumer = u_sd == 1? numer[,1] : numer[,1] / u_sd
-		Dist[1] = df==1? numer[1] / sqrt(denom.M) : numer[,1] ' boottest_lusolve(denom.M, numer[,1])
+		(*pDist)[1] = df==1? numer[1] / sqrt(denom.M) : numer[,1] ' boottest_lusolve(denom.M, numer[,1])
 		return(1)  // no need to continue calc
 	}
 
@@ -1044,15 +1048,12 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
- 			Dist[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
+ 			(*pDist)[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
 		}
 		numer[,j+thisWeightGrpStart-1] = numer_j  // slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 	}
 
-	if (thisWeightGrpStart == 1) {
-		statNumer = numer_j
-		if (bootstrapt) statDenom = denom.M  // original-sample denominator
-	}
+	if (thisWeightGrpStart==1 & bootstrapt) statDenom = denom.M  // original-sample denominator
 
 	return(0)  // don't skip remaining calcs in calling procedure
 }
@@ -1064,36 +1065,26 @@ void boottestModel::makeStuffLinearInr0() {
 
   if (interpolate) {
    	Delta = *pr0 - r00
-    numer = numer0 + dnumerdr[1].M * Delta[1]; if (dH0 > 1) numer = numer + dnumerdr[2].M * Delta[2]
-    statNumer = numer[,1]
+    numer = numer0 + dnumerdr.M * Delta[1]; if (dH0 > 1) numer = numer + dnumerdr[2].M * Delta[2]
 
     if (interpolate_e) {
-    	pe = &(e0 + dedr[1].M * Delta[1]); if (dH0 > 1) pe = &(*pe + dedr[2].M * Delta[2])
+    	pe = &(e0 + dedr.M * Delta[1]); if (dH0 > 1) pe = &(*pe + dedr[2].M * Delta[2])
     }
 
     if (interpolate_denom)
       if (dH0==1)
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
-            if (doKK)
-              KK   [d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
-            else                                         
-              denom[d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
-      else
+            (doKK? KK : denom)[d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
+      else  // dH0==2
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
-            if (doKK)
-              KK   [d1,d2].M = denom0[d1,d2].M + ddenomdr[1].M[d1,d2].M * Delta[1] + 
-                                                 ddenomdr[2].M[d1,d2].M * Delta[2] + 
-                                                 ddenomdr2[1,1].M[d1,d2].M * (Delta[1] * Delta[1]) + 
-                                                 ddenomdr2[2,1].M[d1,d2].M * (Delta[1] * Delta[2]) + 
-                                                 ddenomdr2[2,2].M[d1,d2].M * (Delta[2] * Delta[2])
-            else                                         
-              denom[d1,d2].M = denom0[d1,d2].M + ddenomdr[1].M[d1,d2].M * Delta[1] + 
-                                                 ddenomdr[2].M[d1,d2].M * Delta[2] + 
-                                                 ddenomdr2[1,1].M[d1,d2].M * (Delta[1] * Delta[1]) + 
-                                                 ddenomdr2[2,1].M[d1,d2].M * (Delta[1] * Delta[2]) + 
-                                                 ddenomdr2[2,2].M[d1,d2].M * (Delta[2] * Delta[2])
+            (doKK? KK : denom)[d1,d2].M = denom0[d1,d2].M + 
+                                          ddenomdr[1].M[d1,d2].M * Delta[1] + 
+                                          ddenomdr[2].M[d1,d2].M * Delta[2] + 
+                                          ddenomdr2[1,1].M[d1,d2].M * (Delta[1] * Delta[1]) + 
+                                          ddenomdr2[2,1].M[d1,d2].M * (Delta[1] * Delta[2]) + 
+                                          ddenomdr2[2,2].M[d1,d2].M * (Delta[2] * Delta[2])
     return
   }
 
@@ -1111,6 +1102,7 @@ void boottestModel::makeStuffLinearInr0() {
     pe = &(pM->e)
   }
 	if (WREnonAR) return
+timer_on(22)
 
   if (initialized==0 | null) {  // if are imposing null or we are not, but this is first call, then build stuff
     if (ML)
@@ -1128,14 +1120,19 @@ void boottestModel::makeStuffLinearInr0() {
       SewtXV = *pM->pV * (*pt)'
     }
   }
+timer_off(22)
+timer_on(23)
 
 	if (initialized==0 | null) {  // if are imposing null or we are not, but this is first call, then build numerators
     if (NWeightGrps == 1)
       if (scoreBS)
         numer = reps? cross(SewtXV, u) : SewtXV * u_sd
       else if (robust==0 | granular)
-        numer = *pR0 * (betadev.M = SewtXV * u)
-      else
+{
+timer_on(24)
+	        numer = *pR0 * (betadev.M = SewtXV * u)
+timer_off(24)
+}      else
         numer = (*pR0 * SewtXV) * u
     else
       if (scoreBS)
@@ -1148,11 +1145,10 @@ void boottestModel::makeStuffLinearInr0() {
         for (g=NWeightGrps; g; g--)
 	        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = (*pR0 * SewtXV) * u
   }
+timer_off(23)
 
   if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
   else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
-
-  statNumer = numer[,1]
 
   if (robust & GMM==0 & granular < NErrClustCombs) {
     peZVR0 = &_panelsum(eZVR0, *pwt, *pinfoAllData)  // collapse data to all-boot & error-cluster-var intersections. If no collapsing interpolate_ed, _panelsum() will still fold in any weights
@@ -1218,7 +1214,7 @@ void boottestModel::makeStuffLinearInr0() {
       for (c=1; c<=NErrClustCombs; c++) {
         if (rows(Clust[c].order))
           peZVR0 = &((*peZVR0)[Clust[c].order,])
-        pt = &_panelsum(*peZVR0, Clust[c].info) // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
+        pt = &_panelsum(*peZVR0, Clust[c].info)  // when c=1 (unless subcluster bootstrap), two args have same # of rows, &_panelsum() returns 1st arg by reference. Using & then prevents unnecessary cloning.
         for (d=df;d;d--)
           Kcd[c,d].M = (*pt)[,d]
       }
@@ -1242,7 +1238,7 @@ void boottestModel::makeKK() {
 
 void boottestModel::makeJ() {
   real scalar c, d
-  if (interpolate_denom & doKK==0 & reps)
+  if (doKK==0 & reps)
     for (c=NErrClustCombs; c>granular; c--)
       for (d=df;d;d--)
         (*pJcd)[c,d].M = Kcd[c,d].M * u
@@ -1250,15 +1246,14 @@ void boottestModel::makeJ() {
 
 real scalar boottestModel::makeNonWRENumers() {
   if (initialized & null==0) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
-    statNumer = u_sd == 1? numer[,1] : numer[,1] / u_sd
-		Dist[1] = df==1? numer[1] / sqrt(denom.M[1]) : numer[1,] ' boottest_lusolve(denom.M[1], numer[1,])
+		(*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' boottest_lusolve(statDenom, numer[,1])
 		return(1)  // skip rest of calc
 	}
   return(0)
 }
 
 void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
-	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar pVR0
+	real scalar d, i, c, j, l; real matrix eu, eueu, t; real colvector numer_l; pointer (real matrix) scalar pVR0; real rowvector t1, t2, t12
 
 	if (robust & GMM==0) {
     if (doKK)  // core denominator computation loop
@@ -1295,12 +1290,20 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 
 		if (df == 1) {
 			if (NWeightGrps > 1)
-				Dist[|thisWeightGrpStart \ thisWeightGrpStop|] = (numer :/ sqrt(denom.M))'
+				(*pDist)[|thisWeightGrpStart \ thisWeightGrpStop|] =   (numer :/ sqrt(denom.M))'
 			else
-				Dist                                           = (numer :/ sqrt(denom.M))'
+          pDist                                            = &((numer :/ sqrt(denom.M))')
 			if (thisWeightGrpStart==1)
 				statDenom = denom.M[1]  // original-sample denominator
-		} else {  // build each replication's denominator from vectors that hold values for each position in denominator, all replications
+		} else if (df==2) {  // hand-code 2D numer'inv(denom)*numer
+    	t1 = numer[1,]; t2 = numer[2,]; t12 = t1:*t2
+			if (NWeightGrps > 1)
+				(*pDist)[|thisWeightGrpStart \ thisWeightGrpStop|] =   ( (t1:*t1:*denom[2,2].M - (t12+t12):*denom[2,1].M + t2:*t2:*denom[1,1].M) :/ (denom[1,1].M:*denom[2,2].M - denom[2,1].M:*denom[2,1].M) )'
+			else                                                                                                                         
+          pDist                                            = &(( (t1:*t1:*denom[2,2].M - (t12+t12):*denom[2,1].M + t2:*t2:*denom[1,1].M) :/ (denom[1,1].M:*denom[2,2].M - denom[2,1].M:*denom[2,1].M) )')
+			if (thisWeightGrpStart==1)
+				statDenom = denom[1,1].M[1], denom[2,1].M[1] \ denom[2,1].M[1], denom[2,2].M[1]  // original-sample denominator
+    } else {  // build each replication's denominator from vectors that hold values for each position in denominator, all replications
 			t = J(df,df,.)
 			for (l=cols(u); l; l--) {
 				for (i=df;i;i--)
@@ -1308,7 +1311,7 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 						t[i,j] = denom[i,j].M[l]
 				_makesymmetric(t)
 				numer_l = numer[,l]
-				Dist[l+thisWeightGrpStart-1] = numer_l ' boottest_lusolve(t, numer_l)  // in degenerate cases, cross() would turn cross(.,.) into 0
+				(*pDist)[l+thisWeightGrpStart-1] = numer_l ' boottest_lusolve(t, numer_l)  // in degenerate cases, cross() would turn cross(.,.) into 0
 			}
 			if (thisWeightGrpStart==1)
 				statDenom = t  // original-sample denominator
@@ -1327,9 +1330,9 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 				denom.M = denom.M :* (weights? cross(*pwt, eu :* eu) : colsum(eu :* eu))
 			}
 			if (NWeightGrps > 1)
-				Dist[|thisWeightGrpStart \ thisWeightGrpStop|] = (numer :/ sqrt(denom.M))'
+				(*pDist)[|thisWeightGrpStart \ thisWeightGrpStop|] =   (numer :/ sqrt(denom.M))'
 			else
-				Dist                                           = (numer :/ sqrt(denom.M))'
+				  pDist                                            = &((numer :/ sqrt(denom.M))')
 			if (thisWeightGrpStart==1)
 				statDenom = denom.M[1]  // original-sample denominator
 		} else {
@@ -1338,18 +1341,18 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 			if (ML | GMM) {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
+					(*pDist)[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
 				}
 				if (thisWeightGrpStart==1)
 					statDenom = denom.M  // original-sample denominator
 			} else {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					Dist[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
+					(*pDist)[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
                        eu = reps? u[,l] :* *pe : *pe
 					if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare  // Center variance if interpolate_ed
 					        else eu = eu  - (*pXEx, *pZExcl) * betadev[g].M[,l]  // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
-					Dist[l+thisWeightGrpStart-1] = Dist[l+thisWeightGrpStart-1] / (t = cross(eu, *pwt, eu))
+					(*pDist)[l+thisWeightGrpStart-1] = (*pDist)[l+thisWeightGrpStart-1] / (t = cross(eu, *pwt, eu))
 				}
 				if (thisWeightGrpStart==1)
 					statDenom = denom.M * t  // original-sample denominator
@@ -1445,12 +1448,12 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot() {
-	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth; real colvector lo, hi, _Dist; pointer (real colvector) scalar _pr0
+	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth; real colvector lo, hi, _Dist; pointer (real colvector) scalar _pr0; real rowvector b; real matrix V
 
-	_quietly = quietly
-  _Dist = Dist
+	_quietly = quietly; _Dist = *pDist; _pr0 = pr0  // backup
 	setquietly(1)
-	boottest() // run in order to get true number of replications
+
+	if (dirty) boottest() // run in order to get true number of replications, repsFeas
 
 	if (repsFeas | reps==0) {
     if (WREnonAR == 0 & null) { // if estimator is linear in sense of appendix A.2, prepare to store elements of two interpolation points
@@ -1471,23 +1474,28 @@ void boottestModel::plot() {
 
     _editmissing(gridpoints, 25)
 
+    if (AR==0) {
+    	b = getb()
+      V = getV()
+    }
+
     if (dH0==2) {
       lo = hi = J(2, 1, .)
 
       if (AR)
-        t = abs(cuepoint) / (-2/invnormal(getpadj(1)/2))
+        ARTrialHalfWidth = abs(confpeak) / (-2/invnormal(getpadj(1)/2))
       for(d=df;d;d--) {
         if (AR) {
-          lo[d] = editmissing(gridstart[d], cuepoint[d] - t[d])
-          hi[d] = editmissing(gridstart[d], cuepoint[d] + t[d])
+          lo[d] = editmissing(gridstart[d], confpeak[d] - ARTrialHalfWidth[d])
+          hi[d] = editmissing(gridstart[d], confpeak[d] + ARTrialHalfWidth[d])
         } else {
-          lo[d] = editmissing(gridstart[d], statNumer[d] + (*pr0)[d] - 3 * sqrt(statDenom[d,d]))
-          hi[d] = editmissing(gridstop [d], statNumer[d] + (*pr0)[d] + 3 * sqrt(statDenom[d,d]))
+          lo[d] = editmissing(gridstart[d], b[d] + (*pr0)[d] - 3 * sqrt(V[d,d]))
+          hi[d] = editmissing(gridstop [d], b[d] + (*pr0)[d] + 3 * sqrt(V[d,d]))
         }
 
         stata("_natscale " + strofreal(lo[d]) + " " + strofreal(hi[d]) + " 4")
         if (gridstart[d]==.) {
-          stata("local min = r(min)")  // for some reason, st_global("r(min)") doesn't work
+          stata("local min = r(min)")  // for some reason st_global("r(min)") doesn't work
           lo[d] = strtoreal(st_local("min"))
         }
         if (gridstop[d]==.) {
@@ -1495,54 +1503,35 @@ void boottestModel::plot() {
           hi[d] = strtoreal(st_local("max"))
         }
       }
-
-      if (WREnonAR == 0 & null) {  // prep for interpolation
-        PrepInterpolation(3 * sqrt(diagonal(statDenom)))
-        interpolate = 1
-      }
-
       plotX = (rangen(lo[1], hi[1], gridpoints[1]) # J(gridpoints[2],1,1)), (J(gridpoints[1],1,1) # rangen(lo[2], hi[2], gridpoints[2]))
-      plotY = J(rows(plotX), 1, .)
-      printf("{txt}")
-      for (i = rows(plotX); i; i--) {
-        plotY[i] = r0_to_p(plotX[i,]')
-        if (_quietly==0) {
-          printf(".")
-          if (mod(i-rows(plotX)-1,50)) displayflush()
-            else printf("\n")
-        }
-      }
-      printf("\n")
 
-    } else {  // 1-D plot
+    } else {  // 1D plot
 
       alpha = 1 - level*.01
       if (alpha > 0 & cols(u)-1 <= 1/alpha-1e6) {
         setquietly(_quietly)
         if (quietly==0) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
-        return (.\.)
+        return
       }
       
-      _pr0 = pr0
-
       if (AR)
-        ARTrialHalfWidth = abs(cuepoint) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
+        ARTrialHalfWidth = abs(confpeak) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
       else
-        cuepoint = statNumer + *pr0
+        confpeak = b + *pr0
       if (gridstart[1]==. | gridstop[1]==.) {
         if (reps)
           if (AR) {
-            lo = editmissing(gridstart[1], cuepoint - ARTrialHalfWidth)
-            hi = editmissing(gridstop [1], cuepoint + ARTrialHalfWidth)
+            lo = editmissing(gridstart[1], confpeak - ARTrialHalfWidth)
+            hi = editmissing(gridstop [1], confpeak + ARTrialHalfWidth)
           } else {
             makeDistCDR()
-            lo = editmissing(gridstart[1], cuepoint + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * sqrt(statDenom)) // initial guess based on distribution from main test
-            hi = editmissing(gridstop [1], cuepoint + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * sqrt(statDenom))
+            lo = editmissing(gridstart[1], confpeak + DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * sqrt(V)) // initial guess based on distribution from main test
+            hi = editmissing(gridstop [1], confpeak + DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * sqrt(V))
           }
         else {
           t = sqrt(statDenom) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
-          lo = editmissing(gridstart[1], cuepoint - t)
-          hi = editmissing(gridstop [1], cuepoint + t)
+          lo = editmissing(gridstart[1], confpeak - t)
+          hi = editmissing(gridstop [1], confpeak + t)
           if (scoreBS & (null | willplot)==0) { // if doing simple Wald test with no graph, we're done
             CI = lo, hi
             return
@@ -1566,40 +1555,89 @@ void boottestModel::plot() {
         hi = gridstop [1]
       }
 
-      if (WREnonAR==0 & null) {  // prep interpolation
-        PrepInterpolation(AR? ARTrialHalfWidth : 3 * sqrt(statDenom))
-        interpolate = 1
-      }
-
       plotX = rangen(lo, hi, gridpoints[1])
-      if (cuepoint < lo) { // insert original point estimate into grid
+      if (confpeak < lo) { // insert original point estimate into grid
         if (gridstart[1] == .) {
-          plotX = cuepoint \ plotX
+          plotX = confpeak \ plotX
           c = 1
         }
-      } else if (cuepoint > hi) {
+      } else if (confpeak > hi) {
         if (gridstop[1] == .) {
-          plotX = plotX \ cuepoint
+          plotX = plotX \ confpeak
           c = gridpoints[1] + 1
         }
       } else {
-        c = floor((cuepoint - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
-        plotX = plotX[|.\c-1|] \ cuepoint \ plotX[|c\.|]
+        c = floor((confpeak - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
+        plotX = plotX[|.\c-1|] \ confpeak \ plotX[|c\.|]
       }
+    }  // end 1D plot
+ 
+    if (WREnonAR == 0 & null) {  // prep for interpolation
+      PrepInterpolation(AR? ARTrialHalfWidth : 3 * sqrt(diagonal(statDenom)))
+      interpolate = 1
+    }
 
-      plotY = J(rows(plotX), 1, .)
+    plotY = J(rows(plotX), 1, .)
+    
+    if (_quietly==0 & WREnonAR) {
       printf("{txt}")
       for (i = rows(plotX); i; i--) {
-        plotY[i] = r0_to_p(plotX[i])
-        if (_quietly==0) {
-          printf(".")
-          if (mod(i-rows(plotX)-1, 50)) displayflush()
-            else printf("\n")
-        }
+        plotY[i] = r0_to_p(plotX[i,]')
+        printf(".")
+        if (mod(i-rows(plotX)-1, 50)) displayflush()
+          else printf("\n")
       }
       printf("\n")
+    } else
+      for (i=rows(plotX); i; i--)
+        plotY[i] = r0_to_p(plotX[i,]')
 
-      if (level<100) {
+/* determine crossovers analytically, by solving quartic equations 
+   appealing in principle, but doesn't seem faster in practice and runs into complications such as handling cubic subcase of quartic, and judging whether a complex root
+   is actually real root with imprecision, and requiring doKK==0 approach
+
+   if (dH0==1 & level<100)
+      if (interpolate & doKK==0 & interpolate_denom) {
+real matrix roots, t0; real scalar numer0sq, numer0tw
+        numer0sq = numer0[1] * numer0[1]; numer0tw = numer0[1] + numer0[1]
+"ddenomdr2.M.M[404]"
+ ddenomdr2.M.M[404]
+        roots = QuarticRoots((dnumerdr.M[1]*dnumerdr.M[1]) * ddenomdr2.M.M,
+                             (dnumerdr.M[1]*dnumerdr.M[1]) * ddenomdr.M.M + (dnumerdr.M[1] * numer0tw) * ddenomdr2.M.M,
+                             ddenomdr2.M.M * numer0sq + (dnumerdr.M[1] * numer0tw) * ddenomdr.M.M + (dnumerdr.M[1]*dnumerdr.M[1]) * denom0.M - dnumerdr.M :* dnumerdr.M * denom0.M[1],
+                             ddenomdr.M.M  * numer0sq + (dnumerdr.M[1] * numer0tw) * denom0.M - dnumerdr.M :* numer0 * (denom0.M[1]+denom0.M[1]),
+                             numer0sq * denom0.M - numer0 :* numer0 * denom0.M[1])
+        t = (numer0 :+ dnumerdr.M :* roots) :> 0; t0 = (numer0[1] :+ dnumerdr.M[1] :* roots) :> 0
+        roots = roots :/ (t :& t0 :| (t :| t0):==0)  // annihilate quartic solutions corresponding to opposite-signed t stats
+
+        if (allof(colnonmissing(roots)[|2\.|], 1)) { // simple case of one crossing for each replication
+          roots = colmin(roots)[|2\.|]'
+/*external matrix _roots
+_roots=roots*/
+          if (ptype) {
+            _sort(roots, 1)
+            if (ptype==1)  // equal-tail p value
+              CI = roots[round(alpha*.5*reps)], roots[round((1-alpha*.5)*reps)]
+            else if (ptype==2) // lower-tailed p value
+              CI = ., roots[round((1-alpha)*reps)]
+            else  // lower-tailed p value
+              CI = roots[round(alpha*reps)], .
+          } else {  // symmetric
+            roots = sort(abs(roots :- confpeak), -1)
+            t = roots[round(alpha*reps)]
+"alpha,confpeak, mean(roots),t"
+alpha,confpeak, mean(roots),t
+            CI = confpeak - t, confpeak + t
+          }
+"CI"
+ CI
+        }
+
+"selectindex(colnonmissing(roots):!=1)\roots[,selectindex(colnonmissing(roots):!=1)]"
+ selectindex(colnonmissing(roots):!=1)\roots[,selectindex(colnonmissing(roots):!=1)]
+external real matrix _numer0,_dnumerdr,_denom0,_ddenomdr,_ddenomdr2
+_numer0=numer0; _dnumerdr=dnumerdr.M;_denom0=denom0.M;_ddenomdr=ddenomdr.M.M; _ddenomdr2=ddenomdr2.M.M
+      } else*/ {
         CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
         lo = boottest_selectindex(CI:== 1)
         hi = boottest_selectindex(CI:==-1)
@@ -1609,7 +1647,7 @@ void boottestModel::plot() {
                if (rows(lo)==0) lo = .
           else if (rows(hi)==0) hi = .
           else {
-            if ( lo[1       ] >  hi[1       ]) lo = .  \ lo // non-rejection ranges that are not bounded within grid
+            if ( lo[1       ] >  hi[1       ]) lo = .  \ lo // non-rejection ranges that are not within grid range
             if (-lo[rows(lo)] < -hi[rows(hi)]) hi = hi \ .
           }
           CI = lo, hi
@@ -1620,7 +1658,7 @@ void boottestModel::plot() {
         }
       }
 
-      if (c < .) {  // now that it's done helping find CI points, remove cuepoint from grid for evenness, for Bayesian sampling purposes
+      if (c < .) {  // now that it's done helping graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
         peak = plotX[c], plotY[c]
         if (c==1) {
           plotX = plotX[|2\.|]; plotY = plotY[|2\.|]
@@ -1630,15 +1668,46 @@ void boottestModel::plot() {
           plotX = plotX[|.\c-1|] \ plotX[|c+1\.|]; plotY = plotY[|.\c-1|] \ plotY[|c+1\.|]
         }
       }
-    }
-  } // end 1D plot
+  }
 
-	setquietly(_quietly)
-	pr0 = _pr0
-  Dist = _Dist
+	setquietly(_quietly); pr0 = _pr0; pDist = &_Dist  // restore backups
   interpolate = 0
 	plotted = 1
 }
+
+// Return real roots of quartic equation using Euler's method, mathforum.org/dr.math/faq/faq.cubic.equations.html
+// . = complex
+// modifies arguments!
+/*real matrix boottestModel::QuarticRoots(real rowvector _a, real rowvector a, real rowvector b, real rowvector c, real rowvector d) {
+  real rowvector e, f, fourg, h, i, j, a2, h2, h3; complex rowvector alpha, z1, z2, p, q, r; complex matrix x
+
+  a = a :/ _a; b = b :/ _a; c = c :/ _a; d = d :/ _a  // need to handle _a=0?
+
+	    e = b - .375*(a2=a:*a)  // substitute with y = x - b/4
+	    f = c + (.125*a2 - .5*b):*a
+	fourg = 4*d - a2:*(.046875*a2 - .25*b) - a:*c
+
+	h = .5*e  // auxilliary cubic equation
+	i = .0625*(e:*e-fourg)
+	j = -.015625*f:*f
+
+	p = (i-(h2=h:*h)/3) / 3  // substite with z = y - h/3
+	q = (((2/27)*h2-i/3):*h+j) * .5
+
+	alpha = (sqrt(C(q:*q + p:*p:*p)) - q) :^ (1/3)
+	z1 = alpha - p :/ alpha  // roots of p,q equation
+	alpha = alpha * (-.5+1.bb67ae8584cabX-001i /*exp(2i*pi()/3)*/)
+	z2 = alpha - p :/ alpha
+
+	h3 = h/3
+	p = sqrt(z1 - h3)  // square roots of roots of auxilliary cubic
+	q = sqrt(z2 - h3)
+	r = f:/(p:*q) * -.125
+
+	x = p+q+r\p-q-r\-p+q-r\-p-q+r
+	return (Re(x) :/ (abs(Im(x)):<1e-5) :- 0.25*a)
+}*/
+
 
 real matrix boottestCrossK(real matrix A, real matrix B) return(cross(A,B))
 real matrix boottestCrossJ(real matrix A, real matrix B) return(colsum(A:*B))

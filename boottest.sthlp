@@ -496,7 +496,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, ptype(equaltail) seed(987654321)} // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps{p_end}
 {phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c)} // same but bootstrap-c; drowning witch{p_end}
-{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c) gridmin(-2) gridmax(2)} // same but limit graphing bounds{p_end}
+{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c) gridmin(-2) gridmax(2)} // same but limit graphing range{p_end}
 {phang}. {stata boottest, ar} // same bootstrap, but Anderson-Rubin test (much faster){p_end}
 {phang}. {stata scoretest tenure} // Rao/LM test of same{p_end}
 {phang}. {stata waldtest tenure} // Wald test of same{p_end}
