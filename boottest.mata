@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
 	real matrix M
@@ -1097,12 +1097,13 @@ void boottestModel::makeStuffLinearInr0() {
         denom0 = doKK? KK : denom
       newAnchor = J(dH0,1,1)  // all anchors new
     } else
-    	newAnchor = abs((poles = *pr0 - anchor)) :> 2 * abs(poles)  //  been here at least twice: interpolate unless current r0 stretches range > 2X in some dimension(s)
+    	newAnchor = abs(*pr0 - anchor) :> 2 * abs(poles)  //  been here at least twice: interpolate unless current r0 stretches range > 2X in some dimension(s)
 
     if (any(newAnchor)) {  // prep interpolation
       for (h1=1;h1<=dH0;h1++)
         if (newAnchor[h1]) {
-        	(t = anchor)[h1] = anchor[h1] + poles[h1]  // if dH0>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
+        	poles[h1] = (*pr0)[h1] - anchor[h1]
+        	(t = anchor)[h1] = *pr0  // if dH0>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
 
           _makeStuffLinearInr0(t)  // calculate linear stuff at new anchor
 
@@ -1208,7 +1209,7 @@ void boottestModel::_makeStuffLinearInr0(real colvector r0) {
       if (scoreBS)
         numer = reps? cross(SewtXV, u) : SewtXV * u_sd
       else if (robust==0 | granular)
-		    numer = *pR0 * (betadev.M = SewtXV * u)
+			  numer = *pR0 * (betadev.M = SewtXV * u)
       else
         numer = (*pR0 * SewtXV) * u
     else
@@ -1594,22 +1595,22 @@ void boottestModel::plot() {
         t = sqrt(statDenom) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
         lo = editmissing(gridstart[1], confpeak - t)
         hi = editmissing(gridstop [1], confpeak + t)
-        if (scoreBS & (null | willplot)==0) { // if doing simple Wald test with no graph, we're done
+        if (scoreBS & (null | willplot)==0) {  // if doing simple Wald test with no graph, we're done
           CI = lo, hi
           return
         }
       }
 
-      if (gridstart[1]==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
-        for (i=10; i & (p_lo=-r0_to_p(lo)) < -alpha; i--) {
+      if (gridstart[1]==. & ptype!=2)  // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+        for (i=10; i & -(p_lo=r0_to_p(lo)) < -alpha; i--) {
           t = hi - lo
           lo = lo - t
-          if (gridstop[1]==.) hi = hi + t // maintain rough symmetry unless user specified upper bound
+          if (gridstop[1]==. & ptype<=1) hi = hi + t  // for two-tailed tests, maintain rough symmetry unless user specified upper bound
         }
-      if (gridstop[1]==. & ptype!=2) // ditto for high side
-	      for (i=10; i & (p_hi=-r0_to_p(hi)) < -alpha; i--) {
+      if (gridstop[1]==. & ptype!=3)  // ditto for high side
+	      for (i=10; i & -(p_hi=r0_to_p(hi)) < -alpha; i--) {
           t = hi - lo
-          if (gridstart[1]==.) lo = lo - t // maintain rough symmetry unless user specified lower bound
+          if (gridstart[1]==. & ptype<=1) lo = lo - t
           hi = hi + t
         }
     } else {
@@ -1623,22 +1624,22 @@ void boottestModel::plot() {
     if (confpeak < lo) { // insert original point estimate into grid
       if (gridstart[1] == .) {
         plotX = confpeak \ plotX
-        plotY = 1 \ plotY
+        plotY = (ptype>1? .5 : 1) \ plotY
         c = 1
       }
     } else if (confpeak > hi) {
       if (gridstop[1] == .) {
         plotX = plotX \ confpeak
-        plotY = plotY \ 1
+        plotY = plotY \ (ptype>1? .5 : 1)
         c = gridpoints[1] + 1
       }
     } else {
       c = floor((confpeak - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
-      plotX = plotX[|.\c-1|] \ confpeak \ plotX[|c\.|]
-      plotY = plotY[|.\c-1|] \ 1        \ plotY[|c\.|]
+      plotX = plotX[|.\c-1|] \ confpeak          \ plotX[|c\.|]
+      plotY = plotY[|.\c-1|] \ (ptype>1? .5 : 1) \ plotY[|c\.|]
     }
   }  // end 1D plot
-  
+
   i = 1
   if (_quietly==0 & WREnonAR) {
     printf("{txt}")

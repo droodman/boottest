@@ -732,10 +732,9 @@ program define _boottest, rclass sortpreserve
 				if rowsof(`C0')==1 {
         	cap mata st_local("nonmiss", strofreal(nonmissing(st_matrix("`cimat'"))))
           if 0`nonmiss' > 1 {
-            mata _boottestp = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'")))/2 * (1 + 1 / `nonmiss')  // halfwidth
-            mata _boottestC = (-min(-st_matrix("`cimat'")) + min(st_matrix("`cimat'")))/2  // center
-            mata _boottestkeepC = min(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :> _boottestC + _boottestp)); st_local("plotmax", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 + sign(_boottestkeepC)*1e-6)) : .)
-            mata _boottestkeepC = max(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :< _boottestC - _boottestp)); st_local("plotmin", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 - sign(_boottestkeepC)*1e-6)) : .)
+            mata _boottestp = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'"))) / 2 / (`nonmiss' + 1)  // margin
+            mata _boottestkeepC = min(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :> max(st_matrix("`cimat'")) + _boottestp)); st_local("plotmax", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 + sign(_boottestkeepC)*1e-6)) : .)
+            mata _boottestkeepC = max(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :< min(st_matrix("`cimat'")) - _boottestp)); st_local("plotmin", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 - sign(_boottestkeepC)*1e-6)) : .)
           }
           else {
           	local plotmin .
