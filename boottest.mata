@@ -1,4 +1,4 @@
-*! boottest 2.9.0 13 December 2020
+*! boottest 3.0.0 14 December 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 struct smatrix {
 	real matrix M
@@ -54,7 +54,7 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 
 class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
-		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, confpeak, willplot, plotted, NumH0s, p, NBootClustVar, NErrClust, dH0, ///
+		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, dH0, ///
 		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolative, interpolating, interpolate_e, interpolate_denom
 	real matrix VR0, numer, u, eu, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, eZVR0, SewtXV, numer0
 	real colvector DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridstart, gridstop, gridpoints, numersum, r00, e0, anchor, poles
@@ -75,14 +75,18 @@ class boottestModel {
   pointer (real matrix function) pfncross, pfndouble
 
 	void new(), setsqrt(), boottest(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(),
-		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), setptol(), _fold(), 
-		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeStuffLinearInr0(), _makeStuffLinearInr0(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), _st_view(), setstattype(), Initialize()
+		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), setptol(), 
+		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeStuffLinearInr0(), _makeStuffLinearInr0(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), setstattype(), Initialize()
   private void makeKK(), makeJ(), _clustAccum()
 	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), makeNonWRENumers(), makeWREStats()
 	real matrix getplot(), getCI(), getV(), getv()
-  private real matrix combs(), count_binary(), crosstab() /*, QuarticRoots()*/
+  private real matrix count_binary(), crosstab() /*, QuarticRoots()*/
+  private static real matrix combs()
+  private static real colvector stableorder()
+  private static void _fold()
+  static void _st_view()
 	real rowvector getpeak()
-	real colvector getdist(), stableorder(), getb()
+	real colvector getdist(), getb()
 }
 
 void AnalyticalModel::new() {
@@ -291,8 +295,8 @@ pointer(real matrix) scalar AnalyticalModel::partialFE(pointer(real matrix) scal
 }
 
 void boottestModel::new() {
-	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = plotted = NFE = FEboot = granular = NErrClustCombs = subcluster = reps = repsFeas = interpolating = 0
-	twotailed = null = dirty = willplot = u_sd = bootstrapt = 1
+	AR = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = reps = repsFeas = interpolating = 0
+	twotailed = null = dirty = willplot = u_sd = bootstrapt = notplotted = 1
 	level = 95
   ptol = 1e-6
 	confpeak = MaxMatSize = .
@@ -538,16 +542,15 @@ real scalar boottestModel::getdf_r() {
 	return(df_r)
 }
 real matrix boottestModel::getplot() {
-	if (plotted==0)
-	plot()
+	if (notplotted) plot()
 	return((plotX,plotY))
 }
 real rowvector boottestModel::getpeak() {
-	if (plotted==0) plot()
+	if (notplotted) plot()
 	return(peak)
 }
 real matrix boottestModel::getCI() {
-	if (plotted==0) plot()
+	if (notplotted) plot()
 	return(CI)
 }
 
@@ -1077,7 +1080,7 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 
 // Construct stuff that depends linearly on r0, possibly by interpolation
 void boottestModel::makeStuffLinearInr0() {
-	real scalar h1, h2, d, d1, d2, c; real matrix t; real colvector r00, Delta, newAnchor
+	real scalar h1, h2, d1, d2, c; real matrix t; real colvector Delta, newAnchor
 
   if (interpolative) {
     if (rows(anchor)==0) {  // first call? save current r0 as anchor for interpolation
@@ -1205,7 +1208,7 @@ void boottestModel::_makeStuffLinearInr0(real colvector r0) {
       if (scoreBS)
         numer = reps? cross(SewtXV, u) : SewtXV * u_sd
       else if (robust==0 | granular)
-	      numer = *pR0 * (betadev.M = SewtXV * u)
+		    numer = *pR0 * (betadev.M = SewtXV * u)
       else
         numer = (*pR0 * SewtXV) * u
     else
@@ -1214,8 +1217,7 @@ void boottestModel::_makeStuffLinearInr0(real colvector r0) {
           numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = reps? cross(SewtXV, u) : SewtXV * u_sd
       else if (robust==0 | granular)
         for (g=NWeightGrps; g; g--)
-  
-		        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = *pR0 * (betadev[g].M = SewtXV * u)
+		      numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = *pR0 * (betadev[g].M = SewtXV * u)
       else
         for (g=NWeightGrps; g; g--)
 	        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = (*pR0 * SewtXV) * u
@@ -1526,9 +1528,9 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot() {
-	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth; real colvector lo, hi, _Dist; pointer (real colvector) scalar _pr0; real rowvector b; real matrix V
+	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth, p_lo, p_hi; real colvector lo, hi; pointer (real colvector) scalar _pr0; real rowvector b; real matrix V
 
-	_quietly = quietly; _Dist = *pDist; _pr0 = pr0  // backup
+	_quietly = quietly; _pr0 = pr0
 	setquietly(1)
 
   _editmissing(gridpoints, 25)
@@ -1563,6 +1565,7 @@ void boottestModel::plot() {
       }
     }
     plotX = (rangen(lo[1], hi[1], gridpoints[1]) # J(gridpoints[2],1,1)), (J(gridpoints[1],1,1) # rangen(lo[2], hi[2], gridpoints[2]))
+    plotY = J(rows(plotX), 1, .)
 
   } else {  // 1D plot
 
@@ -1598,13 +1601,13 @@ void boottestModel::plot() {
       }
 
       if (gridstart[1]==. & ptype!=3) // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
-        for (i=10; i & -r0_to_p(lo) < -alpha; i--) {
+        for (i=10; i & (p_lo=-r0_to_p(lo)) < -alpha; i--) {
           t = hi - lo
           lo = lo - t
           if (gridstop[1]==.) hi = hi + t // maintain rough symmetry unless user specified upper bound
         }
       if (gridstop[1]==. & ptype!=2) // ditto for high side
-	      for (i=10; i & -r0_to_p(hi) < -alpha; i--) {
+	      for (i=10; i & (p_hi=-r0_to_p(hi)) < -alpha; i--) {
           t = hi - lo
           if (gridstart[1]==.) lo = lo - t // maintain rough symmetry unless user specified lower bound
           hi = hi + t
@@ -1615,29 +1618,32 @@ void boottestModel::plot() {
     }
 
     plotX = rangen(lo, hi, gridpoints[1])
+    plotY = J(rows(plotX), 1, .)
+    plotY[1]  = p_lo; plotY[rows(plotX)]  = p_hi
     if (confpeak < lo) { // insert original point estimate into grid
       if (gridstart[1] == .) {
         plotX = confpeak \ plotX
+        plotY = 1 \ plotY
         c = 1
       }
     } else if (confpeak > hi) {
       if (gridstop[1] == .) {
         plotX = plotX \ confpeak
+        plotY = plotY \ 1
         c = gridpoints[1] + 1
       }
     } else {
       c = floor((confpeak - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
       plotX = plotX[|.\c-1|] \ confpeak \ plotX[|c\.|]
+      plotY = plotY[|.\c-1|] \ 1        \ plotY[|c\.|]
     }
   }  // end 1D plot
-
-  plotY = J(rows(plotX), 1, .)
   
   i = 1
   if (_quietly==0 & WREnonAR) {
     printf("{txt}")
     do {  // loop so that 1st 2 points are extremes, for efficient interpolation in case when these are first calls--gridmin() and gridmax() manually set
-      plotY[i] = r0_to_p(plotX[i,]')
+      if (plotY[i] == .) plotY[i] = r0_to_p(plotX[i,]')
       printf(".")
       if (mod(i-rows(plotX)-2, 50)) displayflush()
         else printf("\n")
@@ -1645,7 +1651,7 @@ void boottestModel::plot() {
     printf("\n")
   } else
     do {
-      plotY[i] = r0_to_p(plotX[i,]')
+      if (plotY[i] == .) plotY[i] = r0_to_p(plotX[i,]')
     } while (1 < (i = mod(i-2,rows(plotX))+1))
 
 /* determine crossovers analytically, by solving quartic equations 
@@ -1725,9 +1731,8 @@ _numer0=numer0; _dnumerdr=dnumerdr.M;_denom0=denom0.M;_ddenomdr=ddenomdr.M.M; _d
       }
     }
 
-	setquietly(_quietly); pr0 = _pr0; pDist = &_Dist  // restore backups
-  interpolating = 0
-	plotted = 1
+	setquietly(_quietly); pr0 = _pr0; dirty = 1  // restore backups
+	notplotted = 0
 }
 
 // Return real roots of quartic equation using Euler's method, mathforum.org/dr.math/faq/faq.cubic.equations.html
@@ -1865,6 +1870,11 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (Vname != "") M.setV   (st_matrix(Vname) )
 	if (Wname != "") M.setW   (st_matrix(Wname) )
 	M.setwillplot(plotname != "") // can make point estimate a little faster if not going to plot
+	if (plotname != "" | (level<100 & ciname != "")) {
+		if (plotname != "") st_matrix(plotname, M.getplot())
+		if (cols(M.peak)) st_matrix(peakname, M.getpeak())
+		if (level<100 & ciname != "") st_matrix(ciname, M.getCI())
+	}
 	st_numscalar(statname, M.getstat())
 	st_numscalar(pname   , M.getp   ())
 	st_numscalar(repsname, M.getreps())
@@ -1875,11 +1885,6 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	st_matrix(b0name, M.getb()')
 	st_matrix(V0name, M.getV())
 	if (distname != "") st_matrix(distname, M.getdist(diststat))
-	if (plotname != "" | (level<100 & ciname != "")) {
-		if (plotname != "") st_matrix(plotname, M.getplot())
-		if (cols(M.peak)) st_matrix(peakname, M.getpeak())
-		if (level<100 & ciname != "") st_matrix(ciname, M.getCI())
-	}
 	if (vname != "" & reps) st_matrix(vname, M.getv())
 	M.M_DGP.parent = NULL // break loop in data structure topology to avoid Mata garbage-cleaning leak
 }

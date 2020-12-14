@@ -1,4 +1,4 @@
-*! boottest 2.8.1 29 November 2020
+*! boottest 3.0.0 14 December 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -730,10 +730,25 @@ program define _boottest, rclass sortpreserve
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
 
 				if rowsof(`C0')==1 {
+        	cap mata st_local("nonmiss", strofreal(nonmissing(st_matrix("`cimat'"))))
+          if 0`nonmiss' > 1 {
+            mata _boottestp = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'")))/2 * (1 + 1 / `nonmiss')  // halfwidth
+            mata _boottestC = (-min(-st_matrix("`cimat'")) + min(st_matrix("`cimat'")))/2  // center
+            mata _boottestkeepC = min(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :> _boottestC + _boottestp)); st_local("plotmax", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 + sign(_boottestkeepC)*1e-6)) : .)
+            mata _boottestkeepC = max(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :< _boottestC - _boottestp)); st_local("plotmin", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 - sign(_boottestkeepC)*1e-6)) : .)
+          }
+          else {
+          	local plotmin .
+            local plotmax .
+          }
+          
 					format `X1' `X2' %5.0g
+
 					local 0, `graphopt'
 					syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
+
 					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) xtitle("`constraintLHS1'") ///
+            || if (`gridmin'<. | -`X1'<=-`plotmin') & (`gridmax'<. | `X1'<=`plotmax'), ///
 						ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted ", "")' p value"') ///
 						yscale(range(0 .)) name(`graphname'`_h', `replace') ///
 						`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
@@ -797,7 +812,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 2.8.1 Fix 2.8.0 bugs. Even more fully exploit linearity, for ~2X speed gain in inverting test after OLS.
+* 3.0.0 Exploit linearity/quadratic form in denominators too. ~10X speed-up over 2018 version for inverting tests after OLS.
+* 2.8.1 Fix 2.8.0 bugs. Even more fully exploit linearity in test stat numerators, for ~2X speed gain in inverting test after OLS.
 * 2.8.0 More fully exploit linearity of numerators and K matrices as in appendix A.2. Recenter classical score test even for non-OLS, reversing 2.4.1 change. Added ptolerance() option.
 * 2.7.4 Fixed errors affecting results after GMM
 * 2.7.3 Prevented crash on WRE bootstrap-t with svmat(numer)
