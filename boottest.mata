@@ -1528,7 +1528,7 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot() {
-	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth, p_lo, p_hi; real colvector lo, hi; pointer (real colvector) scalar _pr0; real rowvector b; real matrix V
+	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth, p_lo, p_hi, p_confpeak; real colvector lo, hi; pointer (real colvector) scalar _pr0; real rowvector b; real matrix V
 
 	_quietly = quietly; _pr0 = pr0
 	setquietly(1)
@@ -1620,22 +1620,23 @@ void boottestModel::plot() {
     plotX = rangen(lo, hi, gridpoints[1])
     plotY = J(rows(plotX), 1, .)
     plotY[1]  = p_lo; plotY[rows(plotX)]  = p_hi
+    p_confpeak = WREnonAR? . : (twotailed? 1 : .5)
     if (confpeak < lo) { // insert original point estimate into grid
       if (gridmin[1] == .) {
-        plotX = confpeak            \ plotX
-        plotY = (twotailed? 1 : .5) \ plotY
+        plotX =   confpeak \ plotX
+        plotY = p_confpeak \ plotY
         c = 1
       }
     } else if (confpeak > hi) {
       if (gridmax[1] == .) {
-        plotX = plotX \ confpeak
-        plotY = plotY \ (twotailed? 1 : .5)
+        plotX = plotX \   confpeak
+        plotY = plotY \ p_confpeak
         c = gridpoints[1] + 1
       }
     } else {
       c = floor((confpeak - lo)/(hi - lo)*(gridpoints[1] - 1)) + 2
-      plotX = plotX[|.\c-1|] \ confpeak            \ plotX[|c\.|]
-      plotY = plotY[|.\c-1|] \ (twotailed? 1 : .5) \ plotY[|c\.|]
+      plotX = plotX[|.\c-1|] \   confpeak \ plotX[|c\.|]
+      plotY = plotY[|.\c-1|] \ p_confpeak \ plotY[|c\.|]
     }
   }  // end 1D plot
 
