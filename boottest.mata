@@ -70,20 +70,19 @@ class boottestModel {
 	struct smatrix colvector Kd, XZi, eZi, euZVR0, betadev, dedr, dnumerdr
   struct ssmatrix colvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
-	pointer(struct smatrix matrix) scalar pJcd /*, pKJcd*/
+	pointer(struct smatrix matrix) scalar pJcd
 	struct structFE rowvector FEs
-  /*pointer (real matrix function) pfncross, pfndouble*/
 
 	void new(), setsqrt(), boottest(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setAR(),
 		setFuller(), setk(), setquietly(), setbeta(), setV(), setW(), setsmall(), sethascons(), setscoreBS(), setreps(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), setptol(), 
-		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeStuffLinearInr0(), _makeStuffLinearInr0(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), setstattype(), Initialize()
-  private void makeKK(), makeJ(), _clustAccum()
-	real scalar r0_to_p(), search(), getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), makeNonWRENumers(), makeWREStats()
+		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeInterpolables(), _makeInterpolables(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), setstattype(), Initialize()
+  private void makeJ(), _clustAccum(), makeWREStats(), PrepAR()
 	real matrix getplot(), getCI(), getV(), getv()
+	real scalar getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas()
+	private real scalar r0_to_p(), search()
   private real matrix count_binary(), crosstab() /*, QuarticRoots()*/
   private static real matrix combs()
   private static real colvector stableorder()
-  private static void _fold()
   static void _st_view()
 	real rowvector getpeak()
 	real colvector getdist(), getb()
@@ -572,6 +571,7 @@ void boottestModel::_clustAccum(real matrix X, real scalar c, real matrix Y)
             (Clust[c].multiplier != 1?   Clust[c].multiplier  * Y :  Y) :
             (Clust[c].multiplier != 1? (-Clust[c].multiplier) * Y : -Y))
 
+
 void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly to make CI, do stuff once that doesn't depend on r0
   real colvector sortID, o, _FEID
 	real rowvector val, ClustCols
@@ -884,20 +884,11 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     pDist = &J(reps+1, 1, .)
   if (NWeightGrps>1 | WREnonAR | (null==0 & df<=2))
     numer = J(df, reps+1, .)
-    
+interpolative=0    
   interpolative = reps & WREnonAR==0 & null & scoreBS==0
   interpolate_denom = interpolative & robust
   interpolate_e = interpolative & ((interpolate_denom & doKK==0 & reps & granular) | ((robust==0 | GMM) & (ML | GMM)==0))  // doesn't look right cases where makeNonWREStats refers directly to residuals, which may thus need interpolation
   if (interpolative) {
-    /*if (doKK) {
-      pKJcd = &Kcd  // interpolate K matrices
-      pfncross  = &boottestCrossK()
-      pfndouble = &boottestDoubleK()
-    } else {
-      pKJcd = pJcd  // interpolate J matrices
-      pfncross  = &boottestCrossJ()
-      pfndouble = &boottestDoubleJ()
-    }*/
     dnumerdr = smatrix(dH0)
     if (interpolate_e) dedr = dnumerdr
     if (interpolate_denom) {
@@ -917,12 +908,23 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 void boottestModel::boottest() {
 	real scalar g
 
-	if (initialized==0) Initialize()
+	if (initialized==0)
+    Initialize()
+  else if (null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r0
+    if (WREnonAR)
+      numer[,1] = *pR0 * pM_Repl->beta - *pr0
+    else {
+      if (AR) {
+      	PrepAR(*pr0)
+      	numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
+      } else
+        numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+    }
+    (*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' boottest_lusolve(statDenom, numer[,1])
+    return
+  }
 
-	makeStuffLinearInr0()  // make stuff that depends linearly on r0, possibly by interpolating
-
-  if (doKK & interpolating==0 & WREnonAR==0)
-    makeKK()
+	makeInterpolables()  // make stuff that depends linearly on r0, possibly by interpolating
 
 	if (NWeightGrps > 1)
 		rseed(seed)
@@ -932,13 +934,10 @@ void boottestModel::boottest() {
 			makeWildWeights(WeightGrpStop[g] - WeightGrpStart[g] + (g>1), g==1)
 
 		if (WREnonAR) {
-			if (makeWREStats(WeightGrpStart[g], WeightGrpStop[g]))
-				return
+			makeWREStats(WeightGrpStart[g], WeightGrpStop[g])
 			if (bootstrapt==0)
 				makeBootstrapcDenom(WeightGrpStart[g], WeightGrpStop[g])
 		} else {
-			if (makeNonWRENumers())
-				return
 			if (bootstrapt)
 				makeNonWREStats(g, WeightGrpStart[g], WeightGrpStop[g])
 			else
@@ -1006,18 +1005,12 @@ void boottestModel::makeWildWeights(real scalar _reps, real scalar first) {
 }
 
 
-real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
+void boottestModel::makeWREStats(real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	pragma unused thisWeightGrpStop
 	real scalar c, j, i
 	real colvector _e, _beta, betaEnd, _u, numer_j
 	real matrix Subscripts, Zi, AVR0, t, XExi
 	pointer (real matrix) scalar peZVR0
-
-	if (initialized & null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r0
-		numer[,1] = *pR0 * pM_Repl->beta - *pr0
-		(*pDist)[1] = df==1? numer[1] / sqrt(denom.M) : numer[,1] ' boottest_lusolve(denom.M, numer[,1])
-		return(1)  // no need to continue calc
-	}
 
 	if (thisWeightGrpStart == 1) {  // first/only weight group? initialize a couple of things
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
@@ -1073,18 +1066,16 @@ real scalar boottestModel::makeWREStats(real scalar thisWeightGrpStart, real sca
 	}
 
 	if (thisWeightGrpStart==1 & bootstrapt) statDenom = denom.M  // original-sample denominator
-
-	return(0)  // don't skip remaining calcs in calling procedure
 }
 
 
-// Construct stuff that depends linearly on r0, possibly by interpolation
-void boottestModel::makeStuffLinearInr0() {
+// Construct stuff that depends linearly or quadratically on r0, possibly by interpolation
+void boottestModel::makeInterpolables() {
 	real scalar h1, h2, d1, d2, c; real matrix t; real colvector Delta, newAnchor
 
   if (interpolative) {
     if (rows(anchor)==0) {  // first call? save current r0 as anchor for interpolation
-      _makeStuffLinearInr0(anchor = *pr0)
+      _makeInterpolables(anchor = *pr0)
       numer0 = numer
       if (interpolate_e) e0 = *pe
       if (interpolate_denom) Jcd0 = *pJcd
@@ -1094,7 +1085,7 @@ void boottestModel::makeStuffLinearInr0() {
     if (rows(poles) == 0) {  // not enough info yet to interpolate
       poles = *pr0 - anchor  // second call: from anchor make set of orthogonal poles, which equal anchor except in one dimension
       if (interpolate_denom)  // grab quadratic denominator from *previous* (1st) evaluation
-        denom0 = /*doKK? KK :*/ denom
+        denom0 = denom
       newAnchor = J(dH0,1,1)  // all anchors new
     } else
     	newAnchor = abs(*pr0 - anchor) :> 2 * abs(poles)  //  been here at least twice: interpolate unless current r0 stretches range > 2X in some dimension(s)
@@ -1105,7 +1096,7 @@ void boottestModel::makeStuffLinearInr0() {
         	poles[h1] = (*pr0)[h1] - anchor[h1]
         	(t = anchor)[h1] = (*pr0)[h1]  // if dH0>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
 
-          _makeStuffLinearInr0(t)  // calculate linear stuff at new anchor
+          _makeInterpolables(t)  // calculate linear stuff at new anchor
 
           dnumerdr[h1].M = (numer - numer0) / poles[h1]
           if (interpolate_e)
@@ -1117,13 +1108,11 @@ void boottestModel::makeStuffLinearInr0() {
             for (d1=df;d1;d1--)
               for (d2=1;d2<=d1;d2++) {
                 for (c=1;c<=NErrClustCombs;c++) {
-                                t =     /*(*pfncross)*/colsum( Jcd0       [c,d1].M :* dJcddr[h1].M[c,d2].M)
-                  if (d1 != d2) t = t + /*(*pfncross)*/colsum(dJcddr[h1].M[c,d1].M :*  Jcd0       [c,d2].M)  // for diagonal items, faster to just double after the c loop
+                                t =     colsum( Jcd0       [c,d1].M :* dJcddr[h1].M[c,d2].M)
+                  if (d1 != d2) t = t + colsum(dJcddr[h1].M[c,d1].M :*  Jcd0       [c,d2].M)  // for diagonal items, faster to just double after the c loop
                   _clustAccum(ddenomdr[h1].M[d1,d2].M, c, t)
                 }
-                if (d1==d2) ddenomdr[h1].M[d1,d2].M = /*(*pfndouble)*/ ddenomdr[h1].M[d1,d2].M + ddenomdr[h1].M[d1,d2].M
-                /*if (doKK)
-                  _fold(ddenomdr[h1].M[d1,d2].M)*/
+                if (d1==d2) ddenomdr[h1].M[d1,d2].M = ddenomdr[h1].M[d1,d2].M + ddenomdr[h1].M[d1,d2].M
               }
           }
         }
@@ -1134,8 +1123,7 @@ void boottestModel::makeStuffLinearInr0() {
               for (d1=df;d1;d1--)
                 for (d2=d1;d2;d2--) {
                   for (c=1;c<=NErrClustCombs;c++)
-                    _clustAccum(ddenomdr2[h1,h2].M[d1,d2].M, c, /*(*pfncross)*/colsum(dJcddr[h1].M[c,d1].M :* dJcddr[h2].M[c,d2].M))
-                  /*if (doKK) _fold(ddenomdr2[h1,h2].M[d1,d2].M)*/
+                    _clustAccum(ddenomdr2[h1,h2].M[d1,d2].M, c, colsum(dJcddr[h1].M[c,d1].M :* dJcddr[h2].M[c,d2].M))
                 }
 
       Delta = poles
@@ -1154,80 +1142,80 @@ void boottestModel::makeStuffLinearInr0() {
       if (dH0==1)
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
-                (/*doKK? KK :*/ denom)[d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
+            denom[d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
       else  // dH0==2
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
-            (/*doKK? KK :*/ denom)[d1,d2].M = denom0[d1,d2].M + 
-                                          ddenomdr[1].M[d1,d2].M * Delta[1] + 
-                                          ddenomdr[2].M[d1,d2].M * Delta[2] + 
-                                          ddenomdr2[1,1].M[d1,d2].M * (Delta[1] * Delta[1]) + 
-                                          ddenomdr2[2,1].M[d1,d2].M * (Delta[1] * Delta[2]) + 
-                                          ddenomdr2[2,2].M[d1,d2].M * (Delta[2] * Delta[2])
+            denom[d1,d2].M = denom0[d1,d2].M + 
+                         ddenomdr[1].M[d1,d2].M * Delta[1] + 
+                         ddenomdr[2].M[d1,d2].M * Delta[2] + 
+                         ddenomdr2[1,1].M[d1,d2].M * (Delta[1] * Delta[1]) + 
+                         ddenomdr2[2,1].M[d1,d2].M * (Delta[1] * Delta[2]) + 
+                         ddenomdr2[2,2].M[d1,d2].M * (Delta[2] * Delta[2])
     return
   }
 
-  _makeStuffLinearInr0(*pr0)  // still here? non-interpolative case
+  _makeInterpolables(*pr0)  // still here? non-interpolative case
 }
 
-// Construct stuff that depends linearly on r0 and doesn't depend on u. Only does one bit of WRE prep. No interpolation.
-void boottestModel::_makeStuffLinearInr0(real colvector r0) {
-  pointer (real matrix) scalar pewt; real scalar g, d, i, c; real matrix t; pointer (real matrix) scalar peZVR0, pt; real colvector rAll
+void boottestModel::PrepAR(real colvector r0) {
+  pM_Repl->InitEndog(&(*pY - *pXEnd * r0), NULL, &(*M_DGP.pZExclY - M_DGP.ZExclXEnd * r0), &(*M_DGP.pXExY - M_DGP.XExXEnd * r0))
+  pM_Repl->InitEstimate()
+  pM_Repl->Estimate(sAR)
+  pM_Repl->InitTestDenoms(SAR)
+}
+
+// Construct stuff that depends linearly or quadratically on r0 and doesn't depend on u. Does one bit relevant for WRE prep. No interpolation.
+void boottestModel::_makeInterpolables(real colvector r0) {
+  pointer (real matrix) scalar pewt; real scalar g, d, i, j, c; real matrix t; pointer (real matrix) scalar peZVR0, pt; real colvector rAll
 
   if (ML==0) {
-    if (AR) {
-      pM_Repl->InitEndog(&(*pY - *pXEnd * r0), NULL, &(*M_DGP.pZExclY - M_DGP.ZExclXEnd * r0), &(*M_DGP.pXExY - M_DGP.XExXEnd * r0))
-      pM_Repl->InitEstimate()
-      pM_Repl->Estimate(sAR)
-      pM_Repl->InitTestDenoms(SAR)
-    } else if (initialized==0 | null) {  // don't need to recompute if we're not imposing the null  -- *** THIS BIT RUNS FOR WRE too
+    if (AR)
+      PrepAR(r0)
+    else {
       rAll = null? r0 : J(0, 1, 0); if (REst) rAll =  *pr \ rAll  // constant terms of model + null constraints
       sAll = rows(rAll) ? LAll_invRAllLAll * rAll : J(0,1,0)
       M_DGP.Estimate(sAll)
     }
     pe = &(pM->e)
+    if (WREnonAR) return
   }
-	if (WREnonAR) return
 
-  if (initialized==0 | null) {  // if are imposing null or we are not, but this is first call, then build stuff
-    if (ML)
-      eZVR0 = *pSc * (VR0 = *pV * *pR0')
-    else if (scoreBS | (robust & granular < NErrClustCombs))
-      eZVR0 = *pe :* pM->ZVR0
-		if (scoreBS)
-			SewtXV = reps? (NClustVar? _panelsum(eZVR0, *pwt, infoBootData) : (weights?       eZVR0 :* *pwt  :        eZVR0) ) :
-                                                                        (weights? cross(eZVR0,   *pwt) : colsum(eZVR0)')
-    else {  // same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined
-      pewt = weights? &(*pe :* *pwt) : pe
-      pt = &_panelsum(*pXEx, *pewt, infoBootData)
-      if (AR)
-        pt = &(*pt, _panelsum(*pZExcl, *pewt, infoBootData))
-      SewtXV = *pM->pV * (*pt)'
-    }
+  if (ML)
+    eZVR0 = *pSc * (VR0 = *pV * *pR0')
+  else if (scoreBS | (robust & granular < NErrClustCombs))
+    eZVR0 = *pe :* pM->ZVR0
+  if (scoreBS)
+    SewtXV = reps? (NClustVar? _panelsum(eZVR0, *pwt, infoBootData) : (weights?       eZVR0 :* *pwt  :        eZVR0) ) :
+                                                                      (weights? cross(eZVR0,   *pwt) : colsum(eZVR0)')
+  else {  // same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined
+    pewt = weights? &(*pe :* *pwt) : pe
+    pt = &_panelsum(*pXEx, *pewt, infoBootData)
+    if (AR)
+      pt = &(*pt, _panelsum(*pZExcl, *pewt, infoBootData))
+    SewtXV = *pM->pV * (*pt)'
+  }
 
-    if (NWeightGrps == 1)
-      if (scoreBS)
-        numer = reps? cross(SewtXV, u) : SewtXV * u_sd
-      else if (robust==0 | granular)
-			  numer = *pR0 * (betadev.M = SewtXV * u)
-      else
-        numer = (*pR0 * SewtXV) * u
+  if (NWeightGrps == 1)
+    if (scoreBS)
+      numer = reps? cross(SewtXV, u) : SewtXV * u_sd
+    else if (robust==0 | granular)
+      numer = *pR0 * (betadev.M = SewtXV * u)
     else
-      if (scoreBS)
-        for (g=NWeightGrps; g; g--)
-          numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = reps? cross(SewtXV, u) : SewtXV * u_sd
-      else if (robust==0 | granular)
-        for (g=NWeightGrps; g; g--)
-		      numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = *pR0 * (betadev[g].M = SewtXV * u)
-      else
-        for (g=NWeightGrps; g; g--)
-	        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = (*pR0 * SewtXV) * u
-  }
+      numer = (*pR0 * SewtXV) * u
+  else
+    if (scoreBS)
+      for (g=NWeightGrps; g; g--)
+        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = reps? cross(SewtXV, u) : SewtXV * u_sd
+    else if (robust==0 | granular)
+      for (g=NWeightGrps; g; g--)
+        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = *pR0 * (betadev[g].M = SewtXV * u)
+    else
+      for (g=NWeightGrps; g; g--)
+        numer[|WeightGrpStart[g] \ WeightGrpStop[g]|] = (*pR0 * SewtXV) * u
 
   if      ( AR  ) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
   else if (!null) numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - r0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
-
-  if (initialized & null==0) return
 
   if (robust & GMM==0 & granular < NErrClustCombs) {
     peZVR0 = &_panelsum(eZVR0, *pwt, *pinfoAllData)  // collapse data to all-boot & error-cluster-var intersections. If no collapsing interpolate_ed, _panelsum() will still fold in any weights
@@ -1300,25 +1288,19 @@ void boottestModel::_makeStuffLinearInr0(real colvector r0) {
     }
   }
 
-  makeJ(1)  // compute J = K * u; if NWeightGrps > 1, then this is for 1st group
-}
-
-// prep K'K-based denominator computation loop
-void boottestModel::makeKK() {
-  real scalar i, j, c
-  for (i=df;i;i--)
-    for (j=i;j;j--) {
-      for (c=1;c<=NErrClustCombs;c++)
-        _clustAccum(KK[i,j].M, c, cross(Kcd[c,i].M, Kcd[c,j].M))
-      _fold(KK[i,j].M)
-    }
+  if (doKK)
+    for (i=df;i;i--)
+      for (j=i;j;j--) {
+        for (c=1;c<=NErrClustCombs;c++)
+          _clustAccum(KK[i,j].M, c, cross(Kcd[c,i].M, Kcd[c,j].M))
+            KK[i,j].M = lowertriangle(KK[i,j].M) + uppertriangle(KK[i,j].M,0)'  // fold in half diagonally such that v'Xv is unchanged, but will be computed faster because it is half 0's
+      }
+  else if (reps & robust)
+    makeJ(1)  // compute J = K * u; if NWeightGrps > 1, then this is for 1st group; if interpolating, it is only group, and is needed now for interpolation
 }
 
 void boottestModel::makeJ(real scalar g) {
   real scalar c, d
-
-  if (doKK | reps==0 | robust==0)
-    return
 
   if (granular)  // prep optimized treatment when bootstrapping by many/small groups
     if (purerobust)
@@ -1338,14 +1320,6 @@ void boottestModel::makeJ(real scalar g) {
 	      (*pJcd)[c,d].M = Kcd[c,d].M * u
 }
 
-real scalar boottestModel::makeNonWRENumers() {
-  if (initialized & null==0) {  // if not imposing null and have returned, then thisWeightGrpStart=1, df=1 or 2; and distribution doesn't change with r0, only test stat
-		(*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' boottest_lusolve(statDenom, numer[,1])
-		return(1)  // skip rest of calc
-	}
-  return(0)
-}
-
 void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar i, c, j, l; real matrix eueu, t; real colvector numer_l; pointer (real matrix) scalar pVR0; real rowvector t1, t2, t12
 
@@ -1355,7 +1329,7 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 				for (j=i;j;j--)
 					denom[i,j].M = colsum(u :* KK[i,j].M * u)  // (60), 2nd version GGB/2+GB + 3GG < 3GB
 		else if (!interpolating) {  // alternative core computational loop, avoiding computing K'K which has cubic time cost in numbers of bootstrapping clusters
-			if (g > 1)
+			if (g > 1 & reps)
         makeJ(g)
 
       if (purerobust)
@@ -1671,7 +1645,7 @@ ddenomdr2.M.M[404]
                            ddenomdr.M.M  * numer0sq + (dnumerdr.M[1] * numer0tw) * denom0.M - dnumerdr.M :* numer0 * (denom0.M[1]+denom0.M[1]),
                            numer0sq * denom0.M - numer0 :* numer0 * denom0.M[1])
       t = (numer0 :+ dnumerdr.M :* roots) :> 0; t0 = (numer0[1] :+ dnumerdr.M[1] :* roots) :> 0
-      roots = roots :/ (t :& t0 :| (t :| t0):==0)  // annihilate quartic solutions corresponding to opposite-signed t stats
+      if (ptype) roots = roots :/ (t :& t0 :| (t :| t0):==0)  // except for symmetric p value, annihilate quartic solutions corresponding to opposite-signed t stats
 
       if (allof(colnonmissing(roots)[|2\.|], 1)) { // simple case of one crossing for each replication
         roots = colmin(roots)[|2\.|]'
@@ -1769,16 +1743,6 @@ _numer0=numer0; _dnumerdr=dnumerdr.M;_denom0=denom0.M;_ddenomdr=ddenomdr.M.M; _d
 	return (Re(x) :/ (abs(Im(x)):<1e-5) :- 0.25*a)
 }*/
 
-
-/*real matrix boottestCrossK(real matrix A, real matrix B) return(cross(A,B))
-real matrix boottestCrossJ(real matrix A, real matrix B) return(colsum(A:*B))
-real matrix boottestDoubleK(real matrix A) return(A+A')
-real matrix boottestDoubleJ(real matrix A) return(A+A)*/
-
-
-// fold a square matrix in half diagonally such that v'Xv is unchanged, but will be computed faster because folded X is half 0's
-void boottestModel::_fold(real matrix X)
-  X = lowertriangle(X) + uppertriangle(X,0)'
 
 // return matrix whose rows are all the subsets of a row of numbers. Nil is at bottom.
 real matrix boottestModel::combs(real scalar d) {
