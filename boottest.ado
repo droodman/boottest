@@ -31,6 +31,8 @@ program define boottest
 	cap mata mata drop _boottestp
 	cap mata mata drop _boottestC
 	cap mata mata drop _boottestkeepC
+	cap mata mata drop _boottestm
+	cap mata mata drop _boottestt
 	cap drop `contourvars'
 	exit `rc'
 end
@@ -732,9 +734,9 @@ program define _boottest, rclass sortpreserve
 				if rowsof(`C0')==1 {
         	cap mata st_local("nonmiss", strofreal(nonmissing(st_matrix("`cimat'"))))
           if 0`nonmiss' > 1 {
-            mata _boottestp = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'"))) / 2 / (`nonmiss' + 1)  // margin
-            mata _boottestkeepC = min(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :> max(st_matrix("`cimat'")) + _boottestp)); st_local("plotmax", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 + sign(_boottestkeepC)*1e-6)) : .)
-            mata _boottestkeepC = max(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :< min(st_matrix("`cimat'")) - _boottestp)); st_local("plotmin", rows(_boottestkeepC)? strofreal(_boottestkeepC * (1 - sign(_boottestkeepC)*1e-6)) : .)
+            mata _boottestm = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'"))) / 2 / (`nonmiss' + 1)  // margin
+            mata _boottestt = min(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :> max(st_matrix("`cimat'")) + _boottestm)); st_local("plotmax", rows(_boottestt)? strofreal(_boottestt * (1 + sign(_boottestt)*1e-6)) : .)
+            mata _boottestt = max(select(st_matrix("`plotmat'")[,1], st_matrix("`plotmat'")[,1] :< min(st_matrix("`cimat'")) - _boottestm)); st_local("plotmin", rows(_boottestt)? strofreal(_boottestt * (1 - sign(_boottestt)*1e-6)) : .)
           }
           else {
           	local plotmin .
