@@ -55,12 +55,12 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, dH0, ///
-		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolative, interpolating, interpolate_e, interpolate_denom
+		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolable, interpolating, interpolate_e, interpolate_denom
 	real matrix VR0, numer, u, eu, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, eZVR0, SewtXV, numer0
 	real colvector DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, r00, e0, anchor, poles
 	real rowvector peak
 	string scalar wttype, madjtype, seed
-	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pG, pX, pinfoAllData, pinfoErrData
+	pointer (real matrix) scalar pZExcl, pR, pR0, pID, pFEID, pXEnd, pXEx, pX, pinfoAllData, pinfoErrData
 	pointer (real colvector) scalar pr, pr0, pY, pSc, pwt, pW, pV, pe, pDist
 	class AnalyticalModel scalar M_DGP
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
@@ -884,11 +884,11 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     pDist = &J(reps+1, 1, .)
   if (NWeightGrps>1 | WREnonAR | (null==0 & df<=2))
     numer = J(df, reps+1, .)
-interpolative=0    
-  interpolative = reps & WREnonAR==0 & null & scoreBS==0
-  interpolate_denom = interpolative & robust
-  interpolate_e = interpolative & ((interpolate_denom & doKK==0 & reps & granular) | ((robust==0 | GMM) & (ML | GMM)==0))  // doesn't look right cases where makeNonWREStats refers directly to residuals, which may thus need interpolation
-  if (interpolative) {
+
+  interpolable = reps & WREnonAR==0 & null & scoreBS==0
+  interpolate_denom = interpolable & robust
+  interpolate_e = interpolable & ((interpolate_denom & doKK==0 & reps & granular) | ((robust==0 | GMM) & (ML | GMM)==0))  // doesn't look right cases where makeNonWREStats refers directly to residuals, which may thus need interpolation
+  if (interpolable) {
     dnumerdr = smatrix(dH0)
     if (interpolate_e) dedr = dnumerdr
     if (interpolate_denom) {
@@ -913,13 +913,12 @@ void boottestModel::boottest() {
   else if (null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r0
     if (WREnonAR)
       numer[,1] = *pR0 * pM_Repl->beta - *pr0
-    else {
-      if (AR) {
-      	PrepAR(*pr0)
-      	numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
-      } else
-        numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
-    }
+    else if (AR) {
+      PrepAR(*pr0)
+      numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in AR OLS
+    } else
+      numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+
     (*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' boottest_lusolve(statDenom, numer[,1])
     return
   }
@@ -1010,7 +1009,7 @@ void boottestModel::makeWREStats(real scalar thisWeightGrpStart, real scalar thi
 	real scalar c, j, i
 	real colvector _e, _beta, betaEnd, _u, numer_j
 	real matrix Subscripts, Zi, AVR0, t, XExi
-	pointer (real matrix) scalar peZVR0
+	pointer (real matrix) scalar peZVR0, pJ
 
 	if (thisWeightGrpStart == 1) {  // first/only weight group? initialize a couple of things
 		_e = M_DGP.e + M_DGP.e2 * M_DGP.beta[|kEx+1\.|]
@@ -1048,13 +1047,13 @@ void boottestModel::makeWREStats(real scalar thisWeightGrpStart, real scalar thi
 						AVR0 = pM_Repl->A * pM_Repl->VR0; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						pragma unset t
 						for (i=1; i<=NBootClust; i++) {
-							pG = &((_beta'XZi[i].M + betaEnd'eZi[i].M * u[i,j]) * AVR0) // R0 * V * Z_i'estar_i
-							t = i==1? cross(*pG,*pG) : t + cross(*pG,*pG)
+							pJ = &((_beta'XZi[i].M + betaEnd'eZi[i].M * u[i,j]) * AVR0) // R0 * V * Z_i'estar_i
+							t = i==1? cross(*pJ,*pJ) : t + cross(*pJ,*pJ)
 						}
             _clustAccum(denom.M, c, t)
 					} else {
-						pG = &_panelsum(*peZVR0, Clust[c].info)
-            _clustAccum(denom.M, c, cross(*pG,*pG))
+						pJ = &_panelsum(*peZVR0, Clust[c].info)
+            _clustAccum(denom.M, c, cross(*pJ,*pJ))
 					}
 				}
 			} else
@@ -1071,9 +1070,9 @@ void boottestModel::makeWREStats(real scalar thisWeightGrpStart, real scalar thi
 
 // Construct stuff that depends linearly or quadratically on r0, possibly by interpolation
 void boottestModel::makeInterpolables() {
-	real scalar h1, h2, d1, d2, c; real matrix t; real colvector Delta, newAnchor
+	real scalar h1, h2, d1, d2, c; real matrix t; real colvector Delta, newPole
 
-  if (interpolative) {
+  if (interpolable) {
     if (rows(anchor)==0) {  // first call? save current r0 as anchor for interpolation
       _makeInterpolables(anchor = *pr0)
       numer0 = numer
@@ -1082,17 +1081,18 @@ void boottestModel::makeInterpolables() {
       return
     }
 
-    if (rows(poles) == 0) {  // not enough info yet to interpolate
+    if (rows(poles))
+      newPole = abs(*pr0 - anchor) :> 2 * abs(poles)  //  been here at least twice: interpolate unless current r0 stretches range > 2X in some dimension(s)
+    else {  // not enough info yet to interpolate
       poles = *pr0 - anchor  // second call: from anchor make set of orthogonal poles, which equal anchor except in one dimension
       if (interpolate_denom)  // grab quadratic denominator from *previous* (1st) evaluation
         denom0 = denom
-      newAnchor = J(dH0,1,1)  // all anchors new
-    } else
-    	newAnchor = abs(*pr0 - anchor) :> 2 * abs(poles)  //  been here at least twice: interpolate unless current r0 stretches range > 2X in some dimension(s)
+      newPole = J(dH0,1,1)  // all poles new
+    }
 
-    if (any(newAnchor)) {  // prep interpolation
+    if (any(newPole)) {  // prep interpolation
       for (h1=1;h1<=dH0;h1++)
-        if (newAnchor[h1]) {
+        if (newPole[h1]) {
         	poles[h1] = (*pr0)[h1] - anchor[h1]
         	(t = anchor)[h1] = (*pr0)[h1]  // if dH0>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
 
@@ -1101,37 +1101,34 @@ void boottestModel::makeInterpolables() {
           dnumerdr[h1].M = (numer - numer0) / poles[h1]
           if (interpolate_e)
             dedr[h1].M = (*pe - e0) / poles[h1]
-          if (interpolate_denom) {  // prepare to interpolate denominators. df > 1 for an AR test with >1 instruments. Quadratic interactions mean changing anchor forces recalc 
-            for (c=rows(Kcd);c;c--)
-              for (d1=df;d1;d1--)
+          if (interpolate_denom)  // prepare to interpolate denominators. df > 1 for an AR test with >1 instruments. Quadratic interactions mean changing anchor forces recalc 
+            for (d1=1;d1<=df;d1++) {
+              for (c=1;c<=NErrClustCombs;c++) {
                 dJcddr[h1].M[c,d1].M = ((*pJcd)[c,d1].M - Jcd0[c,d1].M) / poles[h1]
-            for (d1=df;d1;d1--)
-              for (d2=1;d2<=d1;d2++) {
-                for (c=1;c<=NErrClustCombs;c++) {
+                for (d2=1;d2<=d1;d2++) {
                                 t =     colsum( Jcd0       [c,d1].M :* dJcddr[h1].M[c,d2].M)
                   if (d1 != d2) t = t + colsum(dJcddr[h1].M[c,d1].M :*  Jcd0       [c,d2].M)  // for diagonal items, faster to just double after the c loop
                   _clustAccum(ddenomdr[h1].M[d1,d2].M, c, t)
                 }
-                if (d1==d2) ddenomdr[h1].M[d1,d2].M = ddenomdr[h1].M[d1,d2].M + ddenomdr[h1].M[d1,d2].M
               }
-          }
+              ddenomdr[h1].M[d1,d1].M = ddenomdr[h1].M[d1,d1].M + ddenomdr[h1].M[d1,d1].M
+            }
         }
       if (interpolate_denom)
         for (h1=1;h1<=dH0;h1++)
           for (h2=h1;h2;h2--)
-            if (newAnchor[h1] | newAnchor[h2])
+            if (newPole[h1] | newPole[h2])
               for (d1=df;d1;d1--)
-                for (d2=d1;d2;d2--) {
+                for (d2=d1;d2;d2--)
                   for (c=1;c<=NErrClustCombs;c++)
                     _clustAccum(ddenomdr2[h1,h2].M[d1,d2].M, c, colsum(dJcddr[h1].M[c,d1].M :* dJcddr[h2].M[c,d2].M))
-                }
 
       Delta = poles
       interpolating = 1
 
     } else {  // routine linear interpolation if the anchors not moved
 
-      Delta = *pr0 - anchor  // interpolate!
+      Delta = *pr0 - anchor
       numer = numer0 + dnumerdr.M * Delta[1]; if (dH0 > 1) numer = numer + dnumerdr[2].M * Delta[2]
       if (interpolate_e) {
         pe = &(e0 + dedr.M * Delta[1]); if (dH0 > 1) pe = &(*pe + dedr[2].M * Delta[2])
@@ -1152,10 +1149,8 @@ void boottestModel::makeInterpolables() {
                          ddenomdr2[1,1].M[d1,d2].M * (Delta[1] * Delta[1]) + 
                          ddenomdr2[2,1].M[d1,d2].M * (Delta[1] * Delta[2]) + 
                          ddenomdr2[2,2].M[d1,d2].M * (Delta[2] * Delta[2])
-    return
-  }
-
-  _makeInterpolables(*pr0)  // still here? non-interpolative case
+  } else  // non-interpolable cases
+    _makeInterpolables(*pr0)
 }
 
 void boottestModel::PrepAR(real colvector r0) {
@@ -1329,9 +1324,8 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 				for (j=i;j;j--)
 					denom[i,j].M = colsum(u :* KK[i,j].M * u)  // (60), 2nd version GGB/2+GB + 3GG < 3GB
 		else if (!interpolating) {  // alternative core computational loop, avoiding computing K'K which has cubic time cost in numbers of bootstrapping clusters
-			if (g > 1 & reps)
+			if (g > 1)
         makeJ(g)
-
       if (purerobust)
         eueu = eu :* eu
       for (i=df;i;i--)
@@ -1617,7 +1611,7 @@ void boottestModel::plot() {
   i = 1
   if (_quietly==0 & WREnonAR) {
     printf("{txt}")
-    do {  // loop so that 1st 2 points are extremes, for efficient interpolation in case when these are first calls--gridmin() and gridmax() manually set
+    do {  // loop so that 1st 2 points are extremes, for efficient interpolation
       if (plotY[i] == .) plotY[i] = r0_to_p(plotX[i,]')
       printf(".")
       if (mod(i-rows(plotX)-2, 50)) displayflush()
