@@ -1,4 +1,4 @@
-*! boottest 3.0.0 14 December 2020
+*! boottest 3.0.1 16 December 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -55,7 +55,7 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 class boottestModel {
 	real scalar scoreBS, reps, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, robust, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, K, IV, WRE, WREnonAR, ptype, twotailed, df, df_r, AR, D, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, dH0, ///
-		NFE, doKK, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolable, interpolating, interpolate_e, interpolate_denom
+		NFE, granular, purerobust, subcluster, NBootClust, repsFeas, u_sd, level, ptol, MaxMatSize, NWeightGrps, enumerate, bootstrapt, q, q0, interpolable, interpolating, interpolate_e, interpolate_denom
 	real matrix VR0, numer, u, eu, S, SAR, SAll, LAll_invRAllLAll, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, eZVR0, SewtXV, numer0
 	real colvector DistCDR, s, sAR, plotX, plotY, sAll, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, r00, e0, anchor, poles
 	real rowvector peak
@@ -66,7 +66,7 @@ class boottestModel {
 	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
 	struct structboottestClust colvector Clust
 	pointer (struct structboottestClust scalar) scalar pBootClust
-	struct smatrix matrix KK, denom, Kcd, denom0, Jcd0
+	struct smatrix matrix denom, Kcd, denom0, Jcd0
 	struct smatrix colvector Kd, XZi, eZi, euZVR0, betadev, dedr, dnumerdr
   struct ssmatrix colvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
@@ -78,9 +78,9 @@ class boottestModel {
 		setrobust(), setR(), setR0(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeInterpolables(), _makeInterpolables(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), setstattype(), Initialize()
   private void makeJ(), _clustAccum(), makeWREStats(), PrepAR()
 	real matrix getplot(), getCI(), getV(), getv()
-	real scalar getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas()
+	real scalar getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), getNBootClust()
 	private real scalar r0_to_p(), search()
-  private real matrix count_binary(), crosstab() /*, QuarticRoots()*/
+  private real matrix count_binary(), crosstab()
   private static real matrix combs()
   private static real colvector stableorder()
   static void _st_view()
@@ -352,53 +352,53 @@ void boottestModel::setZExcl   (real matrix Z ) {
 void boottestModel::setwt      (real matrix wt) {
 	this.pwt  = &wt; setdirty(1)
 }
-void boottestModel::setsc      (real matrix Sc) {
+void boottestModel::setsc(real matrix Sc) {
 	this.pSc  = &Sc
 	setdirty(1)
 }
-void boottestModel::setML      (real scalar ML) {
+void boottestModel::setML(real scalar ML) {
 	this.ML  = ML; setdirty(1)
 	if (ML) setscoreBS(1)
 }
-void boottestModel::setLIML    (real scalar LIML) {
+void boottestModel::setLIML(real scalar LIML) {
 	this.LIML = LIML; setdirty(1)
 }
-void boottestModel::setAR    (real scalar AR) {
+void boottestModel::setAR(real scalar AR) {
 	this.AR = AR; setdirty(1)
 }
 void boottestModel::setFuller    (real scalar Fuller) {
 	this.Fuller = Fuller; setdirty(1)
 }
-void boottestModel::setk    (real scalar K) {
+void boottestModel::setk(real scalar K) {
 	this.K = K; setdirty(1)
 }
-void boottestModel::setquietly (real scalar quietly )
+void boottestModel::setquietly(real scalar quietly )
 	this.quietly = quietly
-void boottestModel::setbeta    (real colvector beta) {
+void boottestModel::setbeta(real colvector beta) {
 	this.beta = beta; setdirty(1)
 }
-void boottestModel::setV    (real matrix V ) {
+void boottestModel::setV(real matrix V) {
 	this.pV = &V; setdirty(1)
 }
-void boottestModel::setW    (real matrix W ) {
+void boottestModel::setW(real matrix W) {
 	this.pW = &W; setdirty(1)
 }
-void boottestModel::setsmall   (real scalar small   ) {
+void boottestModel::setsmall(real scalar small) {
 	this.small = small; setdirty(1)
 }
 void boottestModel::sethascons(real scalar hascons) {
 	this.hascons = hascons; setdirty(1)
 }
-void boottestModel::setscoreBS (real scalar scoreBS ) {
+void boottestModel::setscoreBS (real scalar scoreBS) {
 	this.scoreBS = scoreBS; setdirty(1)
 }
-void boottestModel::setreps    (real scalar reps    ) {
+void boottestModel::setreps(real scalar reps) {
 	this.reps = reps
 	if (reps==0)
 		setscoreBS(1)
 	setdirty(1)
 }
-void boottestModel::setnull    (real scalar null    ) {
+void boottestModel::setnull    (real scalar null) {
 	this.null = null; setdirty(1)
 }
 void boottestModel::setWald() { // set-up for classical Wald test
@@ -417,16 +417,16 @@ void boottestModel::setID      (real matrix ID, | real scalar NBootClustVar, rea
 void boottestModel::setFEID(real matrix ID, real scalar NFE) {
 	this.pFEID = &ID; this.NFE = NFE; setdirty(1)
 }
-void boottestModel::setlevel  (real scalar level  )
+void boottestModel::setlevel(real scalar level)
 	this.level = level
-void boottestModel::setptol  (real scalar ptol  )
+void boottestModel::setptol(real scalar ptol)
 	this.ptol = ptol
-void boottestModel::setrobust  (real scalar robust  ) {
+void boottestModel::setrobust(real scalar robust) {
 	this.robust = robust
 	if (robust==0) setID(J(0,0,0), 1, 1)
 	setdirty(1)
 }
-void boottestModel::setR (real matrix R, real colvector r ) {
+void boottestModel::setR(real matrix R, real colvector r) {
 	this.pR = &R; 	this.pr  = &r; q = rows(R); setdirty(1)
 }
 void boottestModel::setR0(real matrix R0, real colvector r0) {
@@ -516,6 +516,9 @@ real matrix boottestModel::getv()
 // Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 real scalar boottestModel::getrepsFeas()
 	return (repsFeas)
+
+real scalar boottestModel::getNBootClust()
+	return (NBootClust)
 
 // return number of replications, possibly reduced to 2^G
 real scalar boottestModel::getreps()
@@ -680,8 +683,6 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 
     purerobust = NClustVar & (scoreBS | subcluster)==0 & NBootClust==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
     granular   = NClustVar & scoreBS==0 & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
-    doKK = MaxMatSize<. | (willplot==0 & granular==0 & NBootClust * (sumN + NBootClust*reps +.5*(NErrClustCombs)) < 2*reps*(2*sumN + NErrClustCombs)) // estimate compute time for U :* (sum_c KK) * U vs. sum_c(colsum((J_c*U):*(J_c*U)))
-
     if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
@@ -822,10 +823,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     if (WREnonAR==0 & robust) {
       if (reps) Kd = smatrix(df)
       Kcd = smatrix(NErrClustCombs, df)
-      if (doKK)
-        KK = smatrix(df, df)
-      else
-        pJcd = reps? &smatrix(NErrClustCombs, df) : &Kcd  // if reps = 0, Kcd will be multiplied by u, which is all 1's, and will constitute Jcd
+      pJcd = reps? &smatrix(NErrClustCombs, df) : &Kcd  // if reps = 0, Kcd will be multiplied by u, which is all 1's, and will constitute Jcd
     }
   }
 
@@ -847,23 +845,8 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     multiplier = multiplier * _Nobs  // will turn sum of squared errors in denom of t/z into mean; but division by N already in GMM weight matrix so skip for GMM
   
   if (sqrt) multiplier = sqrt(multiplier)
-
-  enumerate = 0
-  if (weighttype<=1 & reps)
-    if (NBootClust*ln(2) < ln(reps)+1e-6)
-      if (weighttype==1) {
-        if (quietly==0)
-          printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Mammen draws, 2^%g = %g. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust) 
-      } else {
-        if (quietly==0)
-          printf("\nWarning: with %g Clusters, the number of replications, %g, exceeds the universe of Rademacher draws, 2^%g = %g. Sampling each once. \nConsider Webb weights instead, using {cmd:weight(webb)}.\n", NBootClust, reps, NBootClust, 2^NBootClust)
-        enumerate = 1
-        MaxMatSize = .
-      }
-    else if (quietly==0 & (NBootClust>12 | weighttype) & floor(level/100 * (reps+1)) != level/100 * (reps+1)) {
-        printf("\nNote: The bootstrap usually performs best when the confidence level (here, %g%%)\n", level)
-        printf("      times the number of replications plus 1 (%g+1=%g) is an integer.\n", reps, reps+1)
-      }
+  if (enumerate = (reps & weighttype==0 & NBootClust*ln(2) < ln(reps)+1e-6))  // generate full Rademacher set?
+    MaxMatSize = .
 
   NWeightGrps = MaxMatSize == .? 1 : ceil((reps+1) * max((rows(IDBootData), rows(IDBootAll), NBootClust)) * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
   betadev = smatrix(NWeightGrps)
@@ -887,7 +870,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 
   interpolable = reps & WREnonAR==0 & null & scoreBS==0
   interpolate_denom = interpolable & robust
-  interpolate_e = interpolable & ((interpolate_denom & doKK==0 & reps & granular) | ((robust==0 | GMM) & (ML | GMM)==0))  // doesn't look right cases where makeNonWREStats refers directly to residuals, which may thus need interpolation
+  interpolate_e = interpolable & ((interpolate_denom & reps & granular) | ((robust==0 | GMM) & (ML | GMM)==0))  // doesn't look right cases where makeNonWREStats refers directly to residuals, which may thus need interpolation
   if (interpolable) {
     dnumerdr = smatrix(dH0)
     if (interpolate_e) dedr = dnumerdr
@@ -1081,8 +1064,8 @@ void boottestModel::makeInterpolables() {
       return
     }
 
-    if (rows(poles))
-      newPole = abs(*pr0 - anchor) :> 2 * abs(poles)  //  been here at least twice: interpolate unless current r0 stretches range > 2X in some dimension(s)
+    if (rows(poles))  //  been here at least twice? interpolate unless current r0 stretches range > 2X in some dimension(s)
+      newPole = abs(*pr0 - anchor) :> 2 * abs(poles)
     else {  // not enough info yet to interpolate
       poles = *pr0 - anchor  // second call: from anchor make set of orthogonal poles, which equal anchor except in one dimension
       if (interpolate_denom)  // grab quadratic denominator from *previous* (1st) evaluation
@@ -1283,14 +1266,7 @@ void boottestModel::_makeInterpolables(real colvector r0) {
     }
   }
 
-  if (doKK)
-    for (i=df;i;i--)
-      for (j=i;j;j--) {
-        for (c=1;c<=NErrClustCombs;c++)
-          _clustAccum(KK[i,j].M, c, cross(Kcd[c,i].M, Kcd[c,j].M))
-            KK[i,j].M = lowertriangle(KK[i,j].M) + uppertriangle(KK[i,j].M,0)'  // fold in half diagonally such that v'Xv is unchanged, but will be computed faster because it is half 0's
-      }
-  else if (reps & robust)
+  if (reps & robust)
     makeJ(1)  // compute J = K * u; if NWeightGrps > 1, then this is for 1st group; if interpolating, it is only group, and is needed now for interpolation
 }
 
@@ -1312,18 +1288,14 @@ void boottestModel::makeJ(real scalar g) {
 
   for (c=NErrClustCombs; c>granular; c--)
     for (d=df;d;d--)
-	      (*pJcd)[c,d].M = Kcd[c,d].M * u
+      (*pJcd)[c,d].M = Kcd[c,d].M * u
 }
 
 void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStart, real scalar thisWeightGrpStop) {
 	real scalar i, c, j, l; real matrix eueu, t; real colvector numer_l; pointer (real matrix) scalar pVR0; real rowvector t1, t2, t12
 
 	if (robust & GMM==0) {
-    if (doKK)  // core denominator computation loop
-			for (i=df;i;i--)
-				for (j=i;j;j--)
-					denom[i,j].M = colsum(u :* KK[i,j].M * u)  // (60), 2nd version GGB/2+GB + 3GG < 3GB
-		else if (!interpolating) {  // alternative core computational loop, avoiding computing K'K which has cubic time cost in numbers of bootstrapping clusters
+    if (!interpolating) {
 			if (g > 1)
         makeJ(g)
       if (purerobust)
@@ -1496,31 +1468,25 @@ real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scal
 
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottestModel::plot() {
-	real scalar t, alpha, _quietly, c, d, i, j, ARTrialHalfWidth, p_lo, p_hi, p_confpeak; real colvector lo, hi; pointer (real colvector) scalar _pr0; real rowvector b; real matrix V
+	real scalar t, alpha, _quietly, c, d, i, j, halfwidth, p_lo, p_hi, p_confpeak; real colvector lo, hi; pointer (real colvector) scalar _pr0
 
 	_quietly = quietly; _pr0 = pr0
 	setquietly(1)
+  alpha = 1 - level*.01
 
   _editmissing(gridpoints, 25)
 
   if (AR==0) {
-    b = getb()
-    V = getV()
-  }
+    halfwidth = (-1.5 * invnormal(alpha/2)) * sqrt(diagonal(getV()))
+    confpeak = getb() + *pr0
+  } else
+    halfwidth = abs(confpeak) / invnormal(alpha/2) * invnormal(getpadj(1)/2)
 
   if (dH0==2) {
     lo = hi = J(2, 1, .)
-
-    if (AR)
-      ARTrialHalfWidth = abs(confpeak) / (-2/invnormal(getpadj(1)/2))
     for(d=df;d;d--) {
-      if (AR) {
-        lo[d] = editmissing(gridmin[d], confpeak[d] - ARTrialHalfWidth[d])
-        hi[d] = editmissing(gridmin[d], confpeak[d] + ARTrialHalfWidth[d])
-      } else {
-        lo[d] = editmissing(gridmin[d], b[d] + (*pr0)[d] - 3 * sqrt(V[d,d]))
-        hi[d] = editmissing(gridmax[d], b[d] + (*pr0)[d] + 3 * sqrt(V[d,d]))
-      }
+      lo[d] = editmissing(gridmin[d], confpeak[d] - halfwidth[d])
+      hi[d] = editmissing(gridmin[d], confpeak[d] + halfwidth[d])
 
       stata("_natscale " + strofreal(lo[d]) + " " + strofreal(hi[d]) + " 4")
       if (gridmin[d]==.) {
@@ -1537,28 +1503,17 @@ void boottestModel::plot() {
 
   } else {  // 1D plot
 
-    alpha = 1 - level*.01
     if (alpha > 0 & cols(u)-1 <= 1/alpha-1e6) {
       setquietly(_quietly)
       if (quietly==0) errprintf("\nError: need at least %g replications to resolve a %g%% two-sided confidence interval.\n", ceil(1/alpha), level)
       return
     }
     
-    if (AR)
-      ARTrialHalfWidth = abs(confpeak) / (small? invttail(df_r, alpha/2)/invttail(df_r, getpadj(1)/2) : invnormal(alpha/2)/invnormal(getpadj(1)/2))
-    else
-      confpeak = b + *pr0
     if (gridmin[1]==. | gridmax[1]==.) {
-      if (reps)
-        if (AR) {
-          lo = editmissing(gridmin[1], confpeak - ARTrialHalfWidth)
-          hi = editmissing(gridmax[1], confpeak + ARTrialHalfWidth)
-        } else {
-          (void) getdist()
-          lo = editmissing(gridmin[1], confpeak + 5 * DistCDR[floor((   alpha/2)*(repsFeas-1))+1] * sqrt(V)) // initial guess based on distribution from main test
-          hi = editmissing(gridmax[1], confpeak + 5 * DistCDR[ceil (( 1-alpha/2)*(repsFeas-1))+1] * sqrt(V))
-        }
-      else {
+      if (reps) {
+        lo = editmissing(gridmin[1], confpeak - halfwidth) // initial guess based on classical distribution
+        hi = editmissing(gridmax[1], confpeak + halfwidth)
+      } else {
         t = sqrt(statDenom) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
         lo = editmissing(gridmin[1], confpeak - t)
         hi = editmissing(gridmax[1], confpeak + t)
@@ -1567,20 +1522,35 @@ void boottestModel::plot() {
           return
         }
       }
-
-      if (gridmin[1]==. & ptype!=2)  // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
-        for (i=10; i & -(p_lo=r0_to_p(lo)) < -alpha; i--) {
-          t = hi - lo
-          lo = lo - t
-          if (gridmax[1]==. & twotailed) hi = hi + t  // maintain rough symmetry unless user specified upper bound
-        }
-      if (gridmax[1]==. & ptype!=3)  // ditto for high side
-	      for (i=10; i & -(p_hi=r0_to_p(hi)) < -alpha; i--) {
-          t = hi - lo
-          if (gridmin[1]==. & twotailed) lo = lo - t
-          hi = hi + t
-        }
-    } else {
+      
+      if (abs(lo - *pr0) > abs(hi - *pr0)) {  // brute force way to ensure that first trial bound tested is the farther one from *pr0, for better interpolation
+        if (gridmin[1]==. & ptype!=2)  // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+          for (i=10; i & -(p_lo=r0_to_p(lo)) < -alpha; i--) {
+            t = hi - lo
+            lo = lo - t
+            if (gridmax[1]==. & twotailed) hi = hi + t  // maintain rough symmetry unless user specified upper bound
+          }
+        if (gridmax[1]==. & ptype!=3)  // ditto for high side
+          for (i=10; i & -(p_hi=r0_to_p(hi)) < -alpha; i--) {
+            t = hi - lo
+            if (gridmin[1]==. & twotailed) lo = lo - t
+            hi = hi + t
+          }
+      } else {
+        if (gridmax[1]==. & ptype!=3)  // ditto for high side
+          for (i=10; i & -(p_hi=r0_to_p(hi)) < -alpha; i--) {
+            t = hi - lo
+            if (gridmin[1]==. & twotailed) lo = lo - t
+            hi = hi + t
+          }
+        if (gridmin[1]==. & ptype!=2)  // unless upper-tailed p value, try at most 10 times to bracket confidence set by symmetrically widening
+          for (i=10; i & -(p_lo=r0_to_p(lo)) < -alpha; i--) {
+            t = hi - lo
+            lo = lo - t
+            if (gridmax[1]==. & twotailed) hi = hi + t  // maintain rough symmetry unless user specified upper bound
+          }
+      }
+    } else {  // both grid bounds pre-specified
       lo = gridmin[1]
       hi = gridmax[1]
     }
@@ -1623,120 +1593,41 @@ void boottestModel::plot() {
       if (plotY[i] == .) plotY[i] = r0_to_p(plotX[i,]')
     } while (1 < (i = mod(i-2,rows(plotX))+1))
 
-/* determine crossovers analytically, by solving quartic equations 
- appealing in principle, but doesn't seem faster in practice and runs into complications such as handling cubic subcase of quartic, and judging whether a complex root
- is actually real root with imprecision, and requiring doKK==0 approach
-
- if (dH0==1 & level<100)
-    if (interpolating & doKK==0 & interpolate_denom) {
-real matrix roots, t0; real scalar numer0sq, numer0tw
-      numer0sq = numer0[1] * numer0[1]; numer0tw = numer0[1] + numer0[1]
-"ddenomdr2.M.M[404]"
-ddenomdr2.M.M[404]
-      roots = QuarticRoots((dnumerdr.M[1]*dnumerdr.M[1]) * ddenomdr2.M.M,
-                           (dnumerdr.M[1]*dnumerdr.M[1]) * ddenomdr.M.M + (dnumerdr.M[1] * numer0tw) * ddenomdr2.M.M,
-                           ddenomdr2.M.M * numer0sq + (dnumerdr.M[1] * numer0tw) * ddenomdr.M.M + (dnumerdr.M[1]*dnumerdr.M[1]) * denom0.M - dnumerdr.M :* dnumerdr.M * denom0.M[1],
-                           ddenomdr.M.M  * numer0sq + (dnumerdr.M[1] * numer0tw) * denom0.M - dnumerdr.M :* numer0 * (denom0.M[1]+denom0.M[1]),
-                           numer0sq * denom0.M - numer0 :* numer0 * denom0.M[1])
-      t = (numer0 :+ dnumerdr.M :* roots) :> 0; t0 = (numer0[1] :+ dnumerdr.M[1] :* roots) :> 0
-      if (ptype) roots = roots :/ (t :& t0 :| (t :| t0):==0)  // except for symmetric p value, annihilate quartic solutions corresponding to opposite-signed t stats
-
-      if (allof(colnonmissing(roots)[|2\.|], 1)) { // simple case of one crossing for each replication
-        roots = colmin(roots)[|2\.|]'
-/*external matrix _roots
-_roots=roots*/
-        if (ptype) {
-          _sort(roots, 1)
-          if (ptype==1)  // equal-tail p value
-            CI = roots[round(alpha*.5*reps)], roots[round((1-alpha*.5)*reps)]
-          else if (ptype==2) // lower-tailed p value
-            CI = ., roots[round((1-alpha)*reps)]
-          else  // lower-tailed p value
-            CI = roots[round(alpha*reps)], .
-        } else {  // symmetric
-          roots = sort(abs(roots :- confpeak), -1)
-          t = roots[round(alpha*reps)]
-"alpha,confpeak, mean(roots),t"
-alpha,confpeak, mean(roots),t
-          CI = confpeak - t, confpeak + t
-        }
-"CI"
-CI
-      }
-
-"selectindex(colnonmissing(roots):!=1)\roots[,selectindex(colnonmissing(roots):!=1)]"
-selectindex(colnonmissing(roots):!=1)\roots[,selectindex(colnonmissing(roots):!=1)]
-external real matrix _numer0,_dnumerdr,_denom0,_ddenomdr,_ddenomdr2
-_numer0=numer0; _dnumerdr=dnumerdr.M;_denom0=denom0.M;_ddenomdr=ddenomdr.M.M; _ddenomdr2=ddenomdr2.M.M
-    } else*/ {
-      CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
-      lo = boottest_selectindex(CI:== 1)
-      hi = boottest_selectindex(CI:==-1)
-      if (rows(lo)==0 & rows(hi)==0)
-        CI = . , .
+  if (dH0==1 & level<100) {  // find CI bounds
+    CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
+    lo = boottest_selectindex(CI:== 1)
+    hi = boottest_selectindex(CI:==-1)
+    if (rows(lo)==0 & rows(hi)==0)
+      CI = . , .
+    else {
+           if (rows(lo)==0) lo = .
+      else if (rows(hi)==0) hi = .
       else {
-             if (rows(lo)==0) lo = .
-        else if (rows(hi)==0) hi = .
-        else {
-          if ( lo[1       ] >  hi[1       ]) lo = .  \ lo // non-rejection ranges that are not within grid range
-          if (-lo[rows(lo)] < -hi[rows(hi)]) hi = hi \ .
-        }
-        CI = lo, hi
-        for (i=rows(lo); i; i--)
-          for (j=2; j; j--)
-            if (CI[i,j]<.)
-              CI[i,j] = search(alpha, plotY[CI[i,j]], plotX[CI[i,j]], plotY[CI[i,j]+1], plotX[CI[i,j]+1])
+        if ( lo[1       ] >  hi[1       ]) lo = .  \ lo // non-rejection ranges that are not within grid range
+        if (-lo[rows(lo)] < -hi[rows(hi)]) hi = hi \ .
       }
+      CI = lo, hi
+      for (i=rows(lo); i; i--)
+        for (j=2; j; j--)
+          if (CI[i,j]<.)
+            CI[i,j] = search(alpha, plotY[CI[i,j]], plotX[CI[i,j]], plotY[CI[i,j]+1], plotX[CI[i,j]+1])
     }
+  }
 
-    if (c < .) {  // now that it's done helping graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
-      peak = plotX[c], plotY[c]
-      if (c==1) {
-        plotX = plotX[|2\.|]; plotY = plotY[|2\.|]
-      } else if (c==gridpoints[1]+1) {
-        plotX = plotX[|.\gridpoints[1]|]; plotY = plotY[|.\gridpoints[1]|]
-      } else {
-        plotX = plotX[|.\c-1|] \ plotX[|c+1\.|]; plotY = plotY[|.\c-1|] \ plotY[|c+1\.|]
-      }
+  if (c < .) {  // now that it's done helping graph look good, remove peak point from returned grid for evenness, for Bayesian sampling purposes
+    peak = plotX[c], plotY[c]
+    if (c==1) {
+      plotX = plotX[|2\.|]; plotY = plotY[|2\.|]
+    } else if (c==gridpoints[1]+1) {
+      plotX = plotX[|.\gridpoints[1]|]; plotY = plotY[|.\gridpoints[1]|]
+    } else {
+      plotX = plotX[|.\c-1|] \ plotX[|c+1\.|]; plotY = plotY[|.\c-1|] \ plotY[|c+1\.|]
     }
+  }
 
 	setquietly(_quietly); pr0 = _pr0; dirty = 1  // restore backups
 	notplotted = 0
 }
-
-// Return real roots of quartic equation using Euler's method, mathforum.org/dr.math/faq/faq.cubic.equations.html
-// . = complex
-// modifies arguments!
-/*real matrix boottestModel::QuarticRoots(real rowvector _a, real rowvector a, real rowvector b, real rowvector c, real rowvector d) {
-  real rowvector e, f, fourg, h, i, j, a2, h2, h3; complex rowvector alpha, z1, z2, p, q, r; complex matrix x
-
-  a = a :/ _a; b = b :/ _a; c = c :/ _a; d = d :/ _a  // need to handle _a=0?
-
-	    e = b - .375*(a2=a:*a)  // substitute with y = x - b/4
-	    f = c + (.125*a2 - .5*b):*a
-	fourg = 4*d - a2:*(.046875*a2 - .25*b) - a:*c
-
-	h = .5*e  // auxilliary cubic equation
-	i = .0625*(e:*e-fourg)
-	j = -.015625*f:*f
-
-	p = (i-(h2=h:*h)/3) / 3  // substite with z = y - h/3
-	q = (((2/27)*h2-i/3):*h+j) * .5
-
-	alpha = (sqrt(C(q:*q + p:*p:*p)) - q) :^ (1/3)
-	z1 = alpha - p :/ alpha  // roots of p,q equation
-	alpha = alpha * (-.5+1.bb67ae8584cabX-001i /*exp(2i*pi()/3)*/)
-	z2 = alpha - p :/ alpha
-
-	h3 = h/3
-	p = sqrt(z1 - h3)  // square roots of roots of auxilliary cubic
-	q = sqrt(z2 - h3)
-	r = f:/(p:*q) * -.125
-
-	x = p+q+r\p-q-r\-p+q-r\-p-q+r
-	return (Re(x) :/ (abs(Im(x)):<1e-5) :- 0.25*a)
-}*/
-
 
 // return matrix whose rows are all the subsets of a row of numbers. Nil is at bottom.
 real matrix boottestModel::combs(real scalar d) {
@@ -1768,7 +1659,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	string scalar ZExclnames, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
 	string scalar FEname, real scalar NFE, string scalar wtname, string scalar wttype, string scalar Cname, string scalar C0name, real scalar reps, string scalar repsname, string scalar repsFeasname, 
 	real scalar small, string scalar diststat, string scalar distname, string scalar gridmin, string scalar gridmax, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly,
-	string scalar b0name, string scalar V0name, string scalar vname) {
+	string scalar b0name, string scalar V0name, string scalar vname, string scalar NBootClustname) {
 
 	real matrix C, R, C0, R0, ZExcl, ID, FEID, sc, XEnd, XEx
 	real colvector r, wt, r0, Y
@@ -1829,20 +1720,21 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (Vname != "") M.setV   (st_matrix(Vname) )
 	if (Wname != "") M.setW   (st_matrix(Wname) )
 	M.setwillplot(plotname != "" | ciname != "")  // indicates whether to optimize for many p evaluations
-	st_numscalar(statname, M.getstat())
-	st_numscalar(pname   , M.getp   ())
-	st_numscalar(repsname, M.getreps())
-	st_numscalar(repsFeasname, M.getrepsFeas())
-	st_numscalar(padjname, M.getpadj())
-	st_numscalar(dfname  , M.getdf  ())
-	st_numscalar(dfrname , M.getdf_r())
-	st_matrix(b0name, M.getb()')
-	st_matrix(V0name, M.getV())
 	if (plotname != "" | (level<100 & ciname != "")) {
 		if (plotname != "") st_matrix(plotname, M.getplot())
 		if (cols(M.peak)) st_matrix(peakname, M.getpeak())
 		if (level<100 & ciname != "") st_matrix(ciname, M.getCI())
 	}
+	st_numscalar(statname, M.getstat())
+	st_numscalar(pname   , M.getp   ())
+	st_numscalar(repsname, M.getreps())
+	st_numscalar(repsFeasname, M.getrepsFeas())
+	st_numscalar(NBootClustname, M.getNBootClust())
+	st_numscalar(padjname, M.getpadj())
+	st_numscalar(dfname  , M.getdf  ())
+	st_numscalar(dfrname , M.getdf_r())
+	st_matrix(b0name, M.getb()')
+	st_matrix(V0name, M.getV())
 	if (distname != "") st_matrix(distname, M.getdist(diststat))
 	if (vname != "" & reps) st_matrix(vname, M.getv())
 	M.M_DGP.parent = NULL // break loop in data structure topology to avoid Mata garbage-cleaning leak

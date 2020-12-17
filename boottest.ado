@@ -1,4 +1,4 @@
-*! boottest 3.0.0 14 December 2020
+*! boottest 3.0.1 16 December 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -264,7 +264,7 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se teststat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname t
+	tempname p padj se teststat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname t NBootClustname
 	mat `b' = e(b)
 	local k = colsof(`b')  // column count before possible removal of _cons term in FE models
 
@@ -648,10 +648,19 @@ program define _boottest, rclass sortpreserve
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
 												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'")
+												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
 		_estimates unhold `hold'
 
-		local reps = `repsname' // in case reduced to 2^G
+    `quietly' if 2^`NBootClustname' < `reps' & inlist("`weighttype'", "rademacher", "mammen") {
+      di _n "Warning: with " `NBootClustname' " boostrap clusters, the number of replications, `reps', exceeds the universe of " strproper("`weighttype'") " draws, 2^"`NBootClustname' " = " 2^`NBootClustname' ". " _c
+      if "`weighttype'"=="rademacher" di "Sampling each once." _c
+      di _n "Consider Webb weights instead, using {cmd:weight(webb)}."
+    }
+    local reps = `repsname'  // in case reduced to 2^G
+    `quietly' if ((`NBootClustname'>12 | "`weighttype'" != "rademacher") & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1)) {
+      di _n "Note: The bootstrap usually performs best when the confidence level (here, `level'%)" _n "      times the number of replications plus 1 (`reps'+1=" `reps'+1 ") is an integer."
+    }
+
 		if !`ML' & `reps' & `Nclustvars'>1 & `teststat'<. {
 			return scalar repsFeas = `repsFeasname'
 			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replications returned an infeasible test statistic and were deleted from the bootstrap distribution."
@@ -813,6 +822,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.0.1 Recompiled in Stata 13
 * 3.0.0 Exploit linearity/quadratic form in denominators too. ~10X speed-up over 2018 version for inverting tests after OLS.
 * 2.8.1 Fix 2.8.0 bugs. Even more fully exploit linearity in test stat numerators, for ~2X speed gain in inverting test after OLS.
 * 2.8.0 More fully exploit linearity of numerators and K matrices as in appendix A.2. Recenter classical score test even for non-OLS, reversing 2.4.1 change. Added ptolerance() option.
