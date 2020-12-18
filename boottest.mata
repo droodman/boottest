@@ -1,4 +1,4 @@
-*! boottest 3.0.1 16 December 2020
+*! boottest 3.0.2 18 December 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -118,7 +118,6 @@ void AnalyticalModel::InitEndog(pointer (real colvector) scalar _pY, pointer (re
 		pointer (real colvector) scalar _pZExclY, pointer (real rowvector) scalar _pXExY) {
 
 	pY = partialFE(_pY); pXEnd = partialFE(_pXEnd)
-
 	pXExY = _pXExY==NULL? &cross(*parent->pXEx, *parent->pwt, *pY) : _pXExY
 	if (K | AR)
 		pZExclY = _pZExclY==NULL? &cross(*parent->pZExcl, *parent->pwt, *pY) : _pZExclY
@@ -547,7 +546,7 @@ real matrix boottestModel::getplot() {
 	if (notplotted) plot()
 	return((plotX,plotY))
 }
-real rowvector boottestModel::getpeak() {
+real rowvector boottestModel::getpeak() {  // x and y values of confidence curve peak (at least in OLS & AR)
 	if (notplotted) plot()
 	return(peak)
 }
@@ -1079,7 +1078,6 @@ void boottestModel::makeInterpolables() {
         if (newPole[h1]) {
         	poles[h1] = (*pr0)[h1] - anchor[h1]
         	(t = anchor)[h1] = (*pr0)[h1]  // if dH0>1 this creates anchor points that are not graphed, an inefficiency. But simpler to make the deviations from 1st point orthogonal
-
           _makeInterpolables(t)  // calculate linear stuff at new anchor
 
           dnumerdr[h1].M = (numer - numer0) / poles[h1]
@@ -1164,6 +1162,7 @@ void boottestModel::_makeInterpolables(real colvector r0) {
     eZVR0 = *pSc * (VR0 = *pV * *pR0')
   else if (scoreBS | (robust & granular < NErrClustCombs))
     eZVR0 = *pe :* pM->ZVR0
+
   if (scoreBS)
     SewtXV = reps? (NClustVar? _panelsum(eZVR0, *pwt, infoBootData) : (weights?       eZVR0 :* *pwt  :        eZVR0) ) :
                                                                       (weights? cross(eZVR0,   *pwt) : colsum(eZVR0)')
@@ -1179,7 +1178,7 @@ void boottestModel::_makeInterpolables(real colvector r0) {
     if (scoreBS)
       numer = reps? cross(SewtXV, u) : SewtXV * u_sd
     else if (robust==0 | granular)
-	    numer = *pR0 * (betadev.M = SewtXV * u)
+      numer = *pR0 * (betadev.M = SewtXV * u)
     else
       numer = (*pR0 * SewtXV) * u
   else
@@ -1476,11 +1475,12 @@ void boottestModel::plot() {
   alpha = 1 - level*.01
   _editmissing(gridpoints, 25)
 
+  boottest()
   if (AR==0) {
     halfwidth = (-1.5 * invnormal(alpha/2)) * sqrt(diagonal(getV()))
     confpeak = getb() + *pr0
   } else
-    halfwidth = abs(confpeak) / invnormal(alpha/2) * invnormal(getpadj(1)/2)
+    halfwidth = abs(confpeak) * invnormal(getpadj(1)/2) / invnormal(alpha/2)
 
   if (dH0==2) {
     lo = hi = J(2, 1, .)
@@ -1488,7 +1488,7 @@ void boottestModel::plot() {
       lo[d] = editmissing(gridmin[d], confpeak[d] - halfwidth[d])
       hi[d] = editmissing(gridmin[d], confpeak[d] + halfwidth[d])
 
-      stata("_natscale " + strofreal(lo[d]) + " " + strofreal(hi[d]) + " 4")
+      stata("_natscale " + strofreal(lo[d]) + " " + strofreal(hi[d]) + " 4")  // using Stata algorithm for setting graph bounds ensures good-looking contour plot
       if (gridmin[d]==.) {
         stata("local min = r(min)")  // for some reason st_global("r(min)") doesn't work
         lo[d] = strtoreal(st_local("min"))

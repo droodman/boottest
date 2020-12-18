@@ -1,4 +1,4 @@
-*! boottest 3.0.1 16 December 2020
+*! boottest 3.0.2 18 December 2020
 *! Copyright (C) 2015-20 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -822,6 +822,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.0.2 Dropped "KK" calculation (last expression in eq 60 in paper) because inefficient when interpolating. Refined plotting to minimize interpolation anchor resets. Refined criterion to use "granular"-optimized code (many small clusters).
 * 3.0.1 Recompiled in Stata 13
 * 3.0.0 Exploit linearity/quadratic form in denominators too. ~10X speed-up over 2018 version for inverting tests after OLS.
 * 2.8.1 Fix 2.8.0 bugs. Even more fully exploit linearity in test stat numerators, for ~2X speed gain in inverting test after OLS.
