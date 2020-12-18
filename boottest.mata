@@ -176,13 +176,13 @@ void AnalyticalModel::InitEstimate() {
 				TT   = Splus '   TT * Splus
 				TPZT = Splus ' TPZT * Splus
 			}
-			eigensystemselecti( I(rows(TT)) - boottest_lusolve(TT, TPZT), 1\1, vec, val)  // eigensystemselecti(lusolve(TT, TPZT), rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			eigensystemselecti( I(rows(TT)) - invsym(TT) * TPZT, 1\1, vec, val)  // eigensystemselecti(invsym(TT) * TPZT, rows(TT)\rows(TT), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 			K = 1/Re(val) - Fuller / (parent->_Nobs - parent->el)   // sometimes a tiny imaginary component sneaks into val
 		}
 
   pH = K? (K==1? &H_2SLS : &((1-K)* *pXX + K*H_2SLS)) : pXX
 	if (rows(*pS)) {
-		pbetadenom = &(*pS * boottest_lusolve(*pS ' (*pH) * *pS, *pS'))
+		pbetadenom = &(*pS * invsym(*pS ' (*pH) * *pS) * *pS')
 		invH = J(0,0,0)
 	} else
 		pbetadenom = &(invH = invsym(*pH))
@@ -205,7 +205,7 @@ void AnalyticalModel::InitEstimate() {
 void AnalyticalModel::InitTestDenoms(real matrix S) {
 	real matrix AVR0; real scalar d, c; struct smatrix rowvector _CT_ZVR0; pointer (real matrix) scalar pWZVR0
 
-	pV = rows(S)? &(S * boottest_lusolve(S ' (*pH) * S, S')) : ///
+	pV = rows(S)? &(S * invsym(S ' (*pH) * S) * S') : ///
 	              &(rows(invH)? invH : invsym(*pH))
 	VR0 = *pV * *parent->pR0'
 
@@ -274,7 +274,7 @@ void AnalyticalModel::Estimate(real colvector s) {
 	if (isDGP & LIML) {
 		Ze = ZY - ZX * beta
 		negZeinvee = Ze / -ee
-		pi = boottest_lusolve(ZZ + negZeinvee * Ze', negZeinvee * (YXEnd - beta ' XXEnd) + ZXEnd)  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
+		pi = invsym(ZZ + negZeinvee * Ze') * (negZeinvee * (YXEnd - beta ' XXEnd) + ZXEnd)  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
 		e2 = *pXEnd - *parent->pZExcl * pi[|parent->kEx+1,.\.,.|]; if (parent->kEx) e2 = e2 - *parent->pXEx * pi[|.,.\parent->kEx,.|]
 	}
 }
@@ -682,7 +682,8 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     }
 
     purerobust = NClustVar & (scoreBS | subcluster)==0 & NBootClust==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
-    granular   = NClustVar & scoreBS==0 & (purerobust | 5*Nobs*k+1/25*2*NBootClust*k^2+1/25*2*NBootClust^2*k+NBootClust+1/25*2*NBootClust^2*reps+2*NBootClust*reps > 3*Nobs*reps+Nobs*k+1/25*(2*NBootClust*k*reps+2*k*reps-2*k*NBootClust-2*NBootClust*reps+2*NBootClust*k*reps)+2*NBootClust*reps)
+    granular   = NClustVar & scoreBS==0 & (purerobust | (Clust.N+NBootClust)*k*reps + (Clust.N-NBootClust)*reps + k*reps < Clust.N*k*k + Nobs*k + Clust.N * NBootClust * k + Clust.N * NBootClust)
+
     if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab EZVR0 wrt bootstrapping cluster & intersection of all error clusterings
@@ -747,7 +748,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
     df = rows(*pR0)
   else {
     if (REst) {  // restricted estimation, e.g., cnsreg?
-      symeigensystem(*pR ' boottest_lusolve(*pR * *pR', *pR), vec, val)  // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
+      symeigensystem(*pR ' invsym(*pR * *pR') * *pR, vec, val)  // make "inverse" S,s of constraint matrices; formulas adapted from [P] makecns
       L = vec[|.,.\.,q|]  // eigenvectors not in kernel of projection onto R
       S = q < k? vec[|.,q+1\.,.|] : J(k,0,0)  // eigenvectors in kernel
       s = L * luinv(*pR * L) * *pr
@@ -870,7 +871,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r0 repeatedly
 
   interpolable = reps & WREnonAR==0 & null & scoreBS==0
   interpolate_denom = interpolable & robust
-  interpolate_e = interpolable & ((interpolate_denom & reps & granular) | ((robust==0 | GMM) & (ML | GMM)==0))  // doesn't look right cases where makeNonWREStats refers directly to residuals, which may thus need interpolation
+  interpolate_e = interpolable & (robust | ML | GMM)==0
   if (interpolable) {
     dnumerdr = smatrix(dH0)
     if (interpolate_e) dedr = dnumerdr
@@ -902,7 +903,7 @@ void boottestModel::boottest() {
     } else
       numer[,1] = u_sd * (*pR0 * (ML? beta : pM->beta) - *pr0) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 
-    (*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' boottest_lusolve(statDenom, numer[,1])
+    (*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' invsym(statDenom) * numer[,1]
     return
   }
 
@@ -946,7 +947,7 @@ void boottestModel::makeBootstrapcDenom(real scalar thisWeightGrpStart, real sca
 	}
 	if (thisWeightGrpStop > reps) {  // last weight group?
 		statDenom = (statDenom - numersum * numersum' / reps) / reps
-		pDist = &((sqrt? numer:/sqrt(statDenom) : colsum(numer :* boottest_lusolve(statDenom, numer)))')
+		pDist = &((sqrt? numer:/sqrt(statDenom) : colsum(numer :* invsym(statDenom) * numer))')
 	}
 }
 
@@ -1042,7 +1043,7 @@ void boottestModel::makeWREStats(real scalar thisWeightGrpStart, real scalar thi
 			} else
 				denom.M = (*pR0 * pM_Repl->VR0) * pM_Repl->eec
 
- 			(*pDist)[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, boottest_lusolve(denom.M, numer_j))
+ 			(*pDist)[j+thisWeightGrpStart-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, invsym(denom.M) * numer_j)
 		}
 		numer[,j+thisWeightGrpStart-1] = numer_j  // slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
 	}
@@ -1178,7 +1179,7 @@ void boottestModel::_makeInterpolables(real colvector r0) {
     if (scoreBS)
       numer = reps? cross(SewtXV, u) : SewtXV * u_sd
     else if (robust==0 | granular)
-      numer = *pR0 * (betadev.M = SewtXV * u)
+	    numer = *pR0 * (betadev.M = SewtXV * u)
     else
       numer = (*pR0 * SewtXV) * u
   else
@@ -1267,10 +1268,10 @@ void boottestModel::_makeInterpolables(real colvector r0) {
   }
 
   if (reps & robust)
-    makeJ(1)  // compute J = K * u; if NWeightGrps > 1, then this is for 1st group; if interpolating, it is only group, and is needed now for interpolation
+    makeJ(1)  // compute J = K * u; if NWeightGrps > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 }
 
-void boottestModel::makeJ(real scalar g) {
+void boottestModel::makeJ(real scalar g) {  // called to *prepare* interpolation, or when g>1, in which case there is no interpolation
   real scalar c, d
 
   if (granular)  // prep optimized treatment when bootstrapping by many/small groups
@@ -1302,9 +1303,9 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
         eueu = eu :* eu
       for (i=df;i;i--)
         for (j=i;j;j--) {
-          _clustAccum(denom[i,j].M, 1, purerobust? cross(pM->WZVR0[i].M, pM->WZVR0[j].M, eueu) : colsum((*pJcd)[1,i].M :* (*pJcd)[1,j].M))  // (60), 1st version
-          for (c=2;c<=NErrClustCombs;c++)
-            _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))
+          if (c=purerobust) _clustAccum(denom[i,j].M, c, cross(pM->WZVR0[i].M, pM->WZVR0[j].M, eueu))
+          for (c++; c<=NErrClustCombs; c++)
+            _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))  // (60)
         }
 		}
 
@@ -1331,7 +1332,7 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 						t[i,j] = denom[i,j].M[l]
 				_makesymmetric(t)
 				numer_l = numer[,l]
-				(*pDist)[l+thisWeightGrpStart-1] = numer_l ' boottest_lusolve(t, numer_l)  // in degenerate cases, cross() would turn cross(.,.) into 0
+				(*pDist)[l+thisWeightGrpStart-1] = numer_l ' invsym(t) * numer_l  // in degenerate cases, cross() would turn cross(.,.) into 0
 			}
 			if (thisWeightGrpStart==1)
 				statDenom = t  // original-sample denominator
@@ -1361,14 +1362,14 @@ void boottestModel::makeNonWREStats(real scalar g, real scalar thisWeightGrpStar
 			if (ML | GMM) {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					(*pDist)[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
+					(*pDist)[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M), numer_l)
 				}
 				if (thisWeightGrpStart==1)
 					statDenom = denom.M  // original-sample denominator
 			} else {
 				for (l=cols(u); l; l--) {
 					numer_l = numer[,l]
-					(*pDist)[l+thisWeightGrpStart-1] = cross(numer_l, boottest_lusolve(denom.M, numer_l)) 
+					(*pDist)[l+thisWeightGrpStart-1] = cross(numer_l, invsym(denom.M) * numer_l)
                        eu = reps? u[,l] :* *pe : *pe
 					if (scoreBS) eu = eu :- (weights? cross(*pwt, eu) : colsum(eu)) * ClustShare  // Center variance if interpolate_ed
 					        else eu = eu  - (*pXEx, *pZExcl) * betadev[g].M[,l]  // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
@@ -1473,7 +1474,6 @@ void boottestModel::plot() {
 	_quietly = quietly; _pr0 = pr0
 	setquietly(1)
   alpha = 1 - level*.01
-
   _editmissing(gridpoints, 25)
 
   if (AR==0) {
@@ -1502,6 +1502,7 @@ void boottestModel::plot() {
     plotY = J(rows(plotX), 1, .)
 
   } else {  // 1D plot
+    if (alpha<=0) alpha = .05  // if level=100, no CI constructed, but we need a reasonable alpha to choose graphing bounds
 
     if (alpha > 0 & cols(u)-1 <= 1/alpha-1e6) {
       setquietly(_quietly)
@@ -1642,14 +1643,6 @@ real matrix boottestModel::combs(real scalar d) {
 real colvector boottestModel::stableorder(real matrix X, real rowvector idx)
 	return (order((X, (1::rows(X))), (idx,cols(X)+1)))
 	
-// do lusolve() for precision, but if that fails, use generalized inverse from invsym() NOT
-real matrix boottest_lusolve(real matrix A, real matrix B) {
-	real matrix retval
-return (invsym(A) * B)  // NOT--this is faster and in general precise enough for bootstrap
-	if (hasmissing(retval = lusolve(A, B)))
-		return (invsym(A) * B)
-	return(retval)
-}
 
 // Stata interface
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
