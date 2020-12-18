@@ -1144,7 +1144,7 @@ void boottestModel::PrepAR(real colvector r0) {
 
 // Construct stuff that depends linearly or quadratically on r0 and doesn't depend on u. Does one bit relevant for WRE prep. No interpolation.
 void boottestModel::_makeInterpolables(real colvector r0) {
-  pointer (real matrix) scalar pewt; real scalar g, d, i, j, c; real matrix t; pointer (real matrix) scalar peZVR0, pt; real colvector rAll
+  pointer (real matrix) scalar pewt; real scalar g, d, i, c; real matrix t; pointer (real matrix) scalar peZVR0, pt; real colvector rAll
 
   if (ML==0) {
     if (AR)
