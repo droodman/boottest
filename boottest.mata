@@ -53,11 +53,11 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 }
 
 class boottestModel {
-	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, Neq, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
-		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, D, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, granular, purerobust, subcluster, NBootClust, BFeast, u_sd, level, ptol, MaxMatSize, Ng, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust
-	real matrix AR, numer, v, ustar, T, TARubin, T0, L0invR0L0, plot, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, uZAR, SuwtXA, numer0, betadev
-	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, r00, uddot0, anchor, poles
+	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, k, kEx, el, sumwt, NClustVar, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
+		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
+		NFE, granular, purerobust, subcluster, NBootClust, BFeas, u_sd, level, ptol, MaxMatSize, Ng, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust
+	real matrix AR, numer, v, ustar, T, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, uZAR, SuwtXA, numer0, betadev
+	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
 	real rowvector peak
 	string scalar wttype, madjtype, seed
 	pointer (real matrix) scalar pZexcl, pR1, pR, pID, pFEID, pXend, pXex, pX, pinfoAllData, pinfoErrData
@@ -73,19 +73,19 @@ class boottestModel {
 	pointer(struct smatrix matrix) scalar pJcd
 	struct structFE rowvector FEs
 
-	void new(), setsqrt(), boottest(), plot(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setARubin(),
+	void new(), setsqrt(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setARubin(),
 		setFuller(), setkappa(), setquietly(), setbeta(), setA(), setW(), setsmall(), sethascons(), setscoreBS(), setB(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), setptol(), 
-		setrobust(), setR1(), setR(), setwillplot(), setgrid(), setmadjust(), setweighttype(), makeWildWeights(), makeInterpolables(), _makeInterpolables(), makeNonWREStats(), makeBootstrapcDenom(), setMaxMatSize(), setstattype(), Initialize()
-  private void makeNumerAndJ(), _clustAccum(), makeWREStats(), PrepARubin()
+		setrobust(), setR1(), setR(), setwillplot(), setgrid(), setmadjust(), setweighttype(), setMaxMatSize(), setstattype()
+  private void makeNumerAndJ(), _clustAccum(), makeWREStats(), PrepARubin(), makeInterpolables(), _makeInterpolables(), makeNonWREStats(), makeBootstrapcDenom(), Initialize(), plot(), makeWildWeights(), boottest()
 	real matrix getplot(), getCI(), getV(), getv()
 	real scalar getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), getNBootClust()
+	real rowvector getpeak()
+	real colvector getdist(), getb()
 	private real scalar r_to_p(), search()
   private real matrix count_binary(), crosstab()
   private static real matrix combs()
   private static real colvector stableorder()
   static void _st_view()
-	real rowvector getpeak()
-	real colvector getdist(), getb()
 }
 
 void AnalyticalModel::new() {
@@ -293,7 +293,7 @@ pointer(real matrix) scalar AnalyticalModel::partialFE(pointer(real matrix) scal
 }
 
 void boottestModel::new() {
-	ARubin = LIML = Fuller = WRE = small = scoreBS = weighttype = Neq = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = B = BFeast = interpolating = 0
+	ARubin = LIML = Fuller = WRE = small = scoreBS = weighttype = ML = initialized = quietly = sqrt = hascons = IV = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = B = BFeas = interpolating = 0
 	twotailed = null = dirty = willplot = u_sd = bootstrapt = notplotted = 1
 	level = 95
   ptol = 1e-6
@@ -467,7 +467,7 @@ real colvector boottestModel::getdist(| string scalar diststat) {
 	return(DistCDR)
 }
 
-// Robust to missing bootstrapped values interpreted as +infinity.
+// get p value. Robust to missing bootstrapped values interpreted as +infinity.
 real scalar boottestModel::getp(|real scalar classical) {
 	real scalar tmp
 	if (dirty) boottest()
@@ -476,13 +476,13 @@ real scalar boottestModel::getp(|real scalar classical) {
 	if (B & classical==.)
 		if (sqrt & ptype != 3) {
 			if (ptype==0)
-					p = colsum(-abs(tmp) :> -abs(*pDist)) / BFeast  // symmetric p value; do so as not to count missing entries in Dist
+					p = colsum(-abs(tmp) :> -abs(*pDist)) / BFeas  // symmetric p value; do so as not to count missing entries in Dist
 			else if (ptype==1)  // equal-tail p value
-				p = 2 * min((colsum(tmp :> *pDist) , colsum(-tmp:>- *pDist))) / BFeast
+				p = 2 * min((colsum(tmp :> *pDist) , colsum(-tmp:>- *pDist))) / BFeas
 			else
-				p = colsum( tmp :>   *pDist) / BFeast  // lower-tailed p value
+				p = colsum( tmp :>   *pDist) / BFeas  // lower-tailed p value
 		} else
-				p = colsum(-tmp :> - *pDist) / BFeast  // upper-tailed p value or p value based on squared stats
+				p = colsum(-tmp :> - *pDist) / BFeas  // upper-tailed p value or p value based on squared stats
 	else {
 		tmp = tmp * multiplier
     p = small? Ftail(df, df_r, sqrt? tmp*tmp : tmp) : chi2tail(df, sqrt? tmp*tmp : tmp)
@@ -514,7 +514,7 @@ real matrix boottestModel::getv()
 // Return number of bootstrap replications with feasible results
 // Returns 0 if getp() not yet accessed, or doing non-bootstrapping tests
 real scalar boottestModel::getrepsFeas()
-	return (BFeast)
+	return (BFeas)
 
 real scalar boottestModel::getNBootClust()
 	return (NBootClust)
@@ -562,7 +562,7 @@ void boottestModel::_st_view(real matrix V, real scalar i, string rowvector j, s
 		st_view(V, i, j, selectvar)
 }
 
-// helper for summing over clusters while factoring in cluster-specific parity and small-sample adjustments
+// helper for summing over clusterings while factoring in clustering-specific parity and small-sample adjustments
 // replace X with Y if c=1; otherwise add it
 void boottestModel::_clustAccum(real matrix X, real scalar c, real matrix Y)
   X = c == 1?
@@ -589,7 +589,6 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
   kEx = cols(*pXex)
   if (cols(*pZexcl)==0) pZexcl = &J(Nobs,0,0)
   if (cols(*pXend )==0) pXend  = &J(Nobs,0,0)
-  D = cols(*pXend) + 1
   REst = rows(*pR1)  // base model contains restrictions?
   if (pZexcl != NULL) el = cols(*pZexcl) + kEx  // l = # of exogenous variables
   if (kappa==.) kappa = cols(*pZexcl)>0  // if kappa in kappa-class estimation not specified, it's 0 or 1 for OLS or 2SLS
@@ -923,7 +922,7 @@ void boottestModel::boottest() {
 		}
 	}
 
-	BFeast = (*pDist)[1]==.? 0 : colnonmissing(*pDist) - 1
+	BFeas = (*pDist)[1]==.? 0 : colnonmissing(*pDist) - 1
 	DistCDR = J(0,0,0)
 	setdirty(0)
 	initialized = 1
@@ -1451,8 +1450,8 @@ real scalar boottestModel::r_to_p(real colvector r) {
 real scalar boottestModel::search(real scalar alpha, real scalar p_lo, real scalar lo, real scalar p_hi, real scalar hi) {
 	real scalar mid, _p
 	mid = lo + (alpha-p_lo)/(p_hi-p_lo)*(hi-lo)  // interpolate linearly
-//	mid = lo + ( reldif(p_hi-p_lo, 1/BFeast)<1e-6 & BFeast? (hi - lo)/2 : (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) ) // interpolate linearly until bracketing a single bump-up; then switch to binary search
-	if (reldif(lo,mid)<ptol | reldif(hi,mid)<ptol | (BFeast & abs(p_hi-p_lo)<(1+(ptype==1))/BFeast*1.000001))
+//	mid = lo + ( reldif(p_hi-p_lo, 1/BFeas)<1e-6 & BFeas? (hi - lo)/2 : (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) ) // interpolate linearly until bracketing a single bump-up; then switch to binary search
+	if (reldif(lo,mid)<ptol | reldif(hi,mid)<ptol | (BFeas & abs(p_hi-p_lo)<(1+(ptype==1))/BFeas*1.000001))
 		return (mid)
 	if ( ((_p = r_to_p(mid)) < alpha) == (p_lo < alpha) )
 		return(search(alpha, _p, mid, p_hi, hi))
