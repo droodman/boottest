@@ -67,7 +67,7 @@ class boottestModel {
 	struct structboottestClust colvector Clust
 	pointer (struct structboottestClust scalar) scalar pBootClust
 	struct smatrix matrix denom, Kcd, denom0, Jcd0
-	struct smatrix colvector Kd, XZi, eZi, euZAR, dudr, dnumerdr
+	struct smatrix colvector Kd, XZi, uZi, euZAR, dudr, dnumerdr
   struct ssmatrix colvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
 	pointer(struct smatrix matrix) scalar pJcd
@@ -578,7 +578,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
   real colvector sortID, o, _FEID
 	real rowvector val, ClustCols
 	real matrix r, L, L0, vec, Combs, tmp, IDErr
-	real scalar i, j, c, minN, sumN, _reps, i_FE, q1q
+	real scalar i, j, c, minN, sumN, _B, i_FE, q1q
 	pointer (real matrix) scalar _pR0, pIDAll
 	class AnalyticalModel scalar M_WRE
 	pragma unset vec; pragma unset val; pragma unused M_WRE
@@ -827,7 +827,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
   }
 
   if (WREnonARubin & NClustVar)
-    XZi = eZi = smatrix(NBootClust)
+    XZi = uZi = smatrix(NBootClust)
 
   if (small) df_r = NClustVar? minN - 1 : _Nobs - k - NFE
 
@@ -854,9 +854,9 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
     WeightGrpStart = 1
   } else {
     seed = rseed()
-    _reps = ceil((B+1) / Ng)
-     WeightGrpStart = (0::Ng-1) * _reps :+ 1
-    (WeightGrpStop  = (1::Ng  ) * _reps     )[Ng] = B+1
+    _B = ceil((B+1) / Ng)
+     WeightGrpStart = (0::Ng-1) * _B :+ 1
+    (WeightGrpStop  = (1::Ng  ) * _B     )[Ng] = B+1
   }
 
   if (bootstrapt & (WREnonARubin | df>1 | MaxMatSize<.)) // unless nonWRE or df=1 or splitting weight matrix, code will create Dist element-by-element, so pre-allocate vector now
@@ -945,33 +945,33 @@ void boottestModel::makeBootstrapcDenom(real scalar g) {
 	}
 }
 
-// draw wild weight matrix of width _reps. If first=1, insert column of 1s at front
-void boottestModel::makeWildWeights(real scalar _reps, real scalar first) {
-	if (_reps) {
+// draw wild weight matrix of width _B. If first=1, insert column of 1s at front
+void boottestModel::makeWildWeights(real scalar _B, real scalar first) {
+	if (_B) {
 		if (enumerate)
 			v = J(NBootClust,1,1), count_binary(NBootClust, -1-WREnonARubin, 1-WREnonARubin)  // complete Rademacher set
 		else if (weighttype==3)
-			v = rnormal(NBootClust, _reps+1, -WREnonARubin, 1)  // normal weights
+			v = rnormal(NBootClust, _B+1, -WREnonARubin, 1)  // normal weights
 		else if (weighttype==4)
-			v = rgamma(NBootClust, _reps+1, 4, .5) :- (2 + WREnonARubin)  // Gamma weights
+			v = rgamma(NBootClust, _B+1, 4, .5) :- (2 + WREnonARubin)  // Gamma weights
 		else if (weighttype==2)
 			if (WREnonARubin)
-				v = sqrt(2 * ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5) :- 1  // Webb weights, minus 1 for convenience in WRE
+				v = sqrt(2 * ceil(runiform(NBootClust, _B+first) * 3)) :* ((runiform(NBootClust, _B+1):>=.5):-.5) :- 1  // Webb weights, minus 1 for convenience in WRE
 			else {
-				v = sqrt(    ceil(runiform(NBootClust, _reps+first) * 3)) :* ((runiform(NBootClust, _reps+1):>=.5):-.5)       // Webb weights, divided by sqrt(2)
+				v = sqrt(    ceil(runiform(NBootClust, _B+first) * 3)) :* ((runiform(NBootClust, _B+1):>=.5):-.5)       // Webb weights, divided by sqrt(2)
 				u_sd = 1.6a09e667f3bcdX-001 /*sqrt(.5)*/
 			}
 		else if (weighttype)
 			if (WREnonARubin)
-				v = ( rdiscrete(NBootClust, _reps+first, 1.727c9716ffb76X-001\1.1b06d1d200914X-002 /*.5+sqrt(.05)\.5-sqrt(.05)*/) :- 1.5 ) * 1.1e3779b97f4a8X+001 /*sqrt(5)*/ :- .5  // Mammen weights, minus 1 for convenience in WRE
+				v = ( rdiscrete(NBootClust, _B+first, 1.727c9716ffb76X-001\1.1b06d1d200914X-002 /*.5+sqrt(.05)\.5-sqrt(.05)*/) :- 1.5 ) * 1.1e3779b97f4a8X+001 /*sqrt(5)*/ :- .5  // Mammen weights, minus 1 for convenience in WRE
 			else {
-				v = ( rdiscrete(NBootClust, _reps+first, 1.727c9716ffb76X-001\1.1b06d1d200914X-002 /*.5+sqrt(.05)\.5-sqrt(.05)*/) :- 1.5 ) :+ 1.c9f25c5bfedd9X-003 /*.5/sqrt(5)*/  // Mammen weights, divided by sqrt(5)
+				v = ( rdiscrete(NBootClust, _B+first, 1.727c9716ffb76X-001\1.1b06d1d200914X-002 /*.5+sqrt(.05)\.5-sqrt(.05)*/) :- 1.5 ) :+ 1.c9f25c5bfedd9X-003 /*.5/sqrt(5)*/  // Mammen weights, divided by sqrt(5)
 				u_sd = 1.c9f25c5bfedd9X-002 /*sqrt(.2)*/
 			}
 		else if (WREnonARubin) {
-      v = runiform(NBootClust, _reps+first) :<  .5; v = (-2) * v  // Rademacher weights, minus 1 for convenience in WRE
+      v = runiform(NBootClust, _B+first) :<  .5; v = (-2) * v  // Rademacher weights, minus 1 for convenience in WRE
     } else {
-      v = runiform(NBootClust, _reps+first) :>= .5; v = v :- .5   // Rademacher weights, divided by 2
+      v = runiform(NBootClust, _B+first) :>= .5; v = v :- .5   // Rademacher weights, divided by 2
       u_sd = .5
     }
 
@@ -997,8 +997,8 @@ void boottestModel::makeWREStats(real scalar g) {
 				XExi = kEx? (*pXex)[|Subscripts|] : J(Subscripts[2,1]-Subscripts[1,1]+1,0,0)
 				Zi = XExi , (*pZexcl)[|Subscripts|]  // inefficient?
 				if (weights) Zi = Zi :* (*pwt)[|Subscripts|]
-				XZi[i].M = cross(XExi, Zi) \ cross((*pXend)[|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
-				eZi[i].M =                   cross(M_DGP.uddot2[|Subscripts|], Zi) \ cross(   _u[|Subscripts|], Zi)
+				XZi[i].M = cross(XExi, Zi) \ cross((*pXend)    [|Subscripts|], Zi) \ cross((*pY)[|Subscripts|], Zi)
+				uZi[i].M =                   cross(M_DGP.uddot2[|Subscripts|], Zi) \ cross(_u   [|Subscripts|], Zi)
 			}
 	}
 
@@ -1024,7 +1024,7 @@ void boottestModel::makeWREStats(real scalar g) {
 						VAR = pM_Repl->V * pM_Repl->AR; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						pragma unset tmp
 						for (i=1; i<=NBootClust; i++) {
-							pJ = &((_beta'XZi[i].M + betaEnd'eZi[i].M * v[i,j]) * VAR) // R * V * Z_i'estar_i
+							pJ = &((_beta'XZi[i].M + betaEnd'uZi[i].M * v[i,j]) * VAR) // R * V * Z_i'estar_i
 							tmp = i==1? cross(*pJ,*pJ) : tmp + cross(*pJ,*pJ)
 						}
             _clustAccum(denom.M, c, tmp)
