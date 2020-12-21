@@ -867,7 +867,7 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
   if (interpolable = B & WREnonARubin==0 & null & scoreBS==0 & Ng==1) {    
     dnumerdr = smatrix(q)
     if (interpolate_u = (robust | ML | GMM)==0) dudr = dnumerdr
-    if (robust = robust) {
+    if (robust) {
       ddenomdr = dJcddr = ssmatrix(q)
       ddenomdr2 = ssmatrix(q, q)
       for (i=q;i;i--) {
