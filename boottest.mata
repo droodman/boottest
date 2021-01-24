@@ -39,7 +39,7 @@ struct structFE {
 
 class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
 	real scalar LIML, YY, eec, Fuller, ARubin, kappa, isDGP
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, Tplus, ZY2, dbetadt, X2Y2, X1Y2, Pi /* may be able to delete Pi from here*/
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, Tplus, ZY2, dbetadr, X2Y2, X1Y2, Pi, R1invR1R1, R0invR0R0, T1, T0, R0par, R0perp, R2perp /* may be able to delete Pi from here*/
 	real colvector t0, uddot, beta, beta0, XY
 	real rowvector YY2
 	pointer(real colvector) scalar pY
@@ -48,7 +48,7 @@ class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation
 	struct smatrix matrix CT_XAR
 	struct smatrix colvector WXAR
 
-	void new(), InitExog(), InitEndog(), InitTestDenoms(), SetT(), InitEstimate(), Estimate(), SetAR()
+	private void new(), InitExog(), InitEndog(), InitTestDenoms(), SetR(), InitEstimate(), Estimate(), SetARubin()
 	pointer(real matrix) scalar partialFE()
 }
 
@@ -56,14 +56,14 @@ class boottestModel {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, k, kEnd, kEx, el, sumwt, NClustVar, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, granular, purerobust, subcluster, Ncstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust
-	real matrix AR, numer, v, ustar, T, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, uXAR, SuwtXA, numer0, betadev
+	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_NBootClust, statDenom, uXAR, SuwtXA, numer0, betadev
 	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
 	real rowvector peak
 	string scalar wttype, madjtype, seed
 	pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pX, pinfoAllData, pinfoErrData
 	pointer (real colvector) scalar pr1, pr, pY, pSc, pwt, pW, pA, puddot, pDist
 	class AnalyticalModel scalar DGP
-	pointer (class AnalyticalModel scalar) scalar pM_Repl, pM
+	pointer (class AnalyticalModel scalar) scalar pRepl, pM
 	struct structboottestClust colvector Clust
 	pointer (struct structboottestClust scalar) scalar pBootClust
 	struct smatrix matrix denom, Kcd, denom0, Jcd0
@@ -76,7 +76,7 @@ class boottestModel {
 	void new(), setsqrt(), setXEx(), setptype(), setdirty(), setXEnd(), setY(), setZExcl(), setwt(), setsc(), setML(), setLIML(), setARubin(),
 		setFuller(), setkappa(), setquietly(), setbeta(), setA(), setW(), setsmall(), sethascons(), setscoreBS(), setB(), setnull(), setWald(), setRao(), setwttype(), setID(), setFEID(), setlevel(), setptol(), 
 		setrobust(), setR1(), setR(), setwillplot(), setgrid(), setmadjust(), setweighttype(), setMaxMatSize(), setstattype()
-  private void makeNumerAndJ(), _clustAccum(), makeWREStats(), makeWREStats2(), PrepARubin(), makeInterpolables(), _makeInterpolables(), makeNonWREStats(), makeBootstrapcDenom(), Initialize(), plot(), makeWildWeights(), boottest()
+  private void makeNumerAndJ(), _clustAccum(), makeWREStats(), makeWREStats2(), PrepARubin(), makeInterpolables(), _makeInterpolables(), makeNonWREStats(), makeBootstrapcDenom(), Init(), plot(), makeWildWeights(), boottest()
 	real matrix getplot(), getCI(), getV(), getv()
 	real scalar getp(), getpadj(), getstat(), getdf(), getdf_r(), getreps(), getrepsFeas(), getNBootClust()
 	real rowvector getpeak()
@@ -93,8 +93,82 @@ void AnalyticalModel::new() {
   isDGP = 1  // by default, created object is for DGP rather than replication regression
 }
 
-void AnalyticalModel::SetAR(real scalar _AR) {
+void AnalyticalModel::SetARubin(real scalar _AR) {
 	if (ARubin = _AR) LIML = Fuller = kappa = 0
+}
+
+// for DGP regression R has 0 rows, R1 for maintained constraints + null; for WRE replication regression R is for null, R1 for maintained constraints
+// for non-WRE, R should have zero rows or not be passed if null not imposed on DGP
+void AnalyticalModel::SetR(real matrix R1, | real matrix R) {
+	real matrix _R, vec; pointer (real matrix) scalar _pR; real rowvector val; pragma unset vec; pragma unset val
+
+	if (parent->WREnonARubin==0 | 1) {
+		// for OLS-based tests, this is called for DGP only. FWL is not exploited to shrink attack surface for null. 
+		// No AnalyticalModel() is created for replication regressions [change?] so construct T1, T0 at in this instance, for replication, DGP regressions respectively
+		if (rows(R1)) {
+			R1invR1R1 = R1 ' invsym(R1 * R1')
+			symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
+			T1 = select(vec, !val)
+			if (parent->ARubin) {
+				T1 = blockdiag(T1[|.,. \ parent->kEx , parent->kEx-rows(R1)|] , I(parent->kEnd)) // adapt T1,R1invR1R1 from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
+				R1invR1R1 = R1invR1R1[|.\parent->kEx|] \ J(parent->kEnd,1,0)
+			}
+		} else
+			T1 = J(0,0,0)
+if (LIML) Tplus = blockdiag(T1 /*R1perp*/, 1)  // after FWL implemented, rely on copy of this line below
+
+		if (rows(R1))
+			_pR = rows(R)? &(R1 \ R) : &R1
+		else if (rows(R))
+			_pR = &R
+		else {
+			T0 = J(0,0,0)
+			return
+		}
+		R0invR0R0 = invsym(*_pR * *_pR')
+		if (all(diagonal(R0invR0R0))==0)
+			_error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
+		R0invR0R0 = *_pR ' R0invR0R0
+		symeigensystem(R0invR0R0 * *_pR, vec, val); _edittozero(val, 10)
+		T0 = select(vec, !val)
+
+		return
+	}
+
+	if (isDGP==0 & rows(R)==0)  // if DGP regression didn't impose null, then T1 same for DGP and replication regressions: copy. Assumes SetR() called on DGP regression first.
+		T1 = parent->DGP.T1
+	else if (rows(R1)) {
+		R1invR1R1 = invsym(R1 * R1')
+		if (all(diagonal(R1invR1R1))==0)
+			_error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
+		R1invR1R1 = R1 ' R1invR1R1
+		symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
+		T1 /*a.k.a. R1perp*/ = select(vec, !val)  // eigenvectors orthogonal to span of R1; foundation for parameterizing subspace compatible with constraints
+	} else
+		T1 = J(0,0,0)
+
+	// prepare to reduce regression via FWL
+	_R = J(parent->kEnd, parent->kEx, 0), I(parent->kEnd)  // rows to prevent partialling out of endogenous regressors
+	if (rows(R)) _R = R \ _R  // rows(R)=0 in the DGP regression if null not imposed
+	if (rows(R1))
+		_R = _R * T1 /*R1perp*/
+	symeigensystem(_R ' invsym(_R * _R') * _R, vec, val); _edittozero(val, 10)
+	R0par  = select(vec,  val)
+	R0perp = select(vec, !val)
+
+	if (rows(R1)) {  // fold model constraint factors into R0par, R0perp
+		R0par  = T1 /*R1perp*/ * R0par
+		R0perp = T1 /*R1perp*/ * R0perp
+	}
+
+	if (parent->kEx)
+		R0perp = R0perp[|.,.\parent->kEx,.|]  // though formally a multiplier on Z, this will only extract exogenous components, in X1, since all endogenous ones will be retained
+	if (rows(R0perp)==cols(R0perp))
+		R2perp = J(rows(R0perp),0,0)  // no exogenous regressors retained
+	else
+		symeigensystemselecti(R0perp * invsym(R0perp ' R0perp) * R0perp', cols(R0perp)+1\rows(R0perp), R2perp, val)  // for partialling retained exogenous regressor components, Zperp, out of X
+	
+	if (LIML) Tplus = blockdiag(T1 /*R1perp*/, 1)  // add an entry to T for the dep var
 }
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
@@ -147,16 +221,11 @@ void AnalyticalModel::InitEndog(pointer (real colvector) scalar _pY, pointer (re
 	}
 }
 
-void AnalyticalModel::SetT(real matrix T) {  // set model constraint matrix (not null constraints)
-	pT = &T
-	if (LIML) Tplus = blockdiag(T, 1)  // add an entry to T for the dep var
-}
-
 // stuff that can be done before r set but depends on T and endogenous variables
 void AnalyticalModel::InitEstimate() {
 	real rowvector val
 	real matrix _XY, TT, TPXT, vec
-	pointer (real matrix) scalar pbetadenom
+	pointer (real matrix) scalar pbetadenom, pT
 	pragma unset vec; pragma unset val
 
  	if (LIML)
@@ -170,7 +239,7 @@ void AnalyticalModel::InitEstimate() {
 			V = *pinvXX * XZ
 			H_2SLS = V ' XZ  // Hessian
 
-			if (rows(*pT)) {  // includes H0 if pSAll really points to T0 rather than T
+			if (rows(T1)) {  // includes H0 if pSAll really points to T0 rather than T
 				TT   = Tplus '   TT * Tplus
 				TPXT = Tplus ' TPXT * Tplus
 			}
@@ -179,6 +248,7 @@ void AnalyticalModel::InitEstimate() {
 		}
 
   pH = kappa? (kappa==1? &H_2SLS : &((1-kappa)* *pZZ + kappa*H_2SLS)) : pZZ
+	pT = parent->WRE? &T1 : &T0  // under WRE separate DGP & replication regression objects have different T1's; otherwise there's only a DGP object, which is only used for DGP regression, which here needs T0 to optionally impose null
 	if (rows(*pT)) {
 		pbetadenom = &(*pT * invsym(*pT ' (*pH) * *pT) * *pT')
 		invH = J(0,0,0)
@@ -188,23 +258,26 @@ void AnalyticalModel::InitEstimate() {
   if (kappa)
 		if (kappa==1) {  // 2SLS, GMM
 			beta0 = *pbetadenom * V ' XY
-			dbetadt = I(rows(beta0)) - *pbetadenom * V ' XZ
+			dbetadr = I(rows(beta0)) - *pbetadenom * V ' XZ
 		} else {  // k-class, LIML
 			beta0 = *pbetadenom * (kappa * V ' XY + (1-kappa) * *pZY)
-			dbetadt = I(rows(beta0)) - *pbetadenom * (kappa * V ' XZ + (1-kappa) * *pZZ)
+			dbetadr = I(rows(beta0)) - *pbetadenom * (kappa * V ' XZ + (1-kappa) * *pZZ)
 		}
 	else {  // OLS / ARubin
 		beta0 = *pbetadenom * *pZY
-		dbetadt = I(rows(beta0)) - *pbetadenom * *pZZ
+		dbetadr = I(rows(beta0)) - *pbetadenom * *pZZ
 	}
+	if (rows(*pT))
+		dbetadr = dbetadr * (parent->WRE? R1invR1R1 : R0invR0R0)
 }
 
 // stuff that doesn't depend on r, for test stat denominators in replication regressions
-void AnalyticalModel::InitTestDenoms(real matrix T) {
+// but, confusingly, since the non-AR OLS code never creates an object for replication regresssions, in that case this is called on the DGP regression object
+void AnalyticalModel::InitTestDenoms() {
 	real matrix VAR; real scalar d, c; struct smatrix rowvector _CT_XAR; pointer (real matrix) scalar pWXAR
 
-	pA = rows(T)? &(T * invsym(T ' (*pH) * T) * T') : ///
-	              &(rows(invH)? invH : invsym(*pH))
+	pA = rows(T1)? &(T1 * invsym(T1 ' (*pH) * T1) * T1') : ///
+	               &(rows(invH)? invH : invsym(*pH))
 	AR = *pA * *parent->pR'
 
 	if (parent->scoreBS | (parent->robust & (parent->WREnonARubin & parent->NClustVar==1 & parent->NFE==0)==0)) {
@@ -246,10 +319,10 @@ void AnalyticalModel::InitTestDenoms(real matrix T) {
 }
 
 // stuff that depends on r and endogenous variables: compute beta and residuals
-void AnalyticalModel::Estimate(real colvector t) {
+void AnalyticalModel::Estimate(real colvector r) {
 	real colvector negZeinvee; real matrix Ze /*, Pi*/; real scalar ee
 
-	beta = rows(t)? beta0 + dbetadt * t : beta0
+	beta = rows(r)? beta0 + dbetadr * r : beta0
 
 	if (isDGP | parent->bootstrapt | parent->WREnonARubin==0) {  // don't need residuals in replication regressions in bootstrap-c on WRE/non-ARubin
 		if (ARubin) {
@@ -574,7 +647,48 @@ void boottestModel::_clustAccum(real matrix X, real scalar c, real matrix Y)
             (Clust[c].multiplier != 1? (-Clust[c].multiplier) * Y : -Y))
 
 
-void boottestModel::Initialize() {  // for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+						
+void boottestModel::Init() {  // for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
   real colvector sortID, o, _FEID
 	real rowvector val, ClustCols
 	real matrix r, L, L0, vec, Combs, tmp, IDErr
@@ -745,43 +859,24 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
   if (ML)
     df = rows(*pR)
   else {
-    if (REst) {  // restricted estimation, e.g., cnsreg?
-      symeigensystem(*pR1 ' invsym(*pR1 * *pR1') * *pR1, vec, val)  // make "inverse" T,t of constraint matrices; formulas adapted from [P] makecns
-      L = vec[|.,.\.,q1|]  // eigenvectors not in kernel of projection onto R1
-      T = q1 < k? vec[|.,q1+1\.,.|] : J(k,0,0)  // eigenvectors in kernel
-      t = L * luinv(*pR1 * L) * *pr1
-      if (ARubin) {
-        TARubin = blockdiag(T[|.,. \ kEx , kEx-q1|] , I(cols(*pX2))) // adapt T,t from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
-        tARubin = t[|.\kEx|] \ J(cols(*pX2),1,0)
-      }
-    }
-
-    // Estimation with null imposed along with any model constraints; in IV, X is unconstrained regardless of overlap with potentially constrained Z
-    _pR0 = null? pR : &J(0, k, 0)
-    r = REst? *pR1 \ *_pR0 : *_pR0  // combine model and hypothesis constraints to prepare to "invert" them as a group too
-    if (q1q = rows(r)) {
-      L0 = invsym(r * r')
-      if (all(diagonal(L0))==0)
-        _error(111, "A null hypothesis constraint is inconsistent or redundant.")
-      symeigensystem(r ' L0 * r, vec, val)
-      L0  = vec[|.,. \ .,q1q|]
-      T0 = q1q < cols(vec)? vec[|.,q1q+1 \ .,.|] : J(rows(vec), 0, 0)
-      L0invR0L0 = L0 * luinv(r * L0)
-    } else
-      T0 = J(0,0,0)
-
     DGP.parent = &this
     DGP.InitExog()
 
+		if (null)
+			if (WRE) DGP.SetR(rows(*pR1)? *pR1 \ *pR : *pR)
+			else DGP.SetR(*pR1, *pR); // WRE part is a hack; change to (*pR1, *pR) for both in implementing FWL; then SetR() needs to know stuctural difference
+		else
+			DGP.SetR(*pR1)
+
     if (WRE) {
-      pM_Repl = &(M_WRE = DGP)
-      pM_Repl->isDGP = 0
+      pRepl = &(M_WRE = DGP)
+      pRepl->isDGP = 0
       DGP.LIML = 1; DGP.Fuller = 0; DGP.kappa = 1
       if (ARubin==0) { 
-        pM_Repl->LIML = this.LIML; pM_Repl->Fuller = this.Fuller; pM_Repl->kappa = this.kappa
+        pRepl->LIML = this.LIML; pRepl->Fuller = this.Fuller; pRepl->kappa = this.kappa
       }
-      pM_Repl->SetAR(ARubin)
-      pM_Repl->SetT(ARubin? TARubin : T)
+      pRepl->SetARubin(ARubin)
+			pRepl->SetR(*pR1)
     } else {
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
     }
@@ -790,9 +885,9 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
 
     if (ARubin) {
       if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
-        DGP.SetT(T)  // no-null model in DGP
+        DGP.SetR(pRepl->T1)  // no-null model in DGP
         DGP.InitEstimate()
-        DGP.Estimate(t)
+        DGP.Estimate(*pr1)
         confpeak = *pR * DGP.beta  // estimated coordinate of confidence peak
       }
       pR = &(J(cols(*pX2),kEx,0), I(cols(*pX2)))  // for ARubin test, picks out coefs on excluded exogenous variables
@@ -804,15 +899,14 @@ void boottestModel::Initialize() {  // for efficiency when varying r repeatedly 
       pX = ARubin? &(*pX1, *pX2) : pX1
     }
 
-    DGP.SetT(T0)  // (potentially) constrained model in DGP; T0 imposes constraints, pR tests hypotheses on results
     DGP.InitEstimate()
 
     if (ARubin) {
       k = el
       kappa = 0
-      pM = pM_Repl
+      pM = pRepl
     } else {
-      DGP.InitTestDenoms(T)
+      DGP.InitTestDenoms()
       pM = &DGP
     }
   }
@@ -885,10 +979,10 @@ void boottestModel::boottest() {
 	real scalar w
 
 	if (initialized==0)
-    Initialize()
+    Init()
   else if (null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r
     if (WREnonARubin)
-      numer[,1] = *pR * pM_Repl->beta - *pr
+      numer[,1] = *pR * pRepl->beta - *pr
     else if (ARubin) {
       PrepARubin(*pr)
       numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in ARubin OLS
@@ -911,7 +1005,7 @@ void boottestModel::boottest() {
 			makeWildWeights(WeightGrpStop[w] - WeightGrpStart[w] + (w>1), w==1)
 
 		if (WREnonARubin) {
-			makeWREStats2(w)
+			makeWREStats(w)
 			if (bootstrapt==0)
 				makeBootstrapcDenom(w)
 		} else {
@@ -980,20 +1074,6 @@ void boottestModel::makeWildWeights(real scalar _B, real scalar first) {
 	} else
 		v = J(0,1,0)  // in places, cols(v) indicates number of B -- 1 for classical tests
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1102,6 +1182,7 @@ void boottestModel::makeWREStats(real scalar w) {
 	real colvector _u, _beta, betaEnd, _v, numer_j
 	real matrix S, Xg, VAR, tmp, X1g
 	pointer (real matrix) scalar pustarXAR, pJ
+	pragma unset tmp
 
 	if (w == 1) {  // first/only weight group? initialize a couple things
 		_u = DGP.uddot + DGP.U2ddot * DGP.beta[|kEx+1\.|]
@@ -1119,23 +1200,22 @@ void boottestModel::makeWREStats(real scalar w) {
 
 	for (j=cols(v); j; j--) {  // WRE bootstrap
 		_v = v[IDBootData,j]  // S'v^*j
-		pM_Repl->InitEndog(&(*DGP.pY:+_u:*_v) , &(*pY2:+DGP.U2ddot:*_v))
-		pM_Repl->InitEstimate()
-		pM_Repl->InitTestDenoms(T)  // prepare for replication regressions, null not imposed
-		pM_Repl->Estimate(t)
-		numer_j = null | w==1 & j==1? *pR * pM_Repl->beta - *pr : *pR * (pM_Repl->beta - DGP.beta0)
+		pRepl->InitEndog(&(*DGP.pY:+_u:*_v) , &(*pY2:+DGP.U2ddot:*_v))
+		pRepl->InitEstimate()
+		pRepl->InitTestDenoms()  // prepare for replication regressions, null not imposed
+		pRepl->Estimate(*pr1)
+		numer_j = null | w==1 & j==1? *pR * pRepl->beta - *pr : *pR * (pRepl->beta - DGP.beta0)
 
 		if (bootstrapt) {
 			if (robust) {  // Compute denominator for this WRE test stat
 				denom = smatrix()
 				if (NClustVar != 1 | NFE)  // collapse meat+sandwich  to all-Cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
-					pustarXAR = &_panelsum(pM_Repl->XAR, weights? *pwt :* pM_Repl->uddot : pM_Repl->uddot, *pinfoErrData)
+					pustarXAR = &_panelsum(pRepl->XAR, weights? *pwt :* pRepl->uddot : pRepl->uddot, *pinfoErrData)
 				for (c=1; c<=NErrClustCombs; c++) {
 					if (NClustVar != 1 & rows(Clust[c].order))
 						pustarXAR = &((*pustarXAR)[Clust[c].order,])
 					if (*pBootClust==Clust[c] & NClustVar & NFE==0) {  // optimized computation for bootstrapping Cluster when no FE
-						VAR = pM_Repl->V * pM_Repl->AR; _beta = -pM_Repl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
-						pragma unset tmp
+						VAR = pRepl->V * pRepl->AR; _beta = -pRepl->beta \ 1; betaEnd = _beta[|kEx+1\.|]
 						for (g=1; g<=Ncstar; g++) {
 							pJ = &((_beta'ZXg[g].M + betaEnd'uXi[g].M * v[g,j]) * VAR) // R * V * Z_i'estar_i
 							tmp = g==1? cross(*pJ,*pJ) : tmp + cross(*pJ,*pJ)
@@ -1147,7 +1227,7 @@ void boottestModel::makeWREStats(real scalar w) {
 					}
 				}
 			} else
-				denom.M = (*pR * pM_Repl->AR) * pM_Repl->eec
+				denom.M = (*pR * pRepl->AR) * pRepl->eec
 
  			(*pDist)[j+WeightGrpStart[w]-1] = sqrt? numer_j/sqrt(denom.M) : cross(numer_j, invsym(denom.M) * numer_j)
 		}
@@ -1159,10 +1239,10 @@ void boottestModel::makeWREStats(real scalar w) {
 
 
 void boottestModel::PrepARubin(real colvector r) {
-  pM_Repl->InitEndog(&(*pY - *pY2 * r), NULL, &(*DGP.pX2Y - DGP.X2Y2 * r), &(*DGP.pX1Y - DGP.X1Y2 * r))
-  pM_Repl->InitEstimate()
-  pM_Repl->Estimate(tARubin)
-  pM_Repl->InitTestDenoms(TARubin)
+  pRepl->InitEndog(&(*pY - *pY2 * r), NULL, &(*DGP.pX2Y - DGP.X2Y2 * r), &(*DGP.pX1Y - DGP.X1Y2 * r))
+  pRepl->InitEstimate()
+  pRepl->Estimate(*pr1)
+  pRepl->InitTestDenoms()
 }
 
 // Construct stuff that depends linearly or quadratically on r, possibly by interpolation
@@ -1260,8 +1340,7 @@ void boottestModel::_makeInterpolables(real colvector r) {
       PrepARubin(r)
     else {
       r0 = null? r : J(0, 1, 0); if (REst) r0 =  *pr1 \ r0  // constant terms of model + null constraints
-      t0 = rows(r0) ? L0invR0L0 * r0 : J(0,1,0)
-      DGP.Estimate(t0)
+      DGP.Estimate(r0)
     }
     puddot = &(pM->uddot)
 
@@ -1281,6 +1360,8 @@ void boottestModel::_makeInterpolables(real colvector r) {
     if (ARubin)
       ptmp = &(*ptmp, _panelsum(*pX2, *puwt, infoBootData))
     SuwtXA = *pM->pA * (*ptmp)'
+"*pM->pA *"
+*pM->pA
   }
 
   if (robust & GMM==0 & granular < NErrClustCombs) {
@@ -1368,9 +1449,9 @@ void boottestModel::makeNumerAndJ(real scalar w, real colvector r) {  // called 
     if (scoreBS)
       numer                                         = B? cross(SuwtXA, v) : SuwtXA * u_sd
     else if (robust==0 | granular)
-      numer                                         = *pR * (betadev = SuwtXA * v)
+	    numer                                         = *pR * (betadev = SuwtXA * v)
     else
-      numer                                         = (*pR * SuwtXA) * v
+	    numer                                         = (*pR * SuwtXA) * v
   else
     if (scoreBS)
       numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = B? cross(SuwtXA, v) : SuwtXA * u_sd
@@ -1405,7 +1486,7 @@ void boottestModel::makeNonWREStats(real scalar w) {
   if (w > 1) makeNumerAndJ(w, *pr)
 
 	if (robust & GMM==0) {
-    if (interpolating==0) {  // these quadratic computation are not needed to *prepare* for interpolation but are superseded by interpolation once it is going
+    if (interpolating==0) {  // these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
       if (purerobust)
         ustar2 = ustar :* ustar
       for (i=df;i;i--)

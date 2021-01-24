@@ -450,15 +450,18 @@ Please cite: {p_end}
 {p 4}Appendix A of Roodman et al. (2019) contains these small errors:
 
 {p 4 6 0}
-* In the second expression in (60), the colsum() operator should be inside the sum operation rather than outside. The {bf:J}{it:c} matrices differ in height and so are
+* The right side of (57) is missing a {bf:T}_1 on the far left and a {bf:T}_1' on the far right.
+
+{p 4 6 0}
+* In the second expression in (60), the colsum() operator should be inside the sum operation rather than outside. The {bf:J}_{it:c} matrices differ in height and so are
 not conformable before colsum() is applied.
 
 {p 4 6 0}
 * In the second term of (64), the second {it:c} subscript needs a * superscript, just as in (62).
 
 {p 4 6 0}
-* In appendix A.2, the mathematical statement of linearity, {bf:P+Qr}, is technically incorrect, because it is meant to represent a linear map from vectors to matrices,
-not merely vectors to vectors. A more precise expression is invvec({bf:P+Qr}), where invvec represents the inverse of vectorization.
+* In appendix A.2, the mathematical statement of linearity, {bf:P + Qr}, is technically incorrect, because it is meant to represent a linear map from vectors to matrices,
+not merely vectors to vectors. A more precise expression is vec({bf:P}) + vec({bf:Q}){bf:r}.
 
 {title:Donate?}
 
