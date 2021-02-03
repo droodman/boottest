@@ -357,7 +357,7 @@ used in the estimation.
 
 {phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. If the option 
 includes more than one variable, then for the bootstrap observations are grouped by intersections of all the variables in the option. The default is to cluster the bootstrap on all
-the {cmd:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (2017) tend to favor clustering the bootstrap just on the one variable with the smallest
+the {cmdab:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (2017) tend to favor clustering the bootstrap just on the one variable with the smallest
 number of clusters. However, MacKinnon and Webb (2018) show that in the extreme case of a treatment model with very few (un)treated clusters, it can be better to 
 to perform a "subcluster" bootstrap, such as bootstrapping at the individual observation level.
 

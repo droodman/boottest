@@ -422,7 +422,7 @@ program define _boottest, rclass sortpreserve
 		local    clustvars `:list clustvars & bootcluster' `:list clustvars - bootcluster'
 		local allclustvars `:list bootcluster - clustvars' `clustvars' // put bootstrapping clusters first, error clusters last, overlap in middle
 
-		sort `clustvars' `:list bootcluster - clustvars', stable
+		sort `clustvars' `:list bootcluster - clustvars', stable  // bootstrapping-only clusters left out of this sort. Effect is that in subcluster bootstrap, bootstrapping clusters are intersections of all clusterings
 
 		foreach clustvar in `allclustvars' {
 			cap confirm numeric var `clustvar'
