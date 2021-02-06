@@ -39,16 +39,17 @@ struct structFE {
 
 class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
 	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, Tplus, ZY2, dbetadr, X2Y2, X1Y2, Pi, R1invR1R1, R0invR0R0, T1, T0, R0par, R0perp, R2perp, XinvXX, PXZ, ProductTermkappaR0, Xpar, JNcstarkpar, JNcapkpar /* may be able to delete Pi from here*/
-	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, Tplus, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, R1perpRR1perppar, R1perpRR1perpperp, R2perp, XinvXX, PXZ, YPXY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, YPZperpY, ZperpinvZperpZperp
+	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, Zperpy1
 	real rowvector y1Y2
 	pointer(real colvector) scalar py1
 	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT
 	pointer (class boottestModel scalar) scalar parent
-	struct smatrix matrix CT_XAR, FillingR0Xpar, FillingR1Xpar 
+	struct smatrix matrix CT_XAR, FillingR0Xpar, FillingR0Zperp, FillingR1Xpar, FillingR1Zperp
 	struct smatrix colvector WXAR
 
 	private void new(), InitExog(), InitEndog(), InitTestDenoms(), SetR(), InitEstimate(), Estimate(), SetARubin()
+	private real matrix _select()
 	pointer(real matrix) scalar partialFE()
 }
 
@@ -86,6 +87,7 @@ class boottestModel {
 	private struct smatrix rowvector crosstabCapcstar()
   private static real matrix combs()
   private static real colvector stableorder()
+	private real vector _selectindex()
   static void _st_view()
 }
 
@@ -98,25 +100,30 @@ void AnalyticalModel::SetARubin(real scalar _AR) {
 	if (ARubin = _AR) LIML = Fuller = kappa = 0
 }
 
+// do select() but handle case that both cases are scalar and second is 0 by interpreting second arg as rowvector and returning J(1,0,0)
+// if v = 0 (so can't tell if row or col vector), returns J(1, 0, 0) 
+real matrix AnalyticalModel::_select(real matrix X, real rowvector v)
+	return (rows(X)==1 & cols(X)==1 & v==0? J(1,0,0) : select(X,v))
+
 // for DGP regression R has 0 rows, R1 for maintained constraints + null; for WRE replication regression R is for null, R1 for maintained constraints
 // for non-WRE, R should have zero rows or not be passed if null not imposed on DGP
-void AnalyticalModel::SetR(real matrix R1, | real matrix R) {
-	real matrix _R, vec; pointer (real matrix) scalar _pR; real rowvector val; pragma unset vec; pragma unset val
+void AnalyticalModel::SetR(real matrix R1, real matrix R, real scalar FWL) {
+	real matrix RR1perp, vec; pointer (real matrix) scalar _pR; real rowvector val; pragma unset vec; pragma unset val
 
-	if (parent->WREnonARubin==0 | 1) {
+	if (parent->WREnonARubin==0) {
 		// for OLS-based tests, this is called for DGP only. FWL is not exploited to shrink attack surface for null. 
-		// No AnalyticalModel() is created for replication regressions [change?] so construct T1, T0 at in this instance, for replication, DGP regressions respectively
+		// No AnalyticalModel() is created for replication regressions [change?] so construct R1perp, T0 at in this instance, for replication, DGP regressions respectively
 		if (rows(R1)) {
 			R1invR1R1 = R1 ' invsym(R1 * R1')
 			symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
-			T1 = select(vec, !val)
+			R1perp = _select(vec, !val)
 			if (parent->ARubin) {
-				T1 = blockdiag(T1[|.,. \ parent->kEx , parent->kEx-rows(R1)|] , I(parent->kEnd)) // adapt T1,R1invR1R1 from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
+				R1perp = blockdiag(R1perp[|.,. \ parent->kEx , parent->kEx-rows(R1)|] , I(parent->kEnd)) // adapt R1perp,R1invR1R1 from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
 				R1invR1R1 = R1invR1R1[|.\parent->kEx|] \ J(parent->kEnd,1,0)
 			}
 		} else
-			T1 = J(0,0,0)
-if (LIML) Tplus = blockdiag(T1 /*R1perp*/, 1)  // after FWL implemented, rely on copy of this line below
+			R1perp = J(0,0,0)
+if (LIML) Tplus = blockdiag(1, R1perp)  // this should become unnecessary once Zpar is always computed and substited for Z
 
 		if (rows(R1))
 			_pR = rows(R)? &(R1 \ R) : &R1
@@ -131,45 +138,49 @@ if (LIML) Tplus = blockdiag(T1 /*R1perp*/, 1)  // after FWL implemented, rely on
 			_error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
 		R0invR0R0 = *_pR ' R0invR0R0
 		symeigensystem(R0invR0R0 * *_pR, vec, val); _edittozero(val, 10)
-		T0 = select(vec, !val)
+		T0 = _select(vec, !val)
 
 		return
 	}
 
-	if (isDGP==0 & rows(R)==0)  // if DGP regression didn't impose null, then T1 same for DGP and replication regressions: copy. Assumes SetR() called on DGP regression first.
-		T1 = parent->DGP.T1
-	else if (rows(R1)) {
+	if (rows(R1)) {
 		R1invR1R1 = invsym(R1 * R1')
 		if (all(diagonal(R1invR1R1))==0)
 			_error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
 		R1invR1R1 = R1 ' R1invR1R1
 		symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
-		T1 /*a.k.a. R1perp*/ = select(vec, !val)  // eigenvectors orthogonal to span of R1; foundation for parameterizing subspace compatible with constraints
-	} else
-		T1 = J(0,0,0)
-
-	// prepare to reduce regression via FWL
-	_R = J(parent->kEnd, parent->kEx, 0), I(parent->kEnd)  // rows to prevent partialling out of endogenous regressors
-	if (rows(R)) _R = R \ _R  // rows(R)=0 in the DGP regression if null not imposed
-	if (rows(R1))
-		_R = _R * T1 /*R1perp*/
-	symeigensystem(_R ' invsym(_R * _R') * _R, vec, val); _edittozero(val, 10)
-	R0par  = select(vec,  val)
-	R0perp = select(vec, !val)
-
-	if (rows(R1)) {  // fold model constraint factors into R0par, R0perp
-		R0par  = T1 /*R1perp*/ * R0par
-		R0perp = T1 /*R1perp*/ * R0perp
+		R1perp = _select(vec, !val)  // eigenvectors orthogonal to span of R1; foundation for parameterizing subspace compatible with constraints
 	}
 
-	if (parent->kEx)
-		R0perp = R0perp[|.,.\parent->kEx,.|]  // though formally a multiplier on Z, this will only extract exogenous components, in X1, since all endogenous ones will be retained
-	if (rows(R0perp)==cols(R0perp))
-		R2perp = J(rows(R0perp),0,0)  // no exogenous regressors retained
+		// prepare to reduce regression via FWL
+	RR1perp = J(parent->kEnd, parent->kEx, 0), I(parent->kEnd)  // rows to prevent partialling out of endogenous regressors
+	if (rows(R)) RR1perp = R \ RR1perp  // rows(R)=0 in the DGP regression if null not imposed
+
+	if (rows(R1))
+		RR1perp = RR1perp * R1perp 
+	symeigensystem(RR1perp ' invsym(RR1perp * RR1perp') * RR1perp, vec, val); _edittozero(val, 10)
+if (FWL==0) val = J(1,cols(val),1)
+	R1perpRR1perppar  = _select(vec,  val)
+	R1perpRR1perpperp = _select(vec, !val)
+	if (rows(R1)) {  // fold model constraint factors into R1perpRR1perppar, R1perpRR1perpperp
+		R1perpRR1perppar  = R1perp * R1perpRR1perppar
+		R1perpRR1perpperp = R1perp * R1perpRR1perpperp
+	}
+
+	if (parent->kEx) {
+		R1perpRR1perpperp = cols(R1perpRR1perpperp)? R1perpRR1perpperp[|.,.\parent->kEx,.|] : J(parent->kEx,0,0) // Zperp=Z*R1perpRR1perpperp; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
+//		val = colmax(R1perpRR1perppar[|kEx+1,.\.,.|] :!= 0)
+//		pR0parEnd = &_select(R1perpRR1perppar,  val)  // split R1perpRR1perppar, which defines Zpar, into exogenous and endogenous bits; only useful when a null refers purely to exogenous vars, which seems unusual
+//		 R0parEx  =  _select(R1perpRR1perppar, !val)
+	} /*else
+		pR0parEnd = &R1perpRR1perppar*/
+
+	if (rows(R1perpRR1perpperp)==cols(R1perpRR1perpperp))
+		R2perp = J(rows(R1perpRR1perpperp),0,0)  // no exogenous regressors retained
 	else
-		symeigensystemselecti(R0perp * invsym(R0perp ' R0perp) * R0perp', cols(R0perp)+1\rows(R0perp), R2perp, val)  // for partialling retained exogenous regressor components, Zperp, out of X
+		symeigensystemselecti(R1perpRR1perpperp * invsym(R1perpRR1perpperp ' R1perpRR1perpperp) * R1perpRR1perpperp', cols(R1perpRR1perpperp)+1\rows(R1perpRR1perpperp), R2perp, val)  // for partialling retained exogenous regressor components, Zperp, out of X
 	
-	if (LIML) Tplus = blockdiag(T1 /*R1perp*/, 1)  // add an entry to T for the dep var
+	if (LIML) Tplus = blockdiag(1, R1perp /*R1perp*/)  // this should become unnecessary once Zpar is always computed and substited for Z
 }
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
@@ -180,13 +191,21 @@ void AnalyticalModel::InitExog() {
 	pX1X1 = &cross(*parent->pX1, *parent->pwt, *parent->pX1)
 	if (cols(*parent->pX2)) {  // GMM, 2SLS, LIML
 		parent->pX2 = partialFE(parent->pX2)
+if (0 & cols(R1perpRR1perpperp)) {
+Zperp = *parent->pX1 * R1perpRR1perpperp
+invZperpZperp = invsym(cross(Zperp, *parent->pwt, Zperp))
+ZperpinvZperpZperp = Zperp * invZperpZperp
+Zex = *parent->pX1 * R1perpRR1perppar[|.,.\parent->kEx,.|]  // compute exogenous component of Zpar now before redefining X1
+parent->pX1 = &(*parent->pX1 * R2perp)
+parent->kEx = cols(R2perp)
+}
+Xpar = *parent->pX1, *parent->pX2
 		X2X1 = cross(*parent->pX2, *parent->pwt, *parent->pX1)
 		pXX1 = &(*pX1X1 \ X2X1)
 		if (parent->IV) {  // non-GMM
 			pinvXX = &invsym((XX = *pXX1, (X2X1' \ cross(*parent->pX2, *parent->pwt, *parent->pX2))))
 			XinvXX = parent->kEx? *parent->pX1 * (*pinvXX)[|.,.\parent->kEx,.|] + *parent->pX2 * (*pinvXX)[|parent->kEx+1.,.\.,.|] : *parent->pX2 * (*pinvXX)
 		}
-Xpar = *parent->pX1, *parent->pX2
 JNcstarkpar = J(parent->Ncstar , cols(Xpar), 0)
 JNcapkpar   = J(parent->Clust.N, cols(Xpar), 0)
 	} else
@@ -194,46 +213,70 @@ JNcapkpar   = J(parent->Clust.N, cols(Xpar), 0)
 }
 
 // stuff that can be done before T & r set, but depend on endogenous variables, which are bootstrapped in WRE
-void AnalyticalModel::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2, | ///
-	pointer (real colvector) scalar _pX2Y, pointer (real rowvector) scalar _pX1Y) {
+void AnalyticalModel::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2) {
+	real colvector tmp
 
 	py1 = partialFE(_py1); pY2 = partialFE(_pY2)
-	pX1y1 = _pX1Y==NULL? &cross(*parent->pX1, *parent->pwt, *py1) : _pX1Y
+	pX1y1 = &cross(*parent->pX1, *parent->pwt, *py1)
 	if (kappa | ARubin)
-		pX2y1 = _pX2Y==NULL? &cross(*parent->pX2, *parent->pwt, *py1) : _pX2Y
+		pX2y1 = &cross(*parent->pX2, *parent->pwt, *py1)
 	if (kappa) {
-		X1Y2   = cross(*parent->pX1  , *parent->pwt, *pY2)
+if (0 & cols(Zperp)) {
+Z = Zex + *parent->pY2 * R1perpRR1perppar[|parent->kEx+1,.\.,.|]  // Zpar
+Zperpy1 = cross(Zperp, *parent->pwt, *py1)
+ZperpZ  = cross(Zperp, *parent->pwt, Z   )
+ZperpX = cross(Zperp, *parent->pwt, *parent->pX1), cross(Zperp, *parent->pwt, *parent->pX2)
+} else
+Z = *parent->pX1, *pY2  // if Zperp empty, for constency still need to replace Z with Zpar = ZT1 here rather than multiplying by R1perp later
+
+		X1Y2 = cross(*parent->pX1, *parent->pwt, *pY2)
 		X2Y2 = cross(*parent->pX2, *parent->pwt, *pY2)
 		XY2 = X1Y2 \ X2Y2
-		XZ = *pXX1, XY2
-		ZY2 = X1Y2 \ cross(*pY2, *parent->pwt, *pY2)
-		pZZ = &(*pX1X1,  X1Y2 \ ZY2')
+		XZ = cross(*parent->pX1, *parent->pwt, Z) \ cross(*parent->pX2, *parent->pwt, Z) // \ *pXX1, XY2
+		ZY2 = cross(Z, *parent->pwt, *parent->pY2) // X1Y2 \ cross(*pY2, *parent->pwt, *pY2)
+		pZZ = &cross(Z, *parent->pwt, Z)
 		y1Y2 = cross(*py1, *parent->pwt, *pY2)
 		Xy1 = *pX1y1 \ *pX2y1
-		pZy1 = &(*pX1y1 \ y1Y2')
-		if (LIML | (parent->robust | parent->scoreBS)==0)
-			y1y1 = cross(*py1, *parent->pwt, *py1)
+		pZy1 = &cross(Z, *parent->pwt, *py1)
+		y1y1 = cross(*py1, *parent->pwt, *py1)
 		if (parent->IV)  // if GMM weight matrix not provided, prepare 2SLS one
 			V = (I(parent->kEx) \ J(parent->el-parent->kEx, parent->kEx, 0)), *pinvXX * XY2 // 2SLS is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
 		else
 			V = *parent->pW * XZ
 		H_2SLS = V ' XZ  // Hessian
 
-		if (isDGP) {
-			real scalar ind1, ind2; pointer (real colvector) scalar pXY, pm2
+		if (isDGP) {  // "if (isDGP)" eventually unneeded?
+			real scalar ind1, ind2; pointer (real colvector) scalar pPXY, pPZperpY, pm2, pMZperpy1; real colvector PZperpy1; real matrix PZperpZ; pointer (real matrix) scalar pMZperpZ
 
 			PXy1 = XinvXX * Xy1
 			PXZ  = XinvXX * XZ
+			tmp = *pinvXX * Xy1
+			YPXY = tmp ' XZ 
+			YPXY = tmp ' Xy1 , YPXY \ YPXY' , XZ ' (*pinvXX) * XZ 
 
-			ProductTermkappaR0 = (*pinvXX * Xy1) ' XZ 
-			ProductTermkappaR0 = (*pinvXX * Xy1) ' Xy1 , ProductTermkappaR0 \ ProductTermkappaR0' , XZ ' (*pinvXX) * XZ 
+			if (0 & cols(Zperp)) {
+				pMZperpy1 = &(Zperpy1 - (PZperpy1 = ZperpinvZperpZperp * Zperpy1))
+				pMZperpZ  = &(ZperpZ  - (PZperpZ  = ZperpinvZperpZperp * ZperpZ ))
+				tmp = invZperpZperp * Zperpy1
+				YPZperpY = tmp ' ZperpZ 
+				YPZperpY = tmp ' Zperpy1 , YPZperpY \ YPZperpY' , ZperpZ ' invZperpZperp * ZperpZ
+			} else {
+			  pMZperpy1 = py1
+				pMZperpZ  = &Z
+			}
 
-			FillingR0Xpar = smatrix(parent->k+1, parent->k+1)
+			FillingR0Xpar = smatrix(parent->k+1, parent->k+1)  // fixed component of groupwise term in sandwich filling
+			if (0 & cols(Zperp))
+				FillingR0Zperp = smatrix(parent->k+1, parent->k+1)
 			for (ind1=parent->k; ind1>=0; ind1--) {
-				pXY = ind1? &(XZ[,ind1]) : &Xy1
+				pPXY = ind1? &(PXZ[,ind1]) : &PXy1
+				if (0 & cols(Zperp))
+					pPZperpY = ind1? &(PZperpZ[,ind1]) : &PZperpy1
 				for (ind2=parent->k; ind2>=0; ind2--) {
-					pm2 = ind2? (ind2 <= parent->kEx? &((*parent->pX1)[,ind2]) : &((*parent->pY2)[, ind2 - parent->kEx])) : py1  // includes exogenous cases that could be computed earlier, once
-					FillingR0Xpar[ind1+1,ind2+1].M = _panelsum(XinvXX * *pXY :* /*M_Zperp*/ *pm2, *parent->pwt, *parent->pinfoErrData)  // fixed component of groupwise term in sandwich filling
+					pm2 = ind2? &((*pMZperpZ)[,ind2]) : pMZperpy1
+					FillingR0Xpar[ind1+1,ind2+1].M    = _panelsum( *pPXY    :* *pm2, *parent->pwt, *parent->pinfoErrData)
+					if (0 & cols(Zperp))
+						FillingR0Zperp[ind1+1,ind2+1].M = _panelsum(*pPZperpY :* *pm2, *parent->pwt, *parent->pinfoErrData)
 				}
 			}
 		}
@@ -249,29 +292,34 @@ void AnalyticalModel::InitEndog(pointer (real colvector) scalar _py1, pointer (r
 // stuff that can be done before r set but depends on T and endogenous variables
 void AnalyticalModel::InitEstimate() {
 	real rowvector val
-	real matrix XY, YY, YPXY, vec
+	real matrix XY, vec, YparYpar
 	pointer (real matrix) scalar pbetadenom, pT
 	pragma unset vec; pragma unset val
 
  	if (LIML) {
-		XY = XY2, Xy1
-		YY = *pZZ, (*pX1y1 \ y1Y2') \ *pX1y1', y1Y2, y1y1  // where Y = *pX1, *pY2, *py1
-		(YPXY = YY)[|parent->kEx+1,parent->kEx+1\.,.|] = XY ' (*pinvXX) * XY
+real matrix ZperpYpar, XYpar, XMZperpYpar, YparPXYpar
+YparYpar = y1y1, (*pZy1)' \ *pZy1, *pZZ
+		if (0 & cols(Zperp)) {
+			ZperpYpar = Zperpy1, ZperpZ
+			YparYpar = YparYpar - ZperpYpar ' invZperpZperp * ZperpYpar
+			XMZperpYpar = ZperpYpar - ZperpX ' invZperpZperp * ZperpYpar
+		} else
+			XMZperpYpar = Xy1, XZ
+		YparPXYpar = XMZperpYpar ' (*pinvXX) * XMZperpYpar
 
+		if (rows(R1perp)) {  // should become unnecessary once Zpar is always computed and replaces Z, even when Zperp is empty
+			YparYpar   = Tplus '   YparYpar * Tplus
+			YparPXYpar = Tplus ' YPXY * Tplus
+		}
 		V = *pinvXX * XZ
 		H_2SLS = V ' XZ  // Hessian
-
-		if (rows(T1)) {
-			YY   = Tplus '   YY * Tplus
-			YPXY = Tplus ' YPXY * Tplus
-		}
-		eigensystemselecti( I(rows(YY)) - invsym(YY) * YPXY, 1\1, vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
-		kappa = 1/Re(val)  // sometimes a tiny imaginary component sneaks into val
+		eigensystemselecti(invsym(YparYpar) * YparPXYpar, rows(YparYpar)\rows(YparYpar), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+		kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
 		if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->el)
 	}
 
   pH = kappa? (kappa==1? &H_2SLS : &((1-kappa)* *pZZ + kappa*H_2SLS)) : pZZ
-	pT = parent->WRE? &T1 : &T0  // under WRE separate DGP & replication regression objects have different T1's; otherwise there's only a DGP object, which is only used for DGP regression, which here needs T0 to optionally impose null
+	pT = parent->WRE? &R1perp : &T0  // under WRE separate DGP & replication regression objects have different R1perp's; otherwise there's only a DGP object, which is only used for DGP regression, which here needs T0 to optionally impose null
 	if (rows(*pT)) {
 		pbetadenom = &(*pT * invsym(*pT ' (*pH) * *pT) * *pT')
 		invH = J(0,0,0)
@@ -296,7 +344,7 @@ void AnalyticalModel::InitEstimate() {
 
 // stuff that depends on r and endogenous variables: compute beta and residuals
 void AnalyticalModel::Estimate(real colvector r) {
-	real colvector negXeinvee; real matrix Xe /*, Pi*/; real scalar uu
+	real colvector negXeinvee; real matrix Xe, Pi; real scalar uu
 
 	beta = rows(r)? beta0 + dbetadr * r : beta0
 
@@ -335,11 +383,11 @@ void AnalyticalModel::Estimate(real colvector r) {
 void AnalyticalModel::InitTestDenoms() {
 	real matrix VAR; real scalar d, c; struct smatrix rowvector _CT_XAR; pointer (real matrix) scalar pWXAR
 
-	pA = rows(T1)? &(T1 * invsym(T1 ' (*pH) * T1) * T1') : ///
+	pA = rows(R1perp)? &(R1perp * invsym(R1perp ' (*pH) * R1perp) * R1perp') : ///
 	               &(rows(invH)? invH : invsym(*pH))
 	AR = *pA * *parent->pR'
 
-	if (parent->scoreBS | (parent->robust & (parent->WREnonARubin & parent->NClustVar==1 & parent->NFE==0)==0)) {
+	if (parent->scoreBS | parent->robust) {
 		if (kappa) {
 			VAR = V * AR
 			XAR = *parent->pX2 * VAR[|parent->kEx+1,.\.,.|]; if (parent->kEx) XAR = XAR + *parent->pX1 * VAR[|.,.\parent->kEx,.|]
@@ -693,6 +741,7 @@ void boottestModel::Init() {  // for efficiency when varying r repeatedly to mak
 		LIML = 0
 	}
   REst = rows(*pR1)  // base model contains restrictions?
+	if (REst == 0) pR1 = &J(0,k,0)
   if (pX2 != NULL) el = cols(*pX2) + kEx  // l = # of exogenous variables
   if (kappa==.) kappa = cols(*pX2)>0  // if kappa in kappa-class estimation not specified, it's 0 or 1 for OLS or 2SLS
   GMM = pW != NULL
@@ -742,7 +791,7 @@ void boottestModel::Init() {  // for efficiency when varying r repeatedly to mak
         pBootClust = &(Clust[2^(NClustVar - NBootClustVar)])  // *** inefficient because copies large objections? *** location of bootstrap clustering within list of cluster combinations
 
 			for (c=1; c<=NErrClustCombs; c++) {  // for each error clustering combination
-        ClustCols = subcluster :+ boottest_selectindex(Combs[c,])
+        ClustCols = subcluster :+ _selectindex(Combs[c,])
         Clust[c].even = mod(cols(ClustCols),2)
 
         if (c == 1)
@@ -752,7 +801,7 @@ void boottestModel::Init() {  // for efficiency when varying r repeatedly to mak
           } else
             Clust.info       = J(rows(*pinfoAllData),0,0)  // causes no collapsing of data in _panelsum() calls
         else {
-          if (any( Combs[|c, min(boottest_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
+          if (any( Combs[|c, min(_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
             IDErr = IDErr[ Clust[c].order = stableorder(IDErr, ClustCols), ]
 
           Clust[c].info      = _panelsetup(IDErr, ClustCols)
@@ -862,10 +911,9 @@ for (i=Ncstar;i;i--) {
     DGP.InitExog()
 
 		if (null)
-			if (WRE) DGP.SetR(rows(*pR1)? *pR1 \ *pR : *pR)
-			else DGP.SetR(*pR1, *pR); // WRE part is a hack; change to (*pR1, *pR) for both in implementing FWL; then SetR() needs to know stuctural difference
+			DGP.SetR(*pR1 \ *pR, J(0,k,0), 0)
 		else
-			DGP.SetR(*pR1)
+			DGP.SetR(*pR1, J(0,k,0), 0)
 
     if (WRE) {
       pRepl = &(M_WRE = DGP)
@@ -875,7 +923,7 @@ for (i=Ncstar;i;i--) {
         pRepl->LIML = this.LIML; pRepl->Fuller = this.Fuller; pRepl->kappa = this.kappa
       }
       pRepl->SetARubin(ARubin)
-			pRepl->SetR(*pR1)
+			pRepl->SetR(*pR1, *pR, 0)
     } else {
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
     }
@@ -884,7 +932,7 @@ for (i=Ncstar;i;i--) {
 
     if (ARubin) {
       if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
-        DGP.SetR(pRepl->T1)  // no-null model in DGP
+        DGP.SetR(*pR1, J(0,k,0), 0)  // no-null model in DGP
         DGP.InitEstimate()
         DGP.Estimate(*pr1)
         confpeak = *pR * DGP.beta  // estimated coordinate of confidence peak
@@ -1078,7 +1126,7 @@ real matrix boottestModel::ProductTerm(real rowvector ind1, real scalar ind2, re
 	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2; pointer (real matrix) scalar pm1, pu1, pX, pinv; pointer (real matrix) matrix pXY; real matrix retval, U, Z
 
 	pX = &(*pX1, *pX2) // Xpar, pZperp
-	pinv = DGP.pinvXX // pinvXparXpar, pinvZperpZperp
+	pinv = DGP.pinvXX // pinvXparXpar, invZperpZperp
 	pXY  = &DGP.Xy1, &DGP.XZ  // \ Zperpy1, ZperpZpar
 
 	Z = *pX1, *pY2
@@ -1129,8 +1177,8 @@ real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind
 	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2, pPXY2; pointer (real matrix) scalar pm1, pu1, pPXY1; real matrix retval, U, Z, R1, _R2; real colvector R0
 	struct smatrix colvector R2
 
-	Z = *pX1, *pY2
-	U = J(Nobs, kEx, 0), DGP.U2ddot
+Z = *pX1, *pY2
+U = J(Nobs, kEx, 0), DGP.U2ddot
 	if (isZ1 = (ind1 != 0)) {
 		pm1 = &(Z[,ind1])
 		pPXY1 = &(DGP.PXZ[,ind1])
@@ -1155,7 +1203,7 @@ real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind
 	}
 
 	// compute constant, linear, and quadratic terms associated with P_Xpar
-	R0 = DGP.ProductTermkappaR0[ind1:+1, ind2:+1]
+	R0 = DGP.YPXY[ind1:+1, ind2:+1]
 	R1 = _panelsum(*pPXY2 :* *pu1, *pwt, infoBootData)
 
 	if (pu2) {
@@ -1349,7 +1397,7 @@ kappa=1
 
 
 void boottestModel::PrepARubin(real colvector r) {
-  pRepl->InitEndog(&(*py1 - *pY2 * r), NULL, &(*DGP.pX2y1 - DGP.X2Y2 * r), &(*DGP.pX1y1 - DGP.X1Y2 * r))
+  pRepl->InitEndog(&(*py1 - *pY2 * r), NULL/*, &(*DGP.pX2y1 - DGP.X2Y2 * r), &(*DGP.pX1y1 - DGP.X1Y2 * r)*/)
   pRepl->InitEstimate()
   pRepl->Estimate(*pr1)
   pRepl->InitTestDenoms()
@@ -1688,7 +1736,7 @@ real matrix _panelsum(real matrix X, real matrix arg2, | real matrix arg3) {
 
 // given a vector, return indices of the non-zero elements, like selectindex() function added in Stata 13
 // if v = 0 (so can't tell if row or col vector), returns J(1, 0, 0) 
-real vector boottest_selectindex(real vector v) {
+real vector boottestModel::_selectindex(real vector v) {
 	real scalar rows
 	if (v==0) return(J(1,0,0))
 	rows = rows(v)
@@ -1891,8 +1939,8 @@ void boottestModel::plot() {
 
   if (q==1 & level<100) {  // find CI bounds
     CI = (plotY :> alpha) :/ (plotY :< .); CI = CI[|2\.|] - CI[|.\rows(plotX)-1|]
-    lo = boottest_selectindex(CI:== 1)
-    hi = boottest_selectindex(CI:==-1)
+    lo = _selectindex(CI:== 1)
+    hi = _selectindex(CI:==-1)
     if (rows(lo)==0 & rows(hi)==0)
       CI = . , .
     else {
