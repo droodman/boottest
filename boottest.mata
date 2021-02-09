@@ -17,7 +17,9 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
+
+function M(X) return(I(rows(X))-X*invsym(X'X)*X')
 
 struct smatrix {
 	real matrix M
@@ -38,26 +40,27 @@ struct structFE {
 }
 
 class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
-	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, Tplus, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, R1perpRR1perppar, R1perpRR1perpperp, R2perp, XinvXX, PXZ, YPXY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, YPZperpY, ZperpinvZperpZperp
-	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, Zperpy1
+	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, k, kEx
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, Rperp, RperpXperp, XinvXX, PXZ, YPXY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, YPZperpY, ZperpinvZperpZperp, ZperpY2
+	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, Zperpy1, t1
 	real rowvector y1Y2
 	pointer(real colvector) scalar py1
-	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT
+	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT, pX1
 	pointer (class boottestModel scalar) scalar parent
 	struct smatrix matrix CT_XAR, FillingR0Xpar, FillingR0Zperp, FillingR1Xpar, FillingR1Zperp
 	struct smatrix colvector WXAR
 
 	private void new(), InitExog(), InitEndog(), InitTestDenoms(), SetR(), InitEstimate(), Estimate(), SetARubin()
-	private real matrix _select()
+	private real matrix _select(), perp()
 	pointer(real matrix) scalar partialFE()
+	private struct smatrix rowvector ParPerp()
 }
 
 class boottestModel {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, k, kEnd, kEx, el, sumwt, NClustVar, weights, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, granular, purerobust, subcluster, Ncstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust
-	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_Ncstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr
+	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, J_ClustN_Ncstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot
 	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
 	real rowvector peak
 	string scalar wttype, madjtype, seed
@@ -105,6 +108,23 @@ void AnalyticalModel::SetARubin(real scalar _AR) {
 real matrix AnalyticalModel::_select(real matrix X, real rowvector v)
 	return (rows(X)==1 & cols(X)==1 & v==0? J(1,0,0) : select(X,v))
 
+struct smatrix rowvector AnalyticalModel::ParPerp(real matrix A) {
+	real matrix vec; real rowvector val; struct smatrix rowvector retval
+	symeigensystem(A'invsym(A*A')*A, vec, val)
+	_edittozero(val, 10)
+	retval = smatrix(2)
+	retval[1].M = select(vec,  val)
+	retval[2].M = select(vec, !val)
+	return (retval)
+}
+
+real matrix AnalyticalModel::perp(real matrix A) {
+	real matrix vec; real rowvector val
+	symeigensystem(A'invsym(A*A')*A, vec, val)
+	_edittozero(val, 10)
+	return (select(vec, !val))
+}
+
 // for DGP regression R has 0 rows, R1 for maintained constraints + null; for WRE replication regression R is for null, R1 for maintained constraints
 // for non-WRE, R should have zero rows or not be passed if null not imposed on DGP
 void AnalyticalModel::SetR(real matrix R1, real matrix R, real scalar FWL) {
@@ -123,7 +143,6 @@ void AnalyticalModel::SetR(real matrix R1, real matrix R, real scalar FWL) {
 			}
 		} else
 			R1perp = J(0,0,0)
-if (LIML) Tplus = blockdiag(1, R1perp)  // this should become unnecessary once Zpar is always computed and substited for Z
 
 		if (rows(R1))
 			_pR = rows(R)? &(R1 \ R) : &R1
@@ -150,89 +169,87 @@ if (LIML) Tplus = blockdiag(1, R1perp)  // this should become unnecessary once Z
 		R1invR1R1 = R1 ' R1invR1R1
 		symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
 		R1perp = _select(vec, !val)  // eigenvectors orthogonal to span of R1; foundation for parameterizing subspace compatible with constraints
-	}
+	} else
+		R1invR1R1 = J(parent->k,0,0)  // and R1perp = I
 
-		// prepare to reduce regression via FWL
-	RR1perp = J(parent->kEnd, parent->kEx, 0), I(parent->kEnd)  // rows to prevent partialling out of endogenous regressors
-	if (rows(R)) RR1perp = R \ RR1perp  // rows(R)=0 in the DGP regression if null not imposed
+	// prepare to reduce regression via FWL
+	RR1perp = R \ J(parent->kEnd, parent->kEx, 0), I(parent->kEnd)  // rows to prevent partialling out of endogenous regressors
 
 	if (rows(R1))
 		RR1perp = RR1perp * R1perp 
 	symeigensystem(RR1perp ' invsym(RR1perp * RR1perp') * RR1perp, vec, val); _edittozero(val, 10)
 if (FWL==0) val = J(1,cols(val),1)
-	R1perpRR1perppar  = _select(vec,  val)
-	R1perpRR1perpperp = _select(vec, !val)
-	if (rows(R1)) {  // fold model constraint factors into R1perpRR1perppar, R1perpRR1perpperp
-		R1perpRR1perppar  = R1perp * R1perpRR1perppar
-		R1perpRR1perpperp = R1perp * R1perpRR1perpperp
+	Rpar = _select(vec,  val)
+	Rperp = _select(vec, !val)
+	if (rows(R1)) {  // fold model constraint factors into Rpar, Rperp
+		Rpar  = R1perp * Rpar
+		Rperp = R1perp * Rperp
 	}
 
 	if (parent->kEx) {
-		R1perpRR1perpperp = cols(R1perpRR1perpperp)? R1perpRR1perpperp[|.,.\parent->kEx,.|] : J(parent->kEx,0,0) // Zperp=Z*R1perpRR1perpperp; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
-//		val = colmax(R1perpRR1perppar[|kEx+1,.\.,.|] :!= 0)
-//		pR0parEnd = &_select(R1perpRR1perppar,  val)  // split R1perpRR1perppar, which defines Zpar, into exogenous and endogenous bits; only useful when a null refers purely to exogenous vars, which seems unusual
-//		 R0parEx  =  _select(R1perpRR1perppar, !val)
+		Rperp = cols(Rperp)? Rperp[|.,.\parent->kEx,.|] : J(parent->kEx,0,0) // Zperp=Z*Rperp; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
+//		val = colmax(Rpar[|kEx+1,.\.,.|] :!= 0)
+//		pR0parEnd = &_select(Rpar,  val)  // split Rpar, which defines Zpar, into exogenous and endogenous bits; only useful when a null refers purely to exogenous vars, which seems unusual
+//		 R0parEx  =  _select(Rpar, !val)
 	} /*else
-		pR0parEnd = &R1perpRR1perppar*/
+		pR0parEnd = &Rpar*/
 
-	if (rows(R1perpRR1perpperp)==cols(R1perpRR1perpperp))
-		R2perp = J(rows(R1perpRR1perpperp),0,0)  // no exogenous regressors retained
+	if (rows(Rperp)==cols(Rperp))
+		RperpXperp = J(rows(Rperp),0,0)  // no exogenous regressors retained
 	else
-		symeigensystemselecti(R1perpRR1perpperp * invsym(R1perpRR1perpperp ' R1perpRR1perpperp) * R1perpRR1perpperp', cols(R1perpRR1perpperp)+1\rows(R1perpRR1perpperp), R2perp, val)  // for partialling retained exogenous regressor components, Zperp, out of X
-	
-	if (LIML) Tplus = blockdiag(1, R1perp /*R1perp*/)  // this should become unnecessary once Zpar is always computed and substited for Z
+		symeigensystemselecti(Rperp * invsym(Rperp ' Rperp) * Rperp', cols(Rperp)+1\rows(Rperp), RperpXperp, val)  // for partialling retained exogenous regressor components, Zperp, out of X
 }
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void AnalyticalModel::InitExog() {
 	real matrix X2X1
-
+//  *** store most/all objects created here via pointers to minimize cost of duplication into replication object?
 	parent->pX1 = partialFE(parent->pX1)
-	pX1X1 = &cross(*parent->pX1, *parent->pwt, *parent->pX1)
 	if (cols(*parent->pX2)) {  // GMM, 2SLS, LIML
 		parent->pX2 = partialFE(parent->pX2)
-if (0 & cols(R1perpRR1perpperp)) {
-Zperp = *parent->pX1 * R1perpRR1perpperp
+Zex = *parent->pX1 * Rpar[|.,.\parent->kEx,.|]  // compute exogenous component of Zpar now before redefining X1
+Zperp = *parent->pX1 * Rperp
 invZperpZperp = invsym(cross(Zperp, *parent->pwt, Zperp))
 ZperpinvZperpZperp = Zperp * invZperpZperp
-Zex = *parent->pX1 * R1perpRR1perppar[|.,.\parent->kEx,.|]  // compute exogenous component of Zpar now before redefining X1
-parent->pX1 = &(*parent->pX1 * R2perp)
-parent->kEx = cols(R2perp)
-}
-Xpar = *parent->pX1, *parent->pX2
-		X2X1 = cross(*parent->pX2, *parent->pwt, *parent->pX1)
+pX1 = &(*parent->pX1 * RperpXperp)
+pX1X1 = &cross(*pX1, *parent->pwt, *pX1)
+kEx = cols(RperpXperp)
+	
+Xpar = *pX1, *parent->pX2
+		X2X1 = cross(*parent->pX2, *parent->pwt, *pX1)
 		pXX1 = &(*pX1X1 \ X2X1)
 		if (parent->IV) {  // non-GMM
 			pinvXX = &invsym((XX = *pXX1, (X2X1' \ cross(*parent->pX2, *parent->pwt, *parent->pX2))))
-			XinvXX = parent->kEx? *parent->pX1 * (*pinvXX)[|.,.\parent->kEx,.|] + *parent->pX2 * (*pinvXX)[|parent->kEx+1.,.\.,.|] : *parent->pX2 * (*pinvXX)
+			XinvXX = kEx? *pX1 * (*pinvXX)[|.,.\kEx,.|] + *parent->pX2 * (*pinvXX)[|kEx+1.,.\.,.|] : *parent->pX2 * (*pinvXX)
 		}
 JNcstarkpar = J(parent->Ncstar , cols(Xpar), 0)
 JNcapkpar   = J(parent->Clust.N, cols(Xpar), 0)
-	} else
-		pZZ = pX1X1
+	} else {
+		pX1 = parent->pX1
+		pZZ = pX1X1 = &cross(*pX1, *parent->pwt, *pX1)
+	}
 }
 
 // stuff that can be done before T & r set, but depend on endogenous variables, which are bootstrapped in WRE
-void AnalyticalModel::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2) {
+void AnalyticalModel::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2, | real colvector r1) {  // can probably move r1 arg to InitEstimate()
 	real colvector tmp
-
-	py1 = partialFE(_py1); pY2 = partialFE(_pY2)
-	pX1y1 = &cross(*parent->pX1, *parent->pwt, *py1)
+py1 = partialFE(parent->WREnonARubin? &(*_py1 - (*pX1, *parent->pY2) * R1invR1R1 * r1) : _py1)
+	pY2 = partialFE(_pY2)
+	pX1y1 = &cross(*pX1, *parent->pwt, *py1)
 	if (kappa | ARubin)
 		pX2y1 = &cross(*parent->pX2, *parent->pwt, *py1)
 	if (kappa) {
-if (0 & cols(Zperp)) {
-Z = Zex + *parent->pY2 * R1perpRR1perppar[|parent->kEx+1,.\.,.|]  // Zpar
+Z = Zex + *parent->pY2 * Rpar[|kEx+1,.\.,.|]  // Zpar
 Zperpy1 = cross(Zperp, *parent->pwt, *py1)
 ZperpZ  = cross(Zperp, *parent->pwt, Z   )
-ZperpX = cross(Zperp, *parent->pwt, *parent->pX1), cross(Zperp, *parent->pwt, *parent->pX2)
-} else
-Z = *parent->pX1, *pY2  // if Zperp empty, for constency still need to replace Z with Zpar = ZT1 here rather than multiplying by R1perp later
-
-		X1Y2 = cross(*parent->pX1, *parent->pwt, *pY2)
+ZperpX = cross(Zperp, *parent->pwt, *pX1), cross(Zperp, *parent->pwt, *parent->pX2)
+ZperpY2 = cross(Zperp, *parent->pwt, *parent->pY2)
+t1 = R1invR1R1 * r1
+k = cols(Z)
+		X1Y2 = cross(*pX1, *parent->pwt, *pY2)
 		X2Y2 = cross(*parent->pX2, *parent->pwt, *pY2)
 		XY2 = X1Y2 \ X2Y2
-		XZ = cross(*parent->pX1, *parent->pwt, Z) \ cross(*parent->pX2, *parent->pwt, Z) // \ *pXX1, XY2
+		XZ = cross(*pX1, *parent->pwt, Z) \ cross(*parent->pX2, *parent->pwt, Z) // \ *pXX1, XY2
 		ZY2 = cross(Z, *parent->pwt, *parent->pY2) // X1Y2 \ cross(*pY2, *parent->pwt, *pY2)
 		pZZ = &cross(Z, *parent->pwt, Z)
 		y1Y2 = cross(*py1, *parent->pwt, *pY2)
@@ -240,12 +257,12 @@ Z = *parent->pX1, *pY2  // if Zperp empty, for constency still need to replace Z
 		pZy1 = &cross(Z, *parent->pwt, *py1)
 		y1y1 = cross(*py1, *parent->pwt, *py1)
 		if (parent->IV)  // if GMM weight matrix not provided, prepare 2SLS one
-			V = (I(parent->kEx) \ J(parent->el-parent->kEx, parent->kEx, 0)), *pinvXX * XY2 // 2SLS is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
+			V = (I(kEx) \ J(parent->el-kEx, kEx, 0)), *pinvXX * XY2 // 2SLS is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
 		else
 			V = *parent->pW * XZ
 		H_2SLS = V ' XZ  // Hessian
 
-		if (isDGP) {  // "if (isDGP)" eventually unneeded?
+		if (isDGP==0) {
 			real scalar ind1, ind2; pointer (real colvector) scalar pPXY, pPZperpY, pm2, pMZperpy1; real colvector PZperpy1; real matrix PZperpZ; pointer (real matrix) scalar pMZperpZ
 
 			PXy1 = XinvXX * Xy1
@@ -254,29 +271,21 @@ Z = *parent->pX1, *pY2  // if Zperp empty, for constency still need to replace Z
 			YPXY = tmp ' XZ 
 			YPXY = tmp ' Xy1 , YPXY \ YPXY' , XZ ' (*pinvXX) * XZ 
 
-			if (0 & cols(Zperp)) {
-				pMZperpy1 = &(Zperpy1 - (PZperpy1 = ZperpinvZperpZperp * Zperpy1))
-				pMZperpZ  = &(ZperpZ  - (PZperpZ  = ZperpinvZperpZperp * ZperpZ ))
-				tmp = invZperpZperp * Zperpy1
-				YPZperpY = tmp ' ZperpZ 
-				YPZperpY = tmp ' Zperpy1 , YPZperpY \ YPZperpY' , ZperpZ ' invZperpZperp * ZperpZ
-			} else {
-			  pMZperpy1 = py1
-				pMZperpZ  = &Z
-			}
+			pMZperpy1 = &(*py1 - (PZperpy1 = ZperpinvZperpZperp * Zperpy1))
+			pMZperpZ  = &(   Z - (PZperpZ  = ZperpinvZperpZperp * ZperpZ ))
+			tmp = invZperpZperp * Zperpy1
+			YPZperpY = tmp ' ZperpZ 
+			YPZperpY = tmp ' Zperpy1 , YPZperpY \ YPZperpY' , ZperpZ ' invZperpZperp * ZperpZ
 
-			FillingR0Xpar = smatrix(parent->k+1, parent->k+1)  // fixed component of groupwise term in sandwich filling
-			if (0 & cols(Zperp))
-				FillingR0Zperp = smatrix(parent->k+1, parent->k+1)
-			for (ind1=parent->k; ind1>=0; ind1--) {
-				pPXY = ind1? &(PXZ[,ind1]) : &PXy1
-				if (0 & cols(Zperp))
-					pPZperpY = ind1? &(PZperpZ[,ind1]) : &PZperpy1
-				for (ind2=parent->k; ind2>=0; ind2--) {
+			FillingR0Xpar = smatrix(k+1, k+1)  // fixed component of groupwise term in sandwich filling
+			FillingR0Zperp = smatrix(k+1, k+1)
+			for (ind1=k; ind1>=0; ind1--) {
+				pPXY     = ind1? &(PXZ    [,ind1]) : &PXy1
+				pPZperpY = ind1? &(PZperpZ[,ind1]) : &PZperpy1
+				for (ind2=k; ind2>=0; ind2--) {
 					pm2 = ind2? &((*pMZperpZ)[,ind2]) : pMZperpy1
-					FillingR0Xpar[ind1+1,ind2+1].M    = _panelsum( *pPXY    :* *pm2, *parent->pwt, *parent->pinfoErrData)
-					if (0 & cols(Zperp))
-						FillingR0Zperp[ind1+1,ind2+1].M = _panelsum(*pPZperpY :* *pm2, *parent->pwt, *parent->pinfoErrData)
+					FillingR0Xpar [ind1+1,ind2+1].M = _panelsum(    *pPXY :* *pm2, *parent->pwt, *parent->pinfoErrData)
+					FillingR0Zperp[ind1+1,ind2+1].M = _panelsum(*pPZperpY :* *pm2, *parent->pwt, *parent->pinfoErrData)
 				}
 			}
 		}
@@ -289,91 +298,66 @@ Z = *parent->pX1, *pY2  // if Zperp empty, for constency still need to replace Z
 	}
 }
 
-// stuff that can be done before r set but depends on T and endogenous variables
+// do most of estimation; for LIML r1 must be passed now in order to solve eigenvalue problem involving it
+// For OLS, compute beta0 (beta when r=0) and dbetadr without knowing r1, for efficiency
 void AnalyticalModel::InitEstimate() {
 	real rowvector val
-	real matrix XY, vec, YparYpar
+	real matrix XY, vec
 	pointer (real matrix) scalar pbetadenom, pT
 	pragma unset vec; pragma unset val
 
  	if (LIML) {
-real matrix ZperpYpar, XYpar, XMZperpYpar, YparPXYpar
-YparYpar = y1y1, (*pZy1)' \ *pZy1, *pZZ
-		if (0 & cols(Zperp)) {
-			ZperpYpar = Zperpy1, ZperpZ
-			YparYpar = YparYpar - ZperpYpar ' invZperpZperp * ZperpYpar
-			XMZperpYpar = ZperpYpar - ZperpX ' invZperpZperp * ZperpYpar
-		} else
-			XMZperpYpar = Xy1, XZ
+real matrix ZperpYpar, XYpar, XMZperpYpar, YparPXYpar, YparMZperpYpar
+ZperpYpar = Zperpy1, ZperpZ
+YparMZperpYpar = (y1y1, (*pZy1)' \ *pZy1, *pZZ) - ZperpYpar ' invZperpZperp * ZperpYpar
+XMZperpYpar = (Xy1, XZ) - ZperpX ' invZperpZperp * ZperpYpar
 		YparPXYpar = XMZperpYpar ' (*pinvXX) * XMZperpYpar
 
-		if (rows(R1perp)) {  // should become unnecessary once Zpar is always computed and replaces Z, even when Zperp is empty
-			YparYpar   = Tplus '   YparYpar * Tplus
-			YparPXYpar = Tplus ' YPXY * Tplus
-		}
 		V = *pinvXX * XZ
 		H_2SLS = V ' XZ  // Hessian
-		eigensystemselecti(invsym(YparYpar) * YparPXYpar, rows(YparYpar)\rows(YparYpar), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+		eigensystemselecti(invsym(YparMZperpYpar) * YparPXYpar, rows(YparMZperpYpar)\rows(YparMZperpYpar), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 		kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
 		if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->el)
 	}
 
   pH = kappa? (kappa==1? &H_2SLS : &((1-kappa)* *pZZ + kappa*H_2SLS)) : pZZ
-	pT = parent->WRE? &R1perp : &T0  // under WRE separate DGP & replication regression objects have different R1perp's; otherwise there's only a DGP object, which is only used for DGP regression, which here needs T0 to optionally impose null
-	if (rows(*pT)) {
-		pbetadenom = &(*pT * invsym(*pT ' (*pH) * *pT) * *pT')
-		invH = J(0,0,0)
-	} else
-		pbetadenom = &(invH = invsym(*pH))
+	pbetadenom = &(invH = invsym(*pH))
 
-  if (kappa)
-		if (kappa==1) {  // 2SLS, GMM
-			beta0 = *pbetadenom * V ' Xy1
-			dbetadr = I(rows(beta0)) - *pbetadenom * V ' XZ
-		} else {  // k-class, LIML
-			beta0 = *pbetadenom * (kappa * V ' Xy1 + (1-kappa) * *pZy1)
-			dbetadr = I(rows(beta0)) - *pbetadenom * (kappa * V ' XZ + (1-kappa) * *pZZ)  // **** bug for overid'd LIML! Effect: DGP regression is k-class with kappa from RLIML with r=0. Not terrible.
-		}
-	else {  // OLS / ARubin
-		beta0 = *pbetadenom * *pZy1
-		dbetadr = I(rows(beta0)) - *pbetadenom * *pZZ
+  if (kappa) {
+		beta0 = *pbetadenom *  (kappa==1? V ' Xy1 : (kappa * V ' Xy1 + (1-kappa) * *pZy1))  // concentrated estimator, for computing residuals and, via left-multiplication by R*Rpar, generating null LHS
+		dbetadr = /*luinv((Rpar, perp(Rpar')))[|.,.\cols(Rpar),.|] * R1invR1R1 */ R1invR1R1[|parent->kEx+1,.\.,.|]  // dbetadr plays different role in IV/GMM and OLS
+	} else {  // OLS / ARubin
+		beta0 = *pbetadenom * *pZy1 * R0invR0R0
+		dbetadr = *pbetadenom * *pZZ * R0invR0R0 - R0invR0R0
 	}
-	if (rows(*pT))
-		dbetadr = dbetadr * (parent->WRE? R1invR1R1 : R0invR0R0)
 }
 
 // stuff that depends on r and endogenous variables: compute beta and residuals
-void AnalyticalModel::Estimate(real colvector r) {
-	real colvector negXeinvee; real matrix Xe, Pi; real scalar uu
+void AnalyticalModel::Estimate(real colvector r1) {
+	real colvector negXuinvuu; real matrix Xu, Pi, MZperpY2, MuX, MZperpX; real scalar uu
 
-	beta = rows(r)? beta0 + dbetadr * r : beta0
+	beta = rows(r1) & parent->WREnonARubin==0? beta0 - dbetadr * r1 : beta0  // change so WRE call to Estimate() doesn't pass r1, so "rows(r1)" suffices
 
 	if (isDGP | parent->bootstrapt | parent->WREnonARubin==0) {  // don't need residuals in replication regressions in bootstrap-c on WRE/non-ARubin
 		if (ARubin) {
-			u1ddot = *py1 - *parent->pX2 * beta[|cols(*parent->pX1)+1\.|]
-			if (cols(*parent->pX1))
-				u1ddot =  u1ddot - *parent->pX1 * beta[|.\cols(*parent->pX1)|]
-		} else if (kappa)
-			if (parent->kEx == 0)
-				u1ddot = *py1 - *pY2 * beta[|parent->kEx+1\.|]
-			else
-				u1ddot = *py1 - *pY2 * beta[|parent->kEx+1\.|] - *parent->pX1 * beta[|.\parent->kEx|]
-		else
-				u1ddot = *py1                                  - *parent->pX1 * beta[|.\parent->kEx|]
+			u1ddot = *py1 - *parent->pX2 * beta[|cols(*pX1)+1\.|]
+			if (cols(*pX1))
+				u1ddot =  u1ddot - *pX1 * beta[|.\cols(*pX1)|]
+		} else
+			u1ddot = *py1 - Z * beta
 
     if ((parent->robust | parent->scoreBS)==0 | (isDGP & LIML))  // useful in non-robust, residual-based bootstrap, and in computing u1ddot^2 in LIML (just below)
-			uu = y1y1 - 2 * *pZy1 ' beta + beta ' (*pZZ) * beta
+				uu = y1y1 - 2 * *pZy1 ' beta + beta ' (*pZZ) * beta
 		if ((parent->robust | parent->scoreBS)==0 & parent->bootstrapt==0)
 			uuc = parent->hascons? uu : uu - (parent->weights? cross(u1ddot, *parent->pwt) : sum(u1ddot))^2 / parent->_Nobs  // sum of squares after centering, N * Var
 	}
 
 	if (isDGP & LIML) {  // after IV/GMM DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
-		Xe = Xy1 - XZ * beta
-		negXeinvee = Xe / -uu
-		Pi = invsym(XX + negXeinvee * Xe') * (negXeinvee * (y1Y2 - beta ' ZY2) + XY2)  // coefficients in reduced-form equations; Davidson & MacKinnon (2010), eq 15
-		U2ddot = *pY2 - *parent->pX2 * Pi[|parent->kEx+1,.\.,.|]; if (parent->kEx) U2ddot = U2ddot - *parent->pX1 * Pi[|.,.\parent->kEx,.|]
-
-		u1dddot = u1ddot + U2ddot * beta[|parent->kEx+1\.|]
+		MZperpY2 = *parent->pY2 - Zperp * invZperpZperp * ZperpY2
+		MZperpX  = (*pX1 - Zperp  * invZperpZperp * cross(Zperp, *parent->pwt, *pX1)), (*parent->pX2 - Zperp  * invZperpZperp * cross(Zperp, *parent->pwt, *parent->pX2))
+		MuX      = MZperpX - u1ddot / uu * cross(u1ddot, *parent->pwt, MZperpX)
+		U2ddot = MZperpY2 - MZperpX * invsym(cross(MuX, *parent->pwt, MZperpX)) * cross(MuX, *parent->pwt, MZperpY2)
+		u1dddot = u1ddot + U2ddot * (Rpar[|kEx+1,.\.,.|] * beta + dbetadr * r1)
 	}
 }
 
@@ -382,21 +366,19 @@ void AnalyticalModel::Estimate(real colvector r) {
 // but, confusingly, since the non-AR OLS code never creates an object for replication regresssions, in that case this is called on the DGP regression object
 void AnalyticalModel::InitTestDenoms() {
 	real matrix VAR; real scalar d, c; struct smatrix rowvector _CT_XAR; pointer (real matrix) scalar pWXAR
-
-	pA = rows(R1perp)? &(R1perp * invsym(R1perp ' (*pH) * R1perp) * R1perp') : ///
-	               &(rows(invH)? invH : invsym(*pH))
-	AR = *pA * *parent->pR'
+	pA = &(rows(invH)? invH : invsym(*pH))
+	AR = *pA * Rpar ' (*parent->pR)'
 
 	if (parent->scoreBS | parent->robust) {
 		if (kappa) {
 			VAR = V * AR
-			XAR = *parent->pX2 * VAR[|parent->kEx+1,.\.,.|]; if (parent->kEx) XAR = XAR + *parent->pX1 * VAR[|.,.\parent->kEx,.|]
+			XAR = *parent->pX2 * VAR[|kEx+1,.\.,.|]; if (kEx) XAR = XAR + *pX1 * VAR[|.,.\kEx,.|]
 		} else if (ARubin) {
-			XAR = *parent->pX2 * AR[|parent->kEx+1,.\.,.|]
-			if (cols(*parent->pX1))
-				XAR = XAR + *parent->pX1 * AR[|.,.\parent->kEx,.|]
+			XAR = *parent->pX2 * AR[|kEx+1,.\.,.|]
+			if (cols(*pX1))
+				XAR = XAR + *pX1 * AR[|.,.\kEx,.|]
 		} else
-			XAR = *parent->pX1 * AR
+			XAR = *pX1 * AR
 
 			if (parent->bootstrapt == 0) return
 
@@ -908,12 +890,8 @@ for (i=Ncstar;i;i--) {
     df = rows(*pR)
   else {
     DGP.parent = &this
-    DGP.InitExog()
-
-		if (null)
-			DGP.SetR(*pR1 \ *pR, J(0,k,0), 0)
-		else
-			DGP.SetR(*pR1, J(0,k,0), 0)
+		DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,k,0), 0)
+		DGP.InitExog()
 
     if (WRE) {
       pRepl = &(M_WRE = DGP)
@@ -924,11 +902,13 @@ for (i=Ncstar;i;i--) {
       }
       pRepl->SetARubin(ARubin)
 			pRepl->SetR(*pR1, *pR, 0)
+			pRepl->InitExog()
+			pRepl->InitEndog(py1, pY2, *pr1)
     } else {
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
     }
 
-    DGP.InitEndog(py1, pY2)
+    DGP.InitEndog(py1, pY2, null? *pr1 \ *pr : *pr1)
 
     if (ARubin) {
       if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
@@ -1031,7 +1011,7 @@ void boottestModel::boottest() {
       PrepARubin(*pr)
       numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in ARubin OLS
     } else
-      numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - *pr) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+      numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - *pr) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this
 
     (*pDist)[1] = df==1? numer[1] / sqrt(statDenom) : numer[,1] ' invsym(statDenom) * numer[,1]
     return
@@ -1123,17 +1103,16 @@ void boottestModel::makeWildWeights(real scalar _B, real scalar first) {
 // (exogeind = 0 or 1) where currently Zperp = nil so P_Zperp = 0
 // ind1 can be a rowvector of indices or ., meaning all, both of which cases refer to Z only
 real matrix boottestModel::ProductTerm(real rowvector ind1, real scalar ind2, real scalar exogind) {
-	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2; pointer (real matrix) scalar pm1, pu1, pX, pinv; pointer (real matrix) matrix pXY; real matrix retval, U, Z
+	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2; pointer (real matrix) scalar pm1, pu1, pX, pinv; pointer (real matrix) matrix pXY; real matrix retval, Z
 
 	pX = &(*pX1, *pX2) // Xpar, pZperp
-	pinv = DGP.pinvXX // pinvXparXpar, invZperpZperp
-	pXY  = &DGP.Xy1, &DGP.XZ  // \ Zperpy1, ZperpZpar
+	pinv = pRepl->pinvXX // pinvXparXpar, invZperpZperp
+	pXY  = &pRepl->Xy1, &pRepl->XZ  // \ Zperpy1, ZperpZpar
 
-	Z = *pX1, *pY2
-	U = J(Nobs, kEx, 0), DGP.U2ddot
+Z = *pX1, *pY2
 	if (isZ1 = (ind1 != 0)) {
 		pm1 = &(Z[,ind1])
-		pu1 = &(U[,ind1])
+		pu1 = &(U2parddot[,ind1])
 	}	else {
 		ind1 = 1  // change from 0 to 1 to index first/only column of y1; avoid?
 		pm1 = py1
@@ -1160,8 +1139,8 @@ real matrix boottestModel::ProductTerm(real rowvector ind1, real scalar ind2, re
 		for (i=cols(*pm1);i;i--)  // quadratic term can't be vectorized; vectorize manually
 			retval[i,] = retval[i,] + colsum(v :* (_panelsum((*pu1)[,i] :* *pX[exogind], *pwt, infoBootData) * (*pinv[exogind]) * _panelsum(*pu2 :* *pX[exogind], *pwt, infoBootData)') * v)
 	} else {  // same calc as just above, for Y'I*Y=Y'Y
-		retval = (isZ1? (isZ2? (*DGP.pZZ )[ind1,ind2] : (*DGP.pZy1)[ind1]) : 
-			              (isZ2? (*DGP.pZy1)[ind2]'     :   DGP.y1y1       )  ) :+  
+		retval = (isZ1? (isZ2? (*pRepl->pZZ )[ind1,ind2] : (*pRepl->pZy1)[ind1]) : 
+			              (isZ2? (*pRepl->pZy1)[ind2]'     :   pRepl->y1y1       )  ) :+  
 			 			  (_panelsum(*pm1, *pwt :* *pu2, infoBootData) +
 				 			 _panelsum(*pu1, *pwt :* *pm2, infoBootData)   ) ' v
 		for (i=cols(*pm1);i;i--)
@@ -1170,49 +1149,42 @@ real matrix boottestModel::ProductTerm(real rowvector ind1, real scalar ind2, re
 	return (retval)
 }
 
-// With reference to notional Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[,ind1]'(M_Zperp-kappa*M_X)*Y[,ind2] for CONSTANT kappa,
-// where currently Zperp = nil so P_Zperp = 0
+// With reference to Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[,ind1]'(M_Zperp-kappa*M_X)*Y[,ind2] for kappa CONSTANT across replications,
 // ind1 can be a rowvector of indices, which then refers to Z only; in this case ind1 vars should all be in X1 or Y2 but not both
 real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind2, real scalar kappa) {
-	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2, pPXY2; pointer (real matrix) scalar pm1, pu1, pPXY1; real matrix retval, U, Z, R1, _R2; real colvector R0
+	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2, pPXY2; pointer (real matrix) scalar pm1, pu1, pPXY1; real matrix retval, Z, R1, _R2; real colvector R0
 	struct smatrix colvector R2
 
 Z = *pX1, *pY2
-U = J(Nobs, kEx, 0), DGP.U2ddot
 	if (isZ1 = (ind1 != 0)) {
-		pm1 = &(Z[,ind1])
-		pPXY1 = &(DGP.PXZ[,ind1])
-		pu1 = &(U[,ind1])
+		pm1 = &(pRepl->Z[,ind1])
+		pPXY1 = &(pRepl->PXZ[,ind1])
+		pu1 = &(U2parddot[,ind1])  // include a check for whether is exogenous and leave as null if so
 	}	else {
 		pm1 = py1
 		pu1 = &DGP.u1dddot
-		pPXY1 = &DGP.PXy1
+		pPXY1 = &pRepl->PXy1
 	}
 	if (isZ2 = ind2>0) {
-		if (ind2 <= kEx) {
-			pm2 = &((*pX1)[,ind2])
-		} else {
-			pm2 = &((*pY2    )[,ind2-kEx])
-			pu2 = &(DGP.U2ddot[,ind2-kEx])
-		}
-		pPXY2 = &(DGP.PXZ[,ind2])
+		pm2 = &((pRepl->Z)[,ind2])
+		pPXY2 = &(pRepl->PXZ[,ind2])
+		pu2 = &(U2parddot[,ind2])  // include a check for whether is exogenous and leave as null if so
 	} else {
 		pm2 = py1
 		pu2 = &DGP.u1dddot
-		pPXY2 = &DGP.PXy1
+		pPXY2 = &pRepl->PXy1
 	}
 
 	// compute constant, linear, and quadratic terms associated with P_Xpar
-	R0 = DGP.YPXY[ind1:+1, ind2:+1]
+	R0 = pRepl->YPXY[ind1:+1, ind2:+1]
 	R1 = _panelsum(*pPXY2 :* *pu1, *pwt, infoBootData)
-
 	if (pu2) {
 		R1 = R1 + _panelsum(*pPXY1 :* *pu2, *pwt, infoBootData)
 
 		R2 = smatrix(cols(*pm1))
 		_R2 = (_panelsum(*pu2 :* *pX1, *pwt, infoBootData), _panelsum(*pu2 :* *pX2, *pwt, infoBootData))'
 		for (i=cols(*pm1);i;i--)  // quadratic term can't be vectorized; vectorize manually
-			R2[i].M = _panelsum((*pu1)[,i] :* DGP.XinvXX, *pwt, infoBootData) * _R2
+			R2[i].M = _panelsum((*pu1)[,i] :* pRepl->XinvXX, *pwt, infoBootData) * _R2
 	}
 
 	if (kappa != 1) {
@@ -1227,8 +1199,8 @@ U = J(Nobs, kEx, 0), DGP.U2ddot
 	
 	if (kappa != 1) {  // add stuff for I term
 		kappa = 1 - kappa
-		R0 = R0 + kappa * (isZ1? (isZ2? (*DGP.pZZ )[ind1,ind2] : (*DGP.pZy1)[ind1]) : 
-			                       (isZ2? (*DGP.pZy1)[ind2]'     :   DGP.y1y1       ))
+		R0 = R0 + kappa * (isZ1? (isZ2? (*pRepl->pZZ )[ind1,ind2] : (*pRepl->pZy1)[ind1]) : 
+			                       (isZ2? (*pRepl->pZy1)[ind2]'     :   pRepl->y1y1       ))
 		R1 = R1 + kappa * (_panelsum(*pm1, *pwt :* *pu2, infoBootData) + 
 		                   _panelsum(*pu1, *pwt :* *pm2, infoBootData)  )
 		for (i=cols(*pm1);i;i--)
@@ -1252,30 +1224,25 @@ real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 	struct smatrix rowvector R2, CTuXpari
 
 	if (ind1) {
-		if (ind1 > kEx)
-			pu1 = &(DGP.U2ddot[,ind1-kEx])
-		pPXY1 = &(DGP.PXZ[,ind1])
+		pu1   = &(U2parddot [,ind1])  // include a check for whether is exogenous and leave as null if so
+		pPXY1 = &(pRepl->PXZ[,ind1])
 	} else {
-		pu1 = &DGP.u1dddot
-		pPXY1 = &DGP.PXy1
+		pu1   = &DGP.u1dddot
+		pPXY1 = &pRepl->PXy1
 	}
-	if (ind2)
-		if (ind2 <= kEx)
-			pm2 = &((*pX1)[,ind2])
-		else {
-			pm2 = &((*pY2    )[,ind2-kEx])
-			pu2 = &(DGP.U2ddot[,ind2-kEx])
-		}
-	else {
-		pm2 = py1
+	if (ind2) {
+		pu2 = &(U2parddot[,ind2])  // include a check for whether is exogenous and leave as null if so
+		pm2 = &(pRepl->Z [,ind2])
+	} else {
 		pu2 = &DGP.u1dddot
+		pm2 = py1
 	}
 
 	if (pu1==NULL & pu2==NULL)  // product involves purely exogenous variables, doesn't depend on bootstrap
-		return (DGP.FillingR0Xpar[ind1+1,ind2+1].M)
+		return (pRepl->FillingR0Xpar[ind1+1,ind2+1].M)
 
 	if (pu1)
-		R1 = _panelsum(/*M_Zperp*/ *pm2 :* DGP.XinvXX, *pwt, *pinfoErrData) * _panelsum(*pu1 :* DGP.Xpar, *pwt, infoBootData)'
+		R1 = _panelsum(/*M_Zperp*/ *pm2 :* pRepl->XinvXX, *pwt, *pinfoErrData) * _panelsum(*pu1 :* pRepl->Xpar, *pwt, infoBootData)'
 
 	// add CT of u2 * PXY1
 	if (pu2) {
@@ -1289,17 +1256,16 @@ real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 		  if (pu1==NULL)
 				R1 = J_ClustN_Ncstar
 			for (i=Ncstar;i;i--)
-  				R1[IDCTCapcstar[i].M, i] = R1[IDCTCapcstar[i].M, i] + panelsum(a, *pwt, infoCTCapcstar[i].M)
+				R1[IDCTCapcstar[i].M, i] = R1[IDCTCapcstar[i].M, i] + panelsum(a, *pwt, infoCTCapcstar[i].M)
 		}
 	}
 
-
 	if (pu1 & pu2) {  // pu1 = NULL => ind1 points to an exogenous control with no varying error component
-		CTuXpari = crosstabCapcstar(*pu2 :* DGP.Xpar)
+		CTuXpari = crosstabCapcstar(*pu2 :* pRepl->Xpar)
 		R2 = smatrix(rows(*pinfoErrData))
-		_R2 = _panelsum(*pu1 :* DGP.XinvXX, *pwt, infoBootData)'
+		_R2 = _panelsum(*pu1 :* pRepl->XinvXX, *pwt, infoBootData)'
 		for (i=rows(*pinfoErrData);i;i--) {  // quadratic term can't be vectorized; vectorize manually
-			R2[i].M = DGP.JNcstarkpar
+			R2[i].M = pRepl->JNcstarkpar
 			for(j=Ncstar;j;j--)
 				R2[i].M[j,] = CTuXpari[j].M[i,]
 			R2[i].M = R2[i].M * _R2
@@ -1308,8 +1274,7 @@ real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 
 	if (0 /* cols(Zperp)>0*/) { // subtract analogous stuff for P_Zperp term, if Zperp has any columns
 	}
-
-	retval = DGP.FillingR0Xpar[ind1+1,ind2+1].M :+ (cols(R1)==1? R1 :* v : R1 * v)
+	retval = pRepl->FillingR0Xpar[ind1+1,ind2+1].M :+ (cols(R1)==1? R1 :* v : R1 * v)
 	if (pu1 & pu2)
 		for (i=rows(retval);i;i--)
 			retval[i,] = retval[i,] + colsum(v :* R2[i].M ' v)
@@ -1323,10 +1288,9 @@ struct smatrix rowvector boottestModel::crosstabCapcstar(real matrix X) {
   real scalar g; struct smatrix rowvector S
 	S = smatrix(Ncstar)
 	for (g=Ncstar;g;g--)
-  		(S[g].M = DGP.JNcapkpar)[IDCTCapcstar[g].M,] = panelsum(X, *pwt, infoCTCapcstar[g].M)
+  		(S[g].M = pRepl->JNcapkpar)[IDCTCapcstar[g].M,] = panelsum(X, *pwt, infoCTCapcstar[g].M)
 	return (S)
 }
-
 
 
 void boottestModel::makeWREStats(real scalar w) {
@@ -1338,6 +1302,8 @@ void boottestModel::makeWREStats(real scalar w) {
 deltadenom = smatrix(k)  // move to Init()
 ZZg = smatrix(k,k); Zyg = smatrix(k)  // move to Init()
 deltadenom_b = J(k,k,0)  // move to Init()
+
+	U2parddot = DGP.U2ddot * pRepl->Rpar[|kEx+1,.\.,.|]
 
 	if (w==1 & NClustVar & NFE==0) {  // first/only weight group? prep for optimized computation for bootstrapping cluster when no FE
 kappa=1
@@ -1357,8 +1323,7 @@ kappa=1
 			deltadenom_b[|.,i\i,i|] = deltadenom[i].M[,b]  // fill uppper triangle, which is all that invsym() looks at
 
 		beta_b = (A_b = invsym(deltadenom_b)) * deltanumer[,b]
-
-		numer_b = null | w==1 & b==1? *pR * beta_b - *pr : *pR * (beta_b - DGP.beta0)
+		numer_b = null | w==1 & b==1? *pR * (pRepl->Rpar * beta_b + pRepl->R1invR1R1 * *pr1) - *pr : *pR * pRepl->Rpar * (beta_b - DGP.beta0)
 
 		if (bootstrapt) {
 			if (robust) {  // Compute denominator for this WRE test stat
@@ -1366,10 +1331,10 @@ kappa=1
 				for(i=k;i;i--) {
 					tmp = Zyg[i].M[,b]
 					for(j=k-1;j;j--)
-						tmp    = tmp - (cols(ZZg[i,j].M)==1? ZZg[i,j].M : ZZg[i,j].M[,b]) * beta_b[j]
+						tmp  = tmp - (cols(ZZg[i,j].M)==1? ZZg[i,j].M : ZZg[i,j].M[,b]) * beta_b[j]
 					Jcap[,i] = tmp - (cols(ZZg[i,k].M)==1? ZZg[i,k].M : ZZg[i,k].M[,b]) * beta_b[k]
 				}
-				Jcap = Jcap * (A_b * *pR')
+				Jcap = Jcap * (A_b * pRepl->Rpar' * *pR')
 
 				for (c=1; c<=NErrClustCombs; c++) {
 					if (NClustVar != 1 & rows(Clust[c].order))
@@ -1382,7 +1347,7 @@ kappa=1
 					u1ddot = *py1 - *pY2 * beta_b[|kEx+1\.|]
 				else
 					u1ddot = *py1 - *pY2 * beta_b[|kEx+1\.|] - *pX1 * beta_b[|.\kEx|]
-				uu = DGP.y1y1 - 2 * *DGP.pZy1 ' beta_b + beta_b ' (*DGP.pZZ) * beta_b
+				uu = pRepl->y1y1 - 2 * *pRepl->pZy1 ' beta_b + beta_b ' (*pRepl->pZZ) * beta_b
 				uu = hascons? uu : uu - (weights? cross(u1ddot, *pwt) : sum(u1ddot))^2 / _Nobs  // sum of squares after centering, N * Var
 				denom.M = (*pR * A_b * *pR') * uu
 			}
