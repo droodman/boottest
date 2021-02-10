@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 function M(X) return(I(rows(X))-X*invsym(X'X)*X')
 
@@ -41,8 +41,8 @@ struct structFE {
 
 class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
 	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, k, kEx
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, Rperp, RperpXperp, XinvXX, PXZ, PZperpZ, YPXY, YPZperpY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, ZperpinvZperpZperp, ZperpY2
-	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, PZperpy1, Zperpy1, t1
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, Rperp, RperpXperp, XinvXX, PXZ, PZperpZ, YPXY, YPZperpY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, ZperpinvZperpZperp, ZperpY2, MZperpZ, MZperpX, YparMZperpYpar
+	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, PZperpy1, Zperpy1, t1, MZperpy1
 	real rowvector y1Y2
 	pointer(real colvector) scalar py1
 	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT, pX1
@@ -207,14 +207,15 @@ void AnalyticalModel::InitExog() {
 	parent->pX1 = partialFE(parent->pX1)
 	if (cols(*parent->pX2)) {  // GMM, 2SLS, LIML
 		parent->pX2 = partialFE(parent->pX2)
-Zex = *parent->pX1 * Rpar[|.,.\parent->kEx,.|]  // compute exogenous component of Zpar now before redefining X1
+Zex = cols(Rpar)? *parent->pX1 * Rpar[|.,.\parent->kEx,.|] : J(parent->Nobs,0,0)  // compute exogenous component of Zpar now before redefining X1
 Zperp = *parent->pX1 * Rperp
 invZperpZperp = invsym(cross(Zperp, *parent->pwt, Zperp))
 ZperpinvZperpZperp = Zperp * invZperpZperp
 pX1 = &(*parent->pX1 * RperpXperp)
 pX1X1 = &cross(*pX1, *parent->pwt, *pX1)
 kEx = cols(RperpXperp)
-	
+MZperpX  = (*pX1 - Zperp  * invZperpZperp * cross(Zperp, *parent->pwt, *pX1)), (*parent->pX2 - Zperp  * invZperpZperp * cross(Zperp, *parent->pwt, *parent->pX2))
+
 Xpar = *pX1, *parent->pX2
 		X2X1 = cross(*parent->pX2, *parent->pwt, *pX1)
 		pXX1 = &(*pX1X1 \ X2X1)
@@ -233,17 +234,21 @@ JNcapkpar   = J(parent->Clust.N, cols(Xpar), 0)
 // stuff that can be done before T & r set, but depend on endogenous variables, which are bootstrapped in WRE
 void AnalyticalModel::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2, | real colvector r1) {  // can probably move r1 arg to InitEstimate()
 	real colvector tmp
-py1 = partialFE(parent->WREnonARubin? &(*_py1 - (*pX1, *parent->pY2) * R1invR1R1 * r1) : _py1)
+py1 = partialFE(parent->WREnonARubin? &(*_py1 - (*parent->pX1, *parent->pY2) * R1invR1R1 * r1) : _py1)  // - Zt1 (not - Zpar*t1)
 	pY2 = partialFE(_pY2)
 	pX1y1 = &cross(*pX1, *parent->pwt, *py1)
 	if (kappa | ARubin)
 		pX2y1 = &cross(*parent->pX2, *parent->pwt, *py1)
 	if (kappa) {
-Z = Zex + *parent->pY2 * Rpar[|kEx+1,.\.,.|]  // Zpar
+	Z = cols(Rpar)? Zex + *parent->pY2 * Rpar[|parent->kEx+1,.\.,.|] : J(parent->Nobs,0,0) // Zpar
 Zperpy1 = cross(Zperp, *parent->pwt, *py1)
 ZperpZ  = cross(Zperp, *parent->pwt, Z   )
 ZperpX = cross(Zperp, *parent->pwt, *pX1), cross(Zperp, *parent->pwt, *parent->pX2)
 ZperpY2 = cross(Zperp, *parent->pwt, *parent->pY2)
+PZperpy1 = ZperpinvZperpZperp * Zperpy1
+PZperpZ  = ZperpinvZperpZperp * ZperpZ
+MZperpy1 = *py1 - (PZperpy1 = ZperpinvZperpZperp * Zperpy1)
+MZperpZ  =    Z - (PZperpZ  = ZperpinvZperpZperp * ZperpZ )
 t1 = R1invR1R1 * r1
 k = cols(Z)
 		X1Y2 = cross(*pX1, *parent->pwt, *pY2)
@@ -257,13 +262,14 @@ k = cols(Z)
 		pZy1 = &cross(Z, *parent->pwt, *py1)
 		y1y1 = cross(*py1, *parent->pwt, *py1)
 		if (parent->IV)  // if GMM weight matrix not provided, prepare 2SLS one
-			V = (I(kEx) \ J(parent->el-kEx, kEx, 0)), *pinvXX * XY2 // 2SLS is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
+			V = (I(kEx) \ J(cols(*parent->pX2), kEx, 0)), *pinvXX * XY2 // 2SLS is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
 		else
 			V = *parent->pW * XZ
 		H_2SLS = V ' XZ  // Hessian
 
+
 		if (isDGP==0) {
-			real scalar ind1, ind2; pointer (real colvector) scalar pPXY, pPZperpY, pm2, pMZperpy1; pointer (real matrix) scalar pMZperpZ
+			real scalar ind1, ind2; pointer (real colvector) scalar pPXY, pPZperpY, pm2
 
 			PXy1 = XinvXX * Xy1
 			PXZ  = XinvXX * XZ
@@ -271,14 +277,10 @@ k = cols(Z)
 			YPXY = tmp ' XZ 
 			YPXY = tmp ' Xy1 , YPXY \ YPXY' , XZ ' (*pinvXX) * XZ 
 
-			PZperpy1 = ZperpinvZperpZperp * Zperpy1
-			PZperpZ  = ZperpinvZperpZperp * ZperpZ
 			tmp = invZperpZperp * Zperpy1
 			YPZperpY = tmp ' ZperpZ 
 			YPZperpY = tmp ' Zperpy1 , YPZperpY \ YPZperpY' , ZperpZ ' invZperpZperp * ZperpZ 
 
-			pMZperpy1 = &(*py1 - (PZperpy1 = ZperpinvZperpZperp * Zperpy1))
-			pMZperpZ  = &(   Z - (PZperpZ  = ZperpinvZperpZperp * ZperpZ ))
 
 			tmp = invZperpZperp * Zperpy1
 			YPZperpY = tmp ' ZperpZ 
@@ -290,7 +292,7 @@ k = cols(Z)
 				pPXY     = ind1? &(PXZ    [,ind1]) : &PXy1
 				pPZperpY = ind1? &(PZperpZ[,ind1]) : &PZperpy1
 				for (ind2=k; ind2>=0; ind2--) {
-					pm2 = ind2? &((*pMZperpZ)[,ind2]) : pMZperpy1
+					pm2 = ind2? &(MZperpZ[,ind2]) : &MZperpy1
 					FillingR0Xpar [ind1+1,ind2+1].M = _panelsum(    *pPXY :* *pm2, *parent->pwt, *parent->pinfoErrData)
 					FillingR0Zperp[ind1+1,ind2+1].M = _panelsum(*pPZperpY :* *pm2, *parent->pwt, *parent->pinfoErrData)
 				}
@@ -313,18 +315,21 @@ void AnalyticalModel::InitEstimate() {
 	pointer (real matrix) scalar pbetadenom
 	pragma unset vec; pragma unset val
 
- 	if (LIML) {
-real matrix ZperpYpar, XMZperpYpar, YparPXYpar, YparMZperpYpar
-ZperpYpar = Zperpy1, ZperpZ
-YparMZperpYpar = (y1y1, (*pZy1)' \ *pZy1, *pZZ) - ZperpYpar ' invZperpZperp * ZperpYpar
-XMZperpYpar = (Xy1, XZ) - ZperpX ' invZperpZperp * ZperpYpar
-		YparPXYpar = XMZperpYpar ' (*pinvXX) * XMZperpYpar
+	if (kappa) {
+		real matrix ZperpYpar, XMZperpYpar, YparPXYpar
+		ZperpYpar = Zperpy1, ZperpZ
+		YparMZperpYpar = (y1y1, (*pZy1)' \ *pZy1, *pZZ) - ZperpYpar ' invZperpZperp * ZperpYpar
 
-		V = *pinvXX * XZ
-		H_2SLS = V ' XZ  // Hessian
-		eigensystemselecti(invsym(YparMZperpYpar) * YparPXYpar, rows(YparMZperpYpar)\rows(YparMZperpYpar), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
-		kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
-		if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->el)
+		if (LIML) {
+			XMZperpYpar = (Xy1, XZ) - ZperpX ' invZperpZperp * ZperpYpar
+			YparPXYpar = XMZperpYpar ' (*pinvXX) * XMZperpYpar
+
+			V = *pinvXX * XZ
+			H_2SLS = V ' XZ  // Hessian
+			eigensystemselecti(invsym(YparMZperpYpar) * YparPXYpar, rows(YparMZperpYpar)\rows(YparMZperpYpar), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
+			if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->el)
+		}
 	}
 
   pH = kappa? (kappa==1? &H_2SLS : &((1-kappa)* *pZZ + kappa*H_2SLS)) : pZZ
@@ -341,7 +346,7 @@ XMZperpYpar = (Xy1, XZ) - ZperpX ' invZperpZperp * ZperpYpar
 
 // stuff that depends on r and endogenous variables: compute beta and residuals
 void AnalyticalModel::Estimate(real colvector r1) {
-	real colvector negXuinvuu; real matrix Xu, Pi, MZperpY2, MuX, MZperpX; real scalar uu
+	real colvector negXuinvuu; real matrix Xu, Pi, MZperpY2, MuX, MuY2; real scalar uu
 
 	beta = rows(r1) & parent->WREnonARubin==0? beta0 - dbetadr * r1 : beta0  // change so WRE call to Estimate() doesn't pass r1, so "rows(r1)" suffices
 
@@ -351,20 +356,20 @@ void AnalyticalModel::Estimate(real colvector r1) {
 			if (cols(*pX1))
 				u1ddot =  u1ddot - *pX1 * beta[|.\cols(*pX1)|]
 		} else
-			u1ddot = *py1 - Z * beta
-
-    if ((parent->robust | parent->scoreBS)==0 | (isDGP & LIML))  // useful in non-robust, residual-based bootstrap, and in computing u1ddot^2 in LIML (just below)
-				uu = y1y1 - 2 * *pZy1 ' beta + beta ' (*pZZ) * beta
+			u1ddot = MZperpy1 - MZperpZ * beta
+		if ((parent->robust | parent->scoreBS)==0 | (isDGP & LIML))  // useful in non-robust, residual-based bootstrap, and in computing u1ddot^2 in LIML (just below)
+			uu = (1, -beta') * YparMZperpYpar * (1, -beta')'
 		if ((parent->robust | parent->scoreBS)==0 & parent->bootstrapt==0)
 			uuc = parent->hascons? uu : uu - (parent->weights? cross(u1ddot, *parent->pwt) : sum(u1ddot))^2 / parent->_Nobs  // sum of squares after centering, N * Var
 	}
 
 	if (isDGP & LIML) {  // after IV/GMM DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
-		MZperpY2 = *parent->pY2 - Zperp * invZperpZperp * ZperpY2
-		MZperpX  = (*pX1 - Zperp  * invZperpZperp * cross(Zperp, *parent->pwt, *pX1)), (*parent->pX2 - Zperp  * invZperpZperp * cross(Zperp, *parent->pwt, *parent->pX2))
-		MuX      = MZperpX - u1ddot / uu * cross(u1ddot, *parent->pwt, MZperpX)
-		U2ddot = MZperpY2 - MZperpX * invsym(cross(MuX, *parent->pwt, MZperpX)) * cross(MuX, *parent->pwt, MZperpY2)
-		u1dddot = u1ddot + U2ddot * (Rpar[|kEx+1,.\.,.|] * beta + dbetadr * r1)
+		MuY2 = *parent->pY2 - u1ddot / uu * cross(u1ddot, *parent->pwt, *parent->pY2)
+		MuX  = (*pX1 - u1ddot / uu * cross(u1ddot, *parent->pwt, *pX1)), (*parent->pX2 - u1ddot / uu * cross(u1ddot, *parent->pwt, *parent->pX2))
+		MuX  = MuX - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, MuX)
+		U2ddot = *parent->pY2 - ZperpinvZperpZperp * ZperpY2 - MZperpX * invsym(cross(MuX, *parent->pwt, MuX)) * cross(MuX, *parent->pwt, MuY2)
+		u1dddot = dbetadr * r1; if (cols(Rpar)) u1dddot = u1dddot + Rpar[|kEx+1,.\.,.|] * beta
+		u1dddot = u1ddot + U2ddot * u1dddot
 	}
 }
 
@@ -897,7 +902,7 @@ for (i=Ncstar;i;i--) {
     df = rows(*pR)
   else {
     DGP.parent = &this
-		DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,k,0), 0)
+		DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,k,0), 1)
 		DGP.InitExog()
 
     if (WRE) {
@@ -1028,7 +1033,6 @@ void boottestModel::boottest() {
 		rseed(seed)
     makeWildWeights(WeightGrpStop[1] - 1, 1)
   }
-
 	makeInterpolables()  // make stuff that depends linearly on r, possibly by interpolating, for first weight group
 
   for (w=1; w<=Nw; w++) {  // do group 1 first because it includes col 1, which is all that might need updating in constructing CI in WCU
@@ -1188,6 +1192,7 @@ real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind
 	// compute constant, linear, and quadratic terms associated with P_Xpar
 	R0 = pRepl->YPXY[ind1:+1, ind2:+1]
 	R1 = _panelsum(*pPXY2 :* *pu1, *pwt, infoBootData)
+
 	if (pu2) {
 		R1 = R1 + _panelsum(*pPXY1 :* *pu2, *pwt, infoBootData)
 
@@ -1368,8 +1373,8 @@ kappa=1
 	for (b=cols(v); b; b--) {  // WRE bootstrap
 		for (i=k;i;i--)
 			deltadenom_b[|.,i\i,i|] = deltadenom[i].M[,b]  // fill uppper triangle, which is all that invsym() looks at
-
 		beta_b = (A_b = invsym(deltadenom_b)) * deltanumer[,b]
+
 		numer_b = null | w==1 & b==1? *pR * (pRepl->Rpar * beta_b + pRepl->R1invR1R1 * *pr1) - *pr : *pR * pRepl->Rpar * (beta_b - DGP.beta0)
 
 		if (bootstrapt) {
@@ -1398,7 +1403,6 @@ kappa=1
 				uu = hascons? uu : uu - (weights? cross(u1ddot, *pwt) : sum(u1ddot))^2 / _Nobs  // sum of squares after centering, N * Var
 				denom.M = (*pR * A_b * *pR') * uu
 			}
-
  			(*pDist)[b+WeightGrpStart[w]-1] = sqrt? numer_b/sqrt(denom.M) : cross(numer_b, invsym(denom.M) * numer_b)
 		}
 		numer[,b+WeightGrpStart[w]-1] = numer_b  // slight inefficiency: in usual bootstrap-t case, only need to save numerators in numer if getdist("numer") is coming because of svmat(numer)
