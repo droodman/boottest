@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 function M(X) return(I(rows(X))-X*invsym(X'X)*X')
 
@@ -41,8 +41,8 @@ struct structFE {
 
 class AnalyticalModel {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
 	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, k, kEx
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, Rperp, RperpXperp, XinvXX, PXZ, YPXY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, YPZperpY, ZperpinvZperpZperp, ZperpY2
-	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, Zperpy1, t1
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, Rperp, RperpXperp, XinvXX, PXZ, PZperpZ, YPXY, YPZperpY, Xpar, JNcstarkpar, JNcapkpar, Zperp, invZperpZperp, ZperpX, Zex, Z, ZperpZ, ZperpinvZperpZperp, ZperpY2
+	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, PZperpy1, Zperpy1, t1
 	real rowvector y1Y2
 	pointer(real colvector) scalar py1
 	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT, pX1
@@ -263,7 +263,7 @@ k = cols(Z)
 		H_2SLS = V ' XZ  // Hessian
 
 		if (isDGP==0) {
-			real scalar ind1, ind2; pointer (real colvector) scalar pPXY, pPZperpY, pm2, pMZperpy1; real colvector PZperpy1; real matrix PZperpZ; pointer (real matrix) scalar pMZperpZ
+			real scalar ind1, ind2; pointer (real colvector) scalar pPXY, pPZperpY, pm2, pMZperpy1; pointer (real matrix) scalar pMZperpZ
 
 			PXy1 = XinvXX * Xy1
 			PXZ  = XinvXX * XZ
@@ -271,8 +271,15 @@ k = cols(Z)
 			YPXY = tmp ' XZ 
 			YPXY = tmp ' Xy1 , YPXY \ YPXY' , XZ ' (*pinvXX) * XZ 
 
+			PZperpy1 = ZperpinvZperpZperp * Zperpy1
+			PZperpZ  = ZperpinvZperpZperp * ZperpZ
+			tmp = invZperpZperp * Zperpy1
+			YPZperpY = tmp ' ZperpZ 
+			YPZperpY = tmp ' Zperpy1 , YPZperpY \ YPZperpY' , ZperpZ ' invZperpZperp * ZperpZ 
+
 			pMZperpy1 = &(*py1 - (PZperpy1 = ZperpinvZperpZperp * Zperpy1))
 			pMZperpZ  = &(   Z - (PZperpZ  = ZperpinvZperpZperp * ZperpZ ))
+
 			tmp = invZperpZperp * Zperpy1
 			YPZperpY = tmp ' ZperpZ 
 			YPZperpY = tmp ' Zperpy1 , YPZperpY \ YPZperpY' , ZperpZ ' invZperpZperp * ZperpZ
@@ -302,12 +309,12 @@ k = cols(Z)
 // For OLS, compute beta0 (beta when r=0) and dbetadr without knowing r1, for efficiency
 void AnalyticalModel::InitEstimate() {
 	real rowvector val
-	real matrix XY, vec
-	pointer (real matrix) scalar pbetadenom, pT
+	real matrix vec
+	pointer (real matrix) scalar pbetadenom
 	pragma unset vec; pragma unset val
 
  	if (LIML) {
-real matrix ZperpYpar, XYpar, XMZperpYpar, YparPXYpar, YparMZperpYpar
+real matrix ZperpYpar, XMZperpYpar, YparPXYpar, YparMZperpYpar
 ZperpYpar = Zperpy1, ZperpZ
 YparMZperpYpar = (y1y1, (*pZy1)' \ *pZy1, *pZZ) - ZperpYpar ' invZperpZperp * ZperpYpar
 XMZperpYpar = (Xy1, XZ) - ZperpX ' invZperpZperp * ZperpYpar
@@ -1152,27 +1159,30 @@ Z = *pX1, *pY2
 // With reference to Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[,ind1]'(M_Zperp-kappa*M_X)*Y[,ind2] for kappa CONSTANT across replications,
 // ind1 can be a rowvector of indices, which then refers to Z only; in this case ind1 vars should all be in X1 or Y2 but not both
 real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind2, real scalar kappa) {
-	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2, pPXY2; pointer (real matrix) scalar pm1, pu1, pPXY1; real matrix retval, Z, R1, _R2; real colvector R0
+	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2, pPXY, pPXY2, pPZperpY2; pointer (real matrix) scalar pm1, pu1, pPXY1, pPZperpY1; real matrix retval, R1, _R2; real colvector R0
 	struct smatrix colvector R2
 
-Z = *pX1, *pY2
 	if (isZ1 = (ind1 != 0)) {
 		pm1 = &(pRepl->Z[,ind1])
 		pPXY1 = &(pRepl->PXZ[,ind1])
+		pPZperpY1 = &(pRepl->PZperpZ[,ind1])
 		pu1 = &(U2parddot[,ind1])  // include a check for whether is exogenous and leave as null if so
 	}	else {
 		pm1 = py1
 		pu1 = &DGP.u1dddot
 		pPXY1 = &pRepl->PXy1
+		pPZperpY1 = &pRepl->PZperpy1
 	}
 	if (isZ2 = ind2>0) {
 		pm2 = &((pRepl->Z)[,ind2])
 		pPXY2 = &(pRepl->PXZ[,ind2])
+		pPZperpY2 = &(pRepl->PZperpZ[,ind2])
 		pu2 = &(U2parddot[,ind2])  // include a check for whether is exogenous and leave as null if so
 	} else {
 		pm2 = py1
 		pu2 = &DGP.u1dddot
 		pPXY2 = &pRepl->PXy1
+		pPZperpY2 = &pRepl->PZperpy1
 	}
 
 	// compute constant, linear, and quadratic terms associated with P_Xpar
@@ -1182,7 +1192,7 @@ Z = *pX1, *pY2
 		R1 = R1 + _panelsum(*pPXY1 :* *pu2, *pwt, infoBootData)
 
 		R2 = smatrix(cols(*pm1))
-		_R2 = (_panelsum(*pu2 :* *pX1, *pwt, infoBootData), _panelsum(*pu2 :* *pX2, *pwt, infoBootData))'
+		_R2 = (_panelsum(*pu2 :* *pRepl->pX1, *pwt, infoBootData), _panelsum(*pu2 :* *pX2, *pwt, infoBootData))'
 		for (i=cols(*pm1);i;i--)  // quadratic term can't be vectorized; vectorize manually
 			R2[i].M = _panelsum((*pu1)[,i] :* pRepl->XinvXX, *pwt, infoBootData) * _R2
 	}
@@ -1194,7 +1204,16 @@ Z = *pX1, *pY2
 			R2[i].M = kappa * R2[i].M
   }
 
-	if (0 /* cols(Zperp)>0*/) { // subtract analogous stuff for P_Zperp term, if Zperp has any columns
+	if (cols(pRepl->Rperp)) { // analogous stuff for Zperp
+		R0 = R0 - pRepl->YPZperpY[ind1:+1, ind2:+1]
+		R1 = R1 - _panelsum(*pPZperpY2 :* *pu1, *pwt, infoBootData)
+		if (pu2) {
+			R1 = R1 - _panelsum(*pPZperpY1 :* *pu2, *pwt, infoBootData)
+
+			_R2 = _panelsum(*pu2 :* pRepl->Zperp, *pwt, infoBootData)'
+			for (i=cols(*pm1);i;i--)  // quadratic term can't be vectorized; vectorize manually
+				R2[i].M = R2[i].M - _panelsum((*pu1)[,i] :* pRepl->XinvXX, *pwt, infoBootData) * _R2
+		}
 	}
 	
 	if (kappa != 1) {  // add stuff for I term
@@ -1220,8 +1239,8 @@ Z = *pX1, *pY2
 // for all groups in the intersection of all error clusterings
 // where currently Zperp = nil so P_Zperp = 0
 real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
-	real scalar i, j; pointer (real colvector) scalar pm2, pu2, pPXY1; pointer (real matrix) scalar pu1; real matrix retval, R1, _R2; real colvector a
-	struct smatrix rowvector R2, CTuXpari
+	real scalar i, j; pointer (real colvector) scalar pm2, pu2, pPXY1, pPZperpY1; pointer (real matrix) scalar pu1; real matrix retval, R1, _R2, R2Z; real colvector a
+	struct smatrix rowvector R2, CT
 
 	if (ind1) {
 		pu1   = &(U2parddot [,ind1])  // include a check for whether is exogenous and leave as null if so
@@ -1239,7 +1258,7 @@ real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 	}
 
 	if (pu1==NULL & pu2==NULL)  // product involves purely exogenous variables, doesn't depend on bootstrap
-		return (pRepl->FillingR0Xpar[ind1+1,ind2+1].M)
+		return (pRepl->FillingR0Xpar[ind1+1,ind2+1].M - pRepl->FillingR0Zperp[ind1+1,ind2+1].M)
 
 	if (pu1)
 		R1 = _panelsum(/*M_Zperp*/ *pm2 :* pRepl->XinvXX, *pwt, *pinfoErrData) * _panelsum(*pu1 :* pRepl->Xpar, *pwt, infoBootData)'
@@ -1261,20 +1280,48 @@ real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 	}
 
 	if (pu1 & pu2) {  // pu1 = NULL => ind1 points to an exogenous control with no varying error component
-		CTuXpari = crosstabCapcstar(*pu2 :* pRepl->Xpar)
+		CT = crosstabCapcstar(*pu2 :* pRepl->Xpar)
 		R2 = smatrix(rows(*pinfoErrData))
 		_R2 = _panelsum(*pu1 :* pRepl->XinvXX, *pwt, infoBootData)'
 		for (i=rows(*pinfoErrData);i;i--) {  // quadratic term can't be vectorized; vectorize manually
 			R2[i].M = pRepl->JNcstarkpar
 			for(j=Ncstar;j;j--)
-				R2[i].M[j,] = CTuXpari[j].M[i,]
+				R2[i].M[j,] = CT[j].M[i,]
 			R2[i].M = R2[i].M * _R2
 		}
 	}
 
-	if (0 /* cols(Zperp)>0*/) { // subtract analogous stuff for P_Zperp term, if Zperp has any columns
+	if (cols(pRepl->Rperp)) { // subtract analogous stuff for Zperp
+		if (pu1)
+			R1 = R1 - _panelsum(/*M_Zperp*/ *pm2 :* pRepl->ZperpinvZperpZperp, *pwt, *pinfoErrData) * _panelsum(*pu1 :* pRepl->Zperp, *pwt, infoBootData)'
+
+		// add CT of u2 * PXY1
+		if (pu2) {
+			a = *pu2 :* *pPZperpY1
+			if (NClustVar == NBootClustVar & !subcluster) // simple case of one clustering: full crosstabe is diagonal
+				if (pu1)
+					_diag(R1, diagonal(R1) - panelsum(a, *pwt, infoBootData))
+				else
+					R1 = R1 - panelsum(a, *pwt, infoBootData)  // keep R1 as vector if it's just going to be a diagonal matrix
+			else {
+				for (i=Ncstar;i;i--)
+					R1[IDCTCapcstar[i].M, i] = R1[IDCTCapcstar[i].M, i] - panelsum(a, *pwt, infoCTCapcstar[i].M)
+			}
+		}
+
+		if (pu1 & pu2) {  // pu1 = NULL => ind1 points to an exogenous control with no varying error component
+			CT = crosstabCapcstar(*pu2 :* pRepl->Zperp)
+			_R2 = _panelsum(*pu1 :* pRepl->ZperpinvZperpZperp, *pwt, infoBootData)'
+			for (i=rows(*pinfoErrData);i;i--) {  // quadratic term can't be vectorized; vectorize manually
+				R2Z = pRepl->JNcstarkpar
+				for(j=Ncstar;j;j--)
+					R2Z[j,] = CT[j].M[i,]
+				R2[i].M = R2[i].M - R2Z * _R2
+			}
+		}
 	}
-	retval = pRepl->FillingR0Xpar[ind1+1,ind2+1].M :+ (cols(R1)==1? R1 :* v : R1 * v)
+
+	retval = (pRepl->FillingR0Xpar[ind1+1,ind2+1].M  - pRepl->FillingR0Zperp[ind1+1,ind2+1].M) :+ (cols(R1)==1? R1 :* v : R1 * v)
 	if (pu1 & pu2)
 		for (i=rows(retval);i;i--)
 			retval[i,] = retval[i,] + colsum(v :* R2[i].M ' v)
