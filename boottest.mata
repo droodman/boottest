@@ -1305,7 +1305,7 @@ real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 	if (pu1 & pu2) {  // pu1 = NULL => ind1 points to an exogenous control with no varying error component
 		if (cols(pRepl->Rperp))
 			for (i=Clust.N;i;i--)  // "innermost loop". Costliest term tends to be CTuX[ind2+1,i].M * CTcoef
-  			FillingR2[i].M = CTuX[ind2+1,i].M * CTcoef[ind1].M + FillingR2nonCT1[ind2+1,i].M ' FillingR2nonCT2[ind1+1,i].M
+  			FillingR2[i].M = CTuX[ind2+1,i].M * CTcoef[ind1+1].M + FillingR2nonCT1[ind2+1,i].M ' FillingR2nonCT2[ind1+1,i].M
 		else
 			for (i=Clust.N;i;i--)
 				FillingR2[i].M = CTuX[ind2+1,i].M * SuXinvXX[ind1+1].M
