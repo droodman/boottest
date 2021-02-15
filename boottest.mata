@@ -72,8 +72,8 @@ class boottestModel {
 	pointer (class AnalyticalModel scalar) scalar pRepl, pM
 	struct structboottestClust colvector Clust
 	pointer (struct structboottestClust scalar) scalar pBootClust
-	struct smatrix matrix denom, Kcd, denom0, Jcd0, CTuX, SCTcapuXinvXX, SCTcapuZperpinvZperpZperp, FillingR2nonCT2, FillingR2nonCT1
-	struct smatrix rowvector Kd, euXAR, dudr, dnumerdr, IDCTCapcstar, infoCTCapcstar, ScstaruX, ScstaruXinvXX, ScstaruZperp, ScstaruZperpinvZperpZperp, FillingR2, CTcoef, deltadenom, ZZg, Zyg
+	struct smatrix matrix denom, Kcd, denom0, Jcd0, CTuX, SCTcapuXinvXX, SCTcapuZperpinvZperpZperp, FillingR2nonCT2, FillingR2nonCT1, Scstaruu
+	struct smatrix rowvector Kd, euXAR, dudr, dnumerdr, IDCTCapcstar, infoCTCapcstar, ScstaruX, ScstaruXinvXX, ScstaruZperp, ScstaruZperpinvZperpZperp, FillingR2, CTcoef, deltadenom, ZZg, Zyg, ScstaruY
 
   struct ssmatrix colvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
@@ -410,8 +410,7 @@ MZperpXpar = Xpar - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, Xpar)
 MuMZperpXpar = MZperpXpar - u1ddot / uu * cross(u1ddot, *parent->pwt, MZperpXpar)
 MZperpY2 = *parent->pY2 - Zperp * invsym(cross(Zperp, *parent->pwt, Zperp)) * ZperpY2
 Pi = invsym(cross(MuMZperpXpar, *parent->pwt, MuMZperpXpar)) * cross(MuMZperpXpar, *parent->pwt, MZperpY2)
-"U2ddot, MZperpY2 - MZperpXpar*Pi"
-(U2ddot, MZperpY2 - MZperpXpar*Pi)[1::5,]
+
 		u1dddot = dbetadr * r1; if (cols(Rpar)) u1dddot = u1dddot + Rpar[|kEx+1,.\.,.|] * beta
 		u1dddot = u1ddot + U2ddot * u1dddot
 	}
@@ -965,10 +964,10 @@ FillingR2 = smatrix(Clust.N)
 			pRepl->InitEndog(py1, pY2, *pr1)
 
 			if (ARubin==0) {
-			  deltadenom = smatrix(pRepl->k)  // move to Init()
-				ZZg = smatrix(pRepl->k,pRepl->k); Zyg = smatrix(pRepl->k)  // move to Init()
-				deltadenom_b = J(pRepl->k,pRepl->k,0)  // move to Init()
-				CTcoef = ScstaruX = ScstaruXinvXX = ScstaruZperp = ScstaruZperpinvZperpZperp = smatrix(pRepl->k+1)
+			  ZZg = smatrix(pRepl->k, pRepl->k)
+				deltadenom_b = J(pRepl->k, pRepl->k, 0)
+				CTcoef = ScstaruX = ScstaruXinvXX = ScstaruZperp = ScstaruZperpinvZperpZperp = deltadenom = ScstaruY = Zyg = smatrix(pRepl->k+1)
+				Scstaruu = smatrix(pRepl->k+1, pRepl->k+1)
 				CTuX = smatrix(pRepl->k+1, Clust.N); for (i=pRepl->k; i>=0; i--) for (j=Clust.N;j;j--) CTuX[i+1,j].M = JNcstarl
 				SCTcapuXinvXX = SCTcapuZperpinvZperpZperp = smatrix(pRepl->k+1, Ncstar)
 				FillingR2nonCT2 = FillingR2nonCT1 = smatrix(pRepl->k+1, Clust.N)
@@ -1220,12 +1219,12 @@ Z = *pX1, *pY2
 // With reference to Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[,ind1]'(M_Zperp-kappa*M_Xpar)*Y[,ind2] for kappa CONSTANT across replications,
 // ind1 can be a rowvector of indices, which then refers to Z only; in this case ind1 vars should all be in X1 or Y2 but not both
 real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind2, real scalar kappa) {
-	real scalar i, isZ1, isZ2; pointer (real colvector) scalar pm2, pu2; pointer (real matrix) scalar pm1, pu1; real matrix retval, R1; real colvector R0, _R1
+	real scalar i; pointer (real colvector) scalar pu2; real matrix retval, R1, _R1; real colvector R0
 	struct smatrix rowvector R2
 
-	pu1 = pu2 = &i  // for now, pu1, pu2 not null so all vars treated as endogenous in bootstrap, even if with 0s for associated residuals
+	pu2 = &kappa  // for now, pu2 not null so all vars treated as endogenous in bootstrap, even if with 0s for associated residuals
 
-	R0 = pRepl->YPXY[ind1:+1, ind2:+1]
+	R0 = pRepl->YPXY[ind1:+1, ind2+1]
 
 	_R1 = ind2? pRepl->XZ[,ind2] : pRepl->Xy1
 	if (cols(ind1)==1)
@@ -1252,7 +1251,7 @@ real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind
   }
 
 	if (cols(pRepl->Rperp)) { // analogous stuff for P_Zperp
-		R0 = R0 - pRepl->YPZperpY[ind1:+1, ind2:+1]
+		R0 = R0 - pRepl->YPZperpY[ind1:+1, ind2+1]
 
 		_R1 = ind2? pRepl->ZperpZ[,ind2] : pRepl->Zperpy1
 		if (cols(ind1)==1)
@@ -1272,27 +1271,16 @@ real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind
 	if (kappa != 1) {  // add stuff for I term
 		kappa = 1 - kappa
 
-		if (isZ1 = (ind1 != 0)) {
-			pm1 = &(pRepl->Z[,ind1])
-			pu1 = &(U2parddot[,ind1])  // include a check for whether is exogenous and leave as null if so
-		}	else {
-			pm1 = pRepl->py1
-			pu1 = &DGP.u1dddot
-		}
-		if (isZ2 = ind2>0) {
-			pm2 = &((pRepl->Z)[,ind2])
-			pu2 = &(U2parddot[,ind2])  // include a check for whether is exogenous and leave as null if so
-		} else {
-			pm2 = pRepl->py1
-			pu2 = &DGP.u1dddot
-		}
+		R0 = R0 + kappa * (ind1!=0? (ind2? (*pRepl->pZZ )[ind1,ind2] : (*pRepl->pZy1)[ind1]) : 
+			                          (ind2? (*pRepl->pZy1)[ind2]'     :   pRepl->y1y1       ) )
 
-		R0 = R0 + kappa * (isZ1? (isZ2? (*pRepl->pZZ )[ind1,ind2] : (*pRepl->pZy1)[ind1]) : 
-			                       (isZ2? (*pRepl->pZy1)[ind2]'     :   pRepl->y1y1       ))
-		R1 = R1 + kappa * (_panelsum(*pm1, *pwt :* *pu2, infoBootData) + 
-		                   _panelsum(*pu1, *pwt :* *pm2, infoBootData)  )
+		_R1 = ScstaruY[ind2+1].M[,ind1:+1]
+		for (i=cols(_R1);i;i--)
+			_R1[,i] = _R1[,i] + ScstaruY[ind1[i]+1].M[,ind2+1]
+		R1 = R1 + kappa * _R1
+
 		for (i=cols(ind1);i;i--)
-			_diag(R2[i].M, diagonal(R2[i].M) + kappa * _panelsum((*pu1)[,i] :* *pu2, *pwt, infoBootData))
+			_diag(R2[i].M, diagonal(R2[i].M) + kappa * (ind1[i] <= ind2? Scstaruu[ind2+1, ind1[i]+1].M : Scstaruu[ind1[i]+1, ind2+1].M))
 	}
 
 	retval = R0 :+ R1'v
@@ -1310,7 +1298,7 @@ real matrix boottestModel::ProductTermkappa(real rowvector ind1, real scalar ind
 real matrix boottestModel::Filling(real scalar ind1, real scalar ind2) {
 	real scalar i; pointer (real colvector) scalar pu2; pointer (real matrix) scalar pu1; real matrix retval, R1
 
-	pu1 = pu2 = &i  // for now, pu1, pu2 not null so all vars treated as endogenous in bootstrap, even if with 0s for associated residuals
+	pu1 = pu2 = &kappa  // for now, pu1, pu2 not null so all vars treated as endogenous in bootstrap, even if with 0s for associated residuals
 
 //	if (pu1==NULL & pu2==NULL)  // product involves purely exogenous variables, doesn't depend on bootstrap *** if this is reactivated by detecting exog vars in attack surface then return a pointer
 //		return (pRepl->FillingR0[ind1+1,ind2+1].M)
@@ -1376,6 +1364,12 @@ void boottestModel::makeWREStats(real scalar w) {
 kappa=1
 		for (i=pRepl->k; i>=0; i--) {  // precompute various clusterwise sums
 			puwt = i? &(U2parddot[,i]) : &DGP.u1dddot; if (haswt) puwt = &(*puwt :* *pwt)
+
+			if (kappa != 1) {
+				ScstaruY[i+1].M = _panelsum(*pRepl->py1, *puwt, infoBootData), _panelsum(pRepl->Z , *puwt, infoBootData)
+				for (j=i; j>=0; j--)
+					Scstaruu[i+1,j+1].M = _panelsum(j? U2parddot[,j] : DGP.u1dddot, *puwt, infoBootData)
+			}
 
 			// S_cstar(u :* X), S_cstar(u :* Zperp) for residuals u for each endog var; store transposed
 			ScstaruX1 = _panelsum(*pX1, *puwt, infoBootData)'
