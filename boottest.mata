@@ -44,16 +44,15 @@ struct structFE {
 }
 
 class boottestEstimator {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
-	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, k, kEx
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, R1par, T0, Rpar, Rperp, XinvXX, PXZ, YPXY, Zperp, invZperpZperp, Zex, Z, ZperpinvZperpZperp, YMZperpY, RRpar, invXX1, Pi, gamma, ZR1parex, ZR1par, invR1R1par, ZR1parZR1par, XZR1par
-	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1
-	real rowvector y1Y2, Yendog, y1ZR1par
+	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, k, kX1, y1pary1par
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, Rperp, XinvXX, PXZ, YPXY, Zperp, invZperpZperp, Zex, Z, ZperpinvZperpZperp, YY, RRpar, invXX1, Pi, gamma, ZR1ex, ZR1, ZR1ZR1, XZR1, X2ZR1, ZR1Y2, X1ZR1, ZZR1
+	real colvector t0, u1ddot, u1dddot, beta, beta0, Xy1, PXy1, X2y1par, X1y1par, Zy1par, Xy1par
+	real rowvector y1Y2, Yendog, y1ZR1, y1parY2
 	pointer(real colvector) scalar py1
-	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT, pX1, pX2, pinvXX2, pX2ZR1par, pX1ZR1par, pZZR1par
+	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pX1X1, pXX1, pH, pR, pT, pX1, pX2, pinvXX2
 	pointer (class boottest scalar) scalar parent
 	struct smatrix matrix CT_XAR, FillingT0
-	struct smatrix rowvector WXAR, SPZperpmXYZperp, SMZperpYX
-	pointer(struct smatrix rowvector) scalar pXg, pZperpg
+	struct smatrix rowvector WXAR, SPZperpmXYZperp, SMZperpYX, Xg, Zperpg
 
 	private void new(), InitExog(), InitEndog(), InitTestDenoms(), SetR(), InitEstimate(), Estimate(), SetARubin()
 	pointer(real matrix) scalar partialFE()
@@ -62,17 +61,17 @@ class boottestEstimator {  // class for analyitcal OLS, 2SLS, LIML, GMM estimati
 }
 
 class boottest {
-	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, k, kEnd, kEx, l, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
+	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, k, kY2, kX1, l, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, granular, purerobust, subcluster, Ncstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust
-	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNcstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot, deltadenom_b, JNcapk, ZR1parex, invR1R1par
+	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNcstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot, deltadenom_b, JNcapk, ZR1ex, invR1R1par
 	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
 	real rowvector peak
 	string scalar wttype, madjtype, seed
 	pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pX, pinfoAllData, pinfoErrData, pIDAll
 	pointer (real colvector) scalar pr1, pr, py1, pSc, pwt, pW, pA, puddot, pDist
-	class boottestEstimator scalar DGP
-	pointer (class boottestEstimator scalar) scalar pRepl, pM
+	class boottestEstimator scalar DGP, Repl
+	pointer (class boottestEstimator scalar) scalar pM
 	struct structboottestClust colvector Clust
 	pointer (struct structboottestClust scalar) scalar pBootClust
 	struct smatrix matrix denom, Kcd, denom0, Jcd0, CTuX, SCTcapuXinvXX, FillingR2nonCTZperp, FillingR2nonCTX, Scstaruu
@@ -157,8 +156,8 @@ void boottestEstimator::SetR(real matrix R1, real matrix R) {
 			symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
 			R1perp = _select(vec, !val)
 			if (parent->ARubin) {
-				R1perp = blockdiag(R1perp[|.,. \ parent->kEx , parent->kEx-rows(R1)|] , I(parent->kEnd)) // adapt R1perp,R1invR1R1 from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
-				R1invR1R1 = R1invR1R1[|.\parent->kEx|] \ J(parent->kEnd,1,0)
+				R1perp = blockdiag(R1perp[|.,. \ parent->kX1 , parent->kX1-rows(R1)|] , I(parent->kY2)) // adapt R1perp,R1invR1R1 from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
+				R1invR1R1 = R1invR1R1[|.\parent->kX1|] \ J(parent->kY2,1,0)
 			}
 		} else
 			R1perp = J(0,0,0)
@@ -188,19 +187,17 @@ void boottestEstimator::SetR(real matrix R1, real matrix R) {
 		R1invR1R1 = R1 ' R1invR1R1
 		symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
 		R1perp = _select(vec, !val)  // eigenvectors orthogonal to span of R1; foundation for parameterizing subspace compatible with constraints
-		R1par  = _select(vec,  val)
-		invR1R1par = R1par ' R1invR1R1  // MZperp * ZR1par * invR1R1par * r1 = MZperp * ZR1par * R1par ' t1 is component of y1par from constraint
 	} else
 		R1invR1R1 = J(parent->k,0,0)  // and R1perp = I
 
 	// prepare to reduce regression via FWL
-	RR1perp = R \ J(parent->kEnd, parent->kEx, 0), I(parent->kEnd)  // rows to prevent partialling out of endogenous regressors
+	RR1perp = R \ J(parent->kY2, parent->kX1, 0), I(parent->kY2)  // rows to prevent partialling out of endogenous regressors
 
 	if (rows(R1))
 		RR1perp = RR1perp * R1perp 
 	symeigensystem(RR1perp ' invsym(RR1perp * RR1perp') * RR1perp, vec, val); _edittozero(val, 10)
 
-	Rpar = _select(vec,  val)
+	Rpar  = _select(vec,  val)
 	Rperp = _select(vec, !val)
 	if (rows(R1)) {  // fold model constraint factors into Rpar, Rperp
 		Rpar  = R1perp * Rpar
@@ -208,19 +205,20 @@ void boottestEstimator::SetR(real matrix R1, real matrix R) {
 	}
 	RRpar = R * Rpar
 
-	if (parent->kEx)
-		Rperp = cols(Rperp)? Rperp[|.,.\parent->kEx,.|] : J(parent->kEx,0,0) // Zperp=Z*Rperp; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
+	if (parent->kX1)
+		Rperp = cols(Rperp)? Rperp[|.,.\parent->kX1,.|] : J(parent->kX1,0,0) // Zperp=Z*Rperp; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
 }
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestEstimator::InitExog() {
 	real matrix X2X1, S; real scalar i
-//  *** store most/all objects created here via pointers to minimize cost of duplication into replication object?
-	parent->pX1 = partialFE(parent->pX1)
+
+	parent->pX1 = partialFE(parent->pX1)  // <--drop modification of parent
 	if (cols(*parent->pX2)) {  // GMM, 2SLS, LIML
 		pX2 = partialFE(parent->pX2)
-		if (cols(Rpar     )) Zex                    = *parent->pX1 * Rpar [|.,.\parent->kEx,.|]                            // exogenous component of Zpar
-		if (cols(R1invR1R1)) ZR1parex = (parent->kEx? *parent->pX1 * R1par[|.,.\parent->kEx,.|] : J(parent->Nobs,0,0))  // exogenous component of ZR1par
+
+		if (cols(Rpar     )) Zex                 = *parent->pX1 * Rpar[|.,.\parent->kX1,.|]                            // exogenous component of Zpar
+		if (cols(R1invR1R1)) ZR1ex = (parent->kX1? *parent->pX1 * R1invR1R1[|.,.\parent->kX1,.|] : J(parent->Nobs,0,0))  // exogenous component of ZR1
 
 		Zperp = *parent->pX1 * Rperp
 		invZperpZperp = invsym(cross(Zperp, *parent->pwt, Zperp))
@@ -230,7 +228,7 @@ void boottestEstimator::InitExog() {
 		pX1 = &(*pX1 - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, *pX1))
 		pX2 = &(*pX2 - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, *pX2))
 
-		kEx = cols(*pX1)
+		kX1 = cols(*pX1)
 		k   = cols(Rpar)
 
 		pX1X1 = &cross(*pX1, *parent->pwt, *pX1)
@@ -238,9 +236,9 @@ void boottestEstimator::InitExog() {
 		pXX1 = &(*pX1X1 \ X2X1)
 		if (parent->IV) {  // non-GMM
 			pinvXX = &invsym((XX = *pXX1, (X2X1' \ cross(*pX2, *parent->pwt, *pX2))))
-			if (kEx) {
-				invXX1 = (*pinvXX)[|.,.\kEx,.|]
-				pinvXX2 = &((*pinvXX)[|kEx+1,.\.,.|])
+			if (kX1) {
+				invXX1 = (*pinvXX)[|.,.\kX1,.|]
+				pinvXX2 = &((*pinvXX)[|kX1+1,.\.,.|])
 				XinvXX = *pX1 * invXX1 + *pX2 * *pinvXX2
 			} else {
 				invXX1 = J(0,parent->l,0)
@@ -251,15 +249,14 @@ void boottestEstimator::InitExog() {
 
 		if (isDGP==0) {
 			SMZperpYX = SPZperpmXYZperp = smatrix(k+1)
-			pXg       = &smatrix(parent->Clust.N)
-			pZperpg   = &smatrix(parent->Clust.N)
+			Xg = Zperpg = smatrix(parent->Clust.N)
 			for (i=parent->Clust.N;i;i--) {
 				S = (*parent->pinfoErrData)[i,]', (.\.)
-				(*pXg)[i].M = (*pX1)[|S|], (*pX2)[|S|]
-				(*pZperpg)[i].M = Zperp[|S|]
+				Xg[i].M = kX1? (*pX1)[|S|], (*pX2)[|S|] : (*pX2)[|S|]
+				Zperpg[i].M = Zperp[|S|]
 			}
 		} else
-			dbetadr = R1invR1R1[|parent->kEx+1,.\.,.|]  // *** drop?
+			dbetadr = R1invR1R1[|parent->kX1+1,.\.,.|]  // *** drop?
 
 	} else {
 		pX1 = parent->pX1
@@ -269,7 +266,6 @@ void boottestEstimator::InitExog() {
 
 // stuff that can be done before T & r set, but depend on endogenous variables, which are bootstrapped in WRE
 void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2, | real colvector r1) {  // can probably move r1 arg to InitEstimate()
-	real colvector tmp; pointer (real colvector) scalar puwt; real scalar i
 
 	py1 = partialFE(_py1)
 	pY2 = partialFE(_pY2)
@@ -277,10 +273,10 @@ void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer 
 		pX2y1 = &cross(*pX2, *parent->pwt, *py1)
 
 	if (kappa) {  // **** check which computations needed for DGp vs Repl
-		Z      = cols(Rpar     )? Zex      + *parent->pY2 * Rpar [|parent->kEx+1,.\.,.|] : J(parent->Nobs,0,0) // Zpar
-		ZR1par = cols(R1invR1R1)? ZR1parex + *parent->pY2 * R1par[|parent->kEx+1,.\.,.|] : J(parent->Nobs,0,0)  // ZR1par
-		Z      = Z      - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, Z     )
-		ZR1par = (ZR1par - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, ZR1par)) * invR1R1par
+		Z   = cols(Rpar     )? Zex   + *parent->pY2 * Rpar     [|parent->kX1+1,.\.,.|] : J(parent->Nobs,0,0) // Zpar
+		ZR1 = cols(R1invR1R1)? ZR1ex + *parent->pY2 * R1invR1R1[|parent->kX1+1,.\.,.|] : J(parent->Nobs,0,0)  // ZR1
+		Z   = Z   - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, Z  )
+		ZR1 = ZR1 - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, ZR1)
 
 		pY2 = &(*pY2 - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, *parent->pY2))
 		py1 = &(*py1 - ZperpinvZperpZperp * cross(Zperp, *parent->pwt, *py1))
@@ -293,37 +289,58 @@ void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer 
 		pZZ = &cross(Z, *parent->pwt, Z)
 
 		if (parent->WREnonARubin & cols(R1invR1R1))
-			py1 = &(*py1 - ZR1par * r1)  // y1par = y1 - Z*t1
+			py1 = &(*py1 - ZR1 * r1)  // y1par = y1 - Z*t1
 		y1Y2 =   cross(*py1, *parent->pwt, *pY2)
 		pX2y1 = &cross(*pX2, *parent->pwt, *py1)
 		pX1y1 = &cross(*pX1, *parent->pwt, *py1)
 		pZy1 =  &cross(Z   , *parent->pwt, *py1)
 		y1y1 =   cross(*py1, *parent->pwt, *py1)
-		Xy1 = *pX1y1 \ *pX2y1
+		Xy1 = *pX1y1 \ *pX2y1  // *** unneeded?
 
-		pX2ZR1par    = &cross(*pX2  , *parent->pwt, ZR1par)
-		pX1ZR1par    = &cross(*pX1  , *parent->pwt, ZR1par)
-		pZZR1par     = &cross(Z     , *parent->pwt, ZR1par)
-		y1ZR1par     =  cross(*py1  , *parent->pwt, ZR1par)
-		ZR1parZR1par =  cross(ZR1par, *parent->pwt, ZR1par)
-		XZR1par      = *pX1ZR1par \ *pX2ZR1par
+		X2ZR1  = cross(*pX2, *parent->pwt, ZR1)
+		X1ZR1  = cross(*pX1, *parent->pwt, ZR1)
+		ZZR1   = cross(Z   , *parent->pwt, ZR1)
+		y1ZR1  = cross(*py1, *parent->pwt, ZR1)
+		ZR1ZR1 = cross(ZR1 , *parent->pwt, ZR1)
+		ZR1Y2  = cross(ZR1 , *parent->pwt, *pY2)
+		XZR1   = X1ZR1 \ X2ZR1  // *** unneeded?
 
-		if (parent->IV)  // if GMM weight matrix not provided, prepare 2SLS one
-			V = (I(kEx) \ J(cols(*pX2), kEx, 0)), *pinvXX * XY2 // 2SLS is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
-		else
-			V = *parent->pW * XZ
+		// if GMM weight matrix not provided, prepare 2SLS one
+		V =  (parent->IV? *pinvXX : *parent->pW) * XZ // in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy1). Also apparently used in k-class and LIML robust VCV by Stata convention
+
 		H_2SLS = V ' XZ  // Hessian
 
+
+	} else {  // OLS / ARubin
+		pZy1 = pX1y1 = &cross(*pX1, *parent->pwt, *py1)
+		if (ARubin) {
+			pZy1 = &(*pZy1 \ *pX2y1)
+			pZZ = &XX
+		}
+	}
+}
+
+// do most of estimation; for LIML r1 must be passed now in order to solve eigenvalue problem involving it
+// For OLS, compute beta0 (beta when r=0) and dbetadr without knowing r1, for efficiency
+void boottestEstimator::InitEstimate(real colvector r1) {
+	real rowvector val; real colvector tmp; real matrix vec, XMZperpYpar, YparPXYpar; pointer (real matrix) scalar pbetadenom
+	pragma unset vec; pragma unset val
+
+	if (kappa) {
+		y1pary1par = y1y1 - 2 * y1ZR1 * r1 + r1 ' ZR1ZR1 * r1
+		y1parY2 =  y1Y2  - r1 ' ZR1Y2
+		X2y1par = *pX2y1 - X2ZR1 * r1
+		X1y1par = *pX1y1 - X1ZR1 * r1
+		Zy1par  = *pZy1  - ZZR1  * r1
+		Xy1par = X1y1par \ X2y1par
+
 		if (isDGP==0 & parent->robust) {  // for replication regression, prepare for CRVE
-			real scalar ind1, ind2; real matrix PY
+			real scalar ind1, ind2; real matrix PY; pointer (real colvector) scalar puwt; real scalar i
 
-			Yendog = 1, colsum(Rpar[|parent->kEx+1,.\.,.|] :!= 0)  // columns of Y = [y1 Zpar] that are endogenous (normally all)
+			Yendog = 1, colsum(Rpar[|parent->kX1+1,.\.,.|] :!= 0)  // columns of Y = [y1 Zpar] that are endogenous (normally all)
 
-			PXy1 = XinvXX * Xy1
+			PXy1 = XinvXX * Xy1par
 			PXZ  = XinvXX * XZ
-			tmp = *pinvXX * Xy1
-			YPXY = tmp ' XZ 
-			YPXY = tmp ' Xy1 , YPXY \ YPXY' , XZ ' (*pinvXX) * XZ 
 
 			FillingT0 = smatrix(k+1, k+1)  // fixed component of groupwise term in sandwich filling
 			for (ind1=k; ind1>=0; ind1--) {
@@ -341,26 +358,13 @@ void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer 
 				SMZperpYX[i+1].M = _panelsum(*pX1, *puwt, *parent->pinfoErrData), _panelsum(*pX2, *puwt, *parent->pinfoErrData)
 			}
 		}
-	} else {  // OLS / ARubin
-		pZy1 = pX1y1 = &cross(*pX1, *parent->pwt, *py1)
-		if (ARubin) {
-			pZy1 = &(*pZy1 \ *pX2y1)
-			pZZ = &XX
-		}
-	}
-}
+		
+		
+		YY = y1y1, (*pZy1)' \ *pZy1, *pZZ
 
-// do most of estimation; for LIML r1 must be passed now in order to solve eigenvalue problem involving it
-// For OLS, compute beta0 (beta when r=0) and dbetadr without knowing r1, for efficiency
-void boottestEstimator::InitEstimate() {
-	real rowvector val
-	real matrix vec
-	pointer (real matrix) scalar pbetadenom
-	pragma unset vec; pragma unset val
-
-	if (kappa) {
-		real matrix XMZperpYpar, YparPXYpar
-		YMZperpY = y1y1, (*pZy1)' \ *pZy1, *pZZ
+		tmp = *pinvXX * Xy1
+		YPXY = tmp ' XZ 
+		YPXY = tmp ' Xy1 , YPXY \ YPXY' , XZ ' (*pinvXX) * XZ 
 
 		if (LIML) {
 			XMZperpYpar = Xy1, XZ
@@ -368,7 +372,7 @@ void boottestEstimator::InitEstimate() {
 
 			V = *pinvXX * XZ
 			H_2SLS = V ' XZ  // Hessian
-			eigensystemselecti(invsym(YMZperpY) * YparPXYpar, rows(YMZperpY)\rows(YMZperpY), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
+			eigensystemselecti(invsym(YY) * YparPXYpar, rows(YY)\rows(YY), vec, val)  // eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), ... gives 1 - the eigenvalue, but can cause eigensystem() to return all missing
 			kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
 			if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->l)
 		}
@@ -399,7 +403,7 @@ void boottestEstimator::Estimate(real colvector r1) {
 		} else
   			u1ddot = *py1 - Z * beta
 		if ((parent->robust | parent->scoreBS)==0 | (isDGP & LIML))  // useful in non-robust, residual-based bootstrap, and in computing u1ddot^2 in LIML (just below)
-			uu = (1 \ -beta) ' YMZperpY * (1 \ -beta)
+			uu = (1 \ -beta) ' YY * (1 \ -beta)
 		if ((parent->robust | parent->scoreBS)==0 & parent->bootstrapt==0)
 			uuc = parent->hascons? uu : uu - (parent->haswt? cross(u1ddot, *parent->pwt) : sum(u1ddot))^2 / parent->_Nobs  // sum of squares after centering, N * Var
 	}
@@ -409,9 +413,9 @@ void boottestEstimator::Estimate(real colvector r1) {
 		Xu = Xy1 - XZ * beta
 		negXuinvuu = Xu / -uu
 		Pi = invsym(XX + negXuinvuu * Xu') * (negXuinvuu * (y1Y2 - beta ' ZY2) + XY2)
-		U2ddot = *pY2 - *pX2 * Pi[|kEx+1,.\.,.|]; if (kEx) U2ddot = U2ddot - *pX1 * Pi[|.,.\kEx,.|]
+		U2ddot = *pY2 - *pX2 * Pi[|kX1+1,.\.,.|]; if (kX1) U2ddot = U2ddot - *pX1 * Pi[|.,.\kX1,.|]
 
-		gamma = R1invR1R1[|parent->kEx+1,.\.,.|] * r1; if (cols(Rpar)) gamma = gamma + Rpar[|kEx+1,.\.,.|] * beta
+		gamma = R1invR1R1[|parent->kX1+1,.\.,.|] * r1; if (cols(Rpar)) gamma = gamma + Rpar[|kX1+1,.\.,.|] * beta
 		u1dddot = u1ddot + U2ddot * gamma
 	}
 }
@@ -427,11 +431,11 @@ void boottestEstimator::InitTestDenoms() {
 	if (parent->scoreBS | parent->robust) {
 		if (kappa) {
 			VAR = V * AR
-			XAR = *pX2 * VAR[|kEx+1,.\.,.|]; if (kEx) XAR = XAR + *pX1 * VAR[|.,.\kEx,.|]
+			XAR = *pX2 * VAR[|kX1+1,.\.,.|]; if (kX1) XAR = XAR + *pX1 * VAR[|.,.\kX1,.|]
 		} else if (ARubin) {
-			XAR = *pX2 * AR[|kEx+1,.\.,.|]
+			XAR = *pX2 * AR[|kX1+1,.\.,.|]
 			if (cols(*pX1))
-				XAR = XAR + *pX1 * AR[|.,.\kEx,.|]
+				XAR = XAR + *pX1 * AR[|.,.\kX1,.|]
 		} else
 			XAR = *pX1 * AR
 
@@ -492,7 +496,7 @@ void boottest::new() {
 void boottest::close() {
 	DGP.parent = NULL
 	if (WRE)
-		pRepl->parent = NULL
+		Repl.parent = NULL
 }
 
 void boottest::setdirty(real scalar _dirty, | real scalar noinitialize) {
@@ -771,22 +775,21 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 	real rowvector ClustCols
 	real matrix Combs, tmp
 	real scalar i, j, c, minN, sumN, _B, i_FE
-	class boottestEstimator scalar M_WRE
-	pragma unused M_WRE; pragma unset IDAllData; pragma unset IDErrData
+	pragma unset IDAllData; pragma unset IDErrData
 
   Nobs = rows(*pX1)
   NClustVar = cols(*pID)
   k  = cols(*pR)
-  kEx = cols(*pX1)
+  kX1 = cols(*pX1)
   if (cols(*pX2)==0) pX2 = &J(Nobs,0,0)
-  if ((kEnd = cols(*pY2))==0) pY2  = &J(Nobs,0,0)
-	if (LIML & cols(*pX2)==kEnd) {  // exactly identified LIML = 2SLS
+  if ((kY2 = cols(*pY2))==0) pY2  = &J(Nobs,0,0)
+	if (LIML & cols(*pX2)==kY2) {  // exactly identified LIML = 2SLS
 		kappa = 1
 		LIML = 0
 	}
   REst = rows(*pR1)  // base model contains restrictions?
 	if (REst == 0) pR1 = &J(0,k,0)
-  if (pX2 != NULL) l = cols(*pX2) + kEx  // l = # of exogenous variables
+  if (pX2 != NULL) l = cols(*pX2) + kX1  // l = # of exogenous variables
   if (kappa==.) kappa = cols(*pX2)>0  // if kappa in kappa-class estimation not specified, it's 0 or 1 for OLS or 2SLS
   GMM = pW != NULL
   IV = kappa & GMM==0
@@ -956,26 +959,27 @@ if (WREnonARubin) {
 		DGP.InitExog()
 
     if (WRE) {
-      pRepl = &(M_WRE = DGP)
-      pRepl->isDGP = 0
+			Repl.parent = &this
+      Repl.isDGP = 0
       DGP.LIML = 1; DGP.Fuller = 0; DGP.kappa = 1
       if (ARubin==0) { 
-        pRepl->LIML = this.LIML; pRepl->Fuller = this.Fuller; pRepl->kappa = this.kappa
+        Repl.LIML = this.LIML; Repl.Fuller = this.Fuller; Repl.kappa = this.kappa
       }
-      pRepl->SetARubin(ARubin)
-			pRepl->SetR(*pR1, *pR)
-			pRepl->InitExog()
-			pRepl->InitEndog(py1, pY2, *pr1)
+      Repl.SetARubin(ARubin)
+			Repl.SetR(*pR1, *pR)
+			Repl.InitExog()
+			Repl.InitEndog(py1, pY2, *pr1)
+			Repl.InitEstimate(*pr1)
 
 			if (ARubin==0) {
-			  ZZg = smatrix(pRepl->k, pRepl->k)
-				deltadenom_b = J(pRepl->k, pRepl->k, 0)
-				ScstaruX = ScstaruXinvXX = ScstaruZperpinvZperpZperp = deltadenom = ScstaruY = Zyg = smatrix(pRepl->k+1)
-				Scstaruu = smatrix(pRepl->k+1, pRepl->k+1)
-				CTuX = smatrix(pRepl->k+1, Clust.N); for (i=pRepl->k; i>=0; i--) for (j=Clust.N;j;j--) CTuX[i+1,j].M = J(Ncstar, cols(*pRepl->pX1)+cols(*pRepl->pX2), 0)
-				SCTcapuXinvXX = smatrix(pRepl->k+1, Ncstar)
-				FillingR2nonCTZperp = FillingR2nonCTX = smatrix(pRepl->k+1, Clust.N)
-				JNcapk = J(Clust.N, pRepl->k, 0)
+			  ZZg = smatrix(Repl.k, Repl.k)
+				deltadenom_b = J(Repl.k, Repl.k, 0)
+				ScstaruX = ScstaruXinvXX = ScstaruZperpinvZperpZperp = deltadenom = ScstaruY = Zyg = smatrix(Repl.k+1)
+				Scstaruu = smatrix(Repl.k+1, Repl.k+1)
+				CTuX = smatrix(Repl.k+1, Clust.N); for (i=Repl.k; i>=0; i--) for (j=Clust.N;j;j--) CTuX[i+1,j].M = J(Ncstar, cols(*Repl.pX1)+cols(*Repl.pX2), 0)
+				SCTcapuXinvXX = smatrix(Repl.k+1, Ncstar)
+				FillingR2nonCTZperp = FillingR2nonCTX = smatrix(Repl.k+1, Clust.N)
+				JNcapk = J(Clust.N, Repl.k, 0)
 				FillingT2 = smatrix(Clust.N)
 			}
 		} else {
@@ -987,11 +991,11 @@ if (WREnonARubin) {
     if (ARubin) {
       if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
         DGP.SetR(*pR1, J(0,k,0))  // no-null model in DGP
-        DGP.InitEstimate()
+        DGP.InitEstimate(*pr1)
         DGP.Estimate(*pr1)
         confpeak = *pR * DGP.beta  // estimated coordinate of confidence peak
       }
-      pR = &(J(cols(*pX2),kEx,0), I(cols(*pX2)))  // for ARubin test, picks out coefs on excluded exogenous variables
+      pR = &(J(cols(*pX2),kX1,0), I(cols(*pX2)))  // for ARubin test, picks out coefs on excluded exogenous variables
     }
     df = rows(*pR)
     
@@ -1000,12 +1004,12 @@ if (WREnonARubin) {
       pX = ARubin? &(*pX1, *pX2) : pX1
     }
 
-    DGP.InitEstimate()
+    DGP.InitEstimate(null? *pr1 \ *pr : *pr1)
 
     if (ARubin) {
       k = l
       kappa = 0
-      pM = pRepl
+      pM = &Repl
     } else {
       if (WREnonARubin == 0) DGP.InitTestDenoms()
       pM = &DGP
@@ -1080,10 +1084,10 @@ void boottest::boottest() {
     Init()
   else if (null==0) {  // if not imposing null and we have returned, then df=1 or 2; we're plotting and only test stat, not distribution, changes with r
     if (WREnonARubin)
-      numer[,1] = *pR * pRepl->beta - *pr
+      numer[,1] = *pR * Repl.beta - *pr
     else if (ARubin) {
       PrepARubin(*pr)
-      numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in ARubin OLS
+      numer[,1] = u_sd * pM->beta[|kX1+1\.|] // coefficients on excluded instruments in ARubin OLS
     } else
       numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - *pr) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this
 
@@ -1178,9 +1182,9 @@ void boottest::makeWildWeights(real scalar _B, real scalar first) {
 real matrix boottest::ProductTermkappa(real rowvector ind1, real scalar ind2, real scalar kappa) {
 	real scalar i; real matrix retval, T1, _T1; real colvector T0; struct smatrix rowvector T2
 
-	T0 = pRepl->YPXY[ind1:+1, ind2+1]
+	T0 = Repl.YPXY[ind1:+1, ind2+1]
 
-	_T1 = ind2? pRepl->XZ[,ind2] : pRepl->Xy1
+	_T1 = ind2? Repl.XZ[,ind2] : Repl.Xy1
 	if (cols(ind1)==1)
 		T1 = ScstaruXinvXX[ind1+1].M ' _T1
 	else {
@@ -1189,8 +1193,8 @@ real matrix boottest::ProductTermkappa(real rowvector ind1, real scalar ind2, re
 			T1[,i] = ScstaruXinvXX[i+1].M ' _T1
 	}
 
-	if (pRepl->Yendog[ind2+1]) {
-		T1 = T1 + ScstaruXinvXX[ind2+1].M ' (ind1!=0? pRepl->XZ[,ind1] : pRepl->Xy1)
+	if (Repl.Yendog[ind2+1]) {
+		T1 = T1 + ScstaruXinvXX[ind2+1].M ' (ind1!=0? Repl.XZ[,ind1] : Repl.Xy1)
 
 		T2 = smatrix(cols(ind1))
 		for (i=cols(ind1);i;i--)  // quadratic term can't be vectorized; vectorize manually
@@ -1207,8 +1211,8 @@ real matrix boottest::ProductTermkappa(real rowvector ind1, real scalar ind2, re
 	if (kappa != 1) {  // add stuff for I term
 		kappa = 1 - kappa
 
-		T0 = T0 + kappa * (ind1!=0? (ind2? (*pRepl->pZZ )[ind1,ind2] : (*pRepl->pZy1)[ind1]) : 
-			                          (ind2? (*pRepl->pZy1)[ind2]'     :   pRepl->y1y1       ) )
+		T0 = T0 + kappa * (ind1!=0? (ind2? (*Repl.pZZ )[ind1,ind2] : (*Repl.pZy1)[ind1]) : 
+			                          (ind2? (*Repl.pZy1)[ind2]'     :   Repl.y1y1       ) )
 
 		_T1 = ScstaruY[ind2+1].M[,ind1:+1]
 		for (i=cols(_T1);i;i--)
@@ -1220,7 +1224,7 @@ real matrix boottest::ProductTermkappa(real rowvector ind1, real scalar ind2, re
 	}
 
 	retval = T0 :+ T1'v
-	if (pRepl->Yendog[ind2+1])
+	if (Repl.Yendog[ind2+1])
 		for (i=rows(retval);i;i--)
 			retval[i,] = retval[i,] + colsum(v :* T2[i].M * v) 
 	return(retval)
@@ -1233,33 +1237,33 @@ real matrix boottest::ProductTermkappa(real rowvector ind1, real scalar ind2, re
 pointer(real matrix) scalar boottest::Filling(real scalar ind1, real scalar ind2) {
 	real scalar i; real matrix retval, T1
 
-	if (pRepl->Yendog[ind1+1]==0 & pRepl->Yendog[ind2+1]==0)  // product involves purely exogenous variables, doesn't depend on bootstrap
-		return (&(pRepl->FillingT0[ind1+1,ind2+1].M))
+	if (Repl.Yendog[ind1+1]==0 & Repl.Yendog[ind2+1]==0)  // product involves purely exogenous variables, doesn't depend on bootstrap
+		return (&(Repl.FillingT0[ind1+1,ind2+1].M))
 
-	if (pRepl->Yendog[ind1+1])  // S_∩ (M_(Z_⊥ ) y_(1∥):*X) (X^' X)^(-1) (S_(c^* ) (U ̈_(2∥i):*X))^'
-  	T1 = pRepl->SMZperpYX[ind2+1].M * ScstaruXinvXX[ind1+1].M
+	if (Repl.Yendog[ind1+1])  // S_∩ (M_(Z_⊥ ) y_(1∥):*X) (X^' X)^(-1) (S_(c^* ) (U ̈_(2∥i):*X))^'
+  	T1 = Repl.SMZperpYX[ind2+1].M * ScstaruXinvXX[ind1+1].M
 
-	if (pRepl->Yendog[ind2+1]) { // add CT of u2 * PXY1
+	if (Repl.Yendog[ind2+1]) { // add CT of u2 * PXY1
 		if (NClustVar == NBootClustVar & !subcluster) // simple case of one clustering: full crosstab is diagonal
-			if (pRepl->Yendog[ind1+1])
-				_diag(T1, diagonal(T1) + ScstaruXinvXX[ind2+1].M ' (ind1? pRepl->XZ[,ind1] : pRepl->Xy1))
+			if (Repl.Yendog[ind1+1])
+				_diag(T1, diagonal(T1) + ScstaruXinvXX[ind2+1].M ' (ind1? Repl.XZ[,ind1] : Repl.Xy1))
 			else
-				T1 =                     ScstaruXinvXX[ind2+1].M ' (ind1? pRepl->XZ[,ind1] : pRepl->Xy1) // keep T1 as vector if it's just going to be a diagonal matrix
+				T1 =                     ScstaruXinvXX[ind2+1].M ' (ind1? Repl.XZ[,ind1] : Repl.Xy1) // keep T1 as vector if it's just going to be a diagonal matrix
 		else {
-		  if (pRepl->Yendog[ind1+1]==0)
+		  if (Repl.Yendog[ind1+1]==0)
 				T1 = JNcapNcstar
 			for (i=Ncstar;i;i--)
-				T1[IDCTCapcstar[i].M, i] = T1[IDCTCapcstar[i].M, i] + SCTcapuXinvXX[ind2+1,i].M * (ind1? pRepl->XZ[,ind1] : pRepl->Xy1)
+				T1[IDCTCapcstar[i].M, i] = T1[IDCTCapcstar[i].M, i] + SCTcapuXinvXX[ind2+1,i].M * (ind1? Repl.XZ[,ind1] : Repl.Xy1)
 		}
 
-		if (cols(pRepl->Zperp))
-      T1 = T1 + pRepl->SPZperpmXYZperp[ind1+1].M * ScstaruZperpinvZperpZperp[ind2+1].M
+		if (cols(Repl.Zperp))
+      T1 = T1 + Repl.SPZperpmXYZperp[ind1+1].M * ScstaruZperpinvZperpZperp[ind2+1].M
 	}
 
-  retval = pRepl->FillingT0[ind1+1,ind2+1].M :+ (cols(T1)==1? T1 :* v : T1 * v)
+  retval = Repl.FillingT0[ind1+1,ind2+1].M :+ (cols(T1)==1? T1 :* v : T1 * v)
 
-	if (pRepl->Yendog[ind1+1] & pRepl->Yendog[ind2+1]) {  // pu1 = NULL => ind1 points to an exogenous control with no varying error component
-		if (cols(pRepl->Rperp))
+	if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1]) {  // pu1 = NULL => ind1 points to an exogenous control with no varying error component
+		if (cols(Repl.Rperp))
 			for (i=Clust.N;i;i--)  // "innermost loop". Costliest term tends to be first, if X is wide
   			FillingT2[i].M = CTuX[ind2+1,i].M * ScstaruXinvXX[ind1+1].M - FillingR2nonCTZperp[ind2+1,i].M ' FillingR2nonCTX[ind1+1,i].M
 		else
@@ -1281,15 +1285,15 @@ void boottest::makeWREStats(real scalar w) {
 	real matrix ScstaruX1, ScstaruX2, deltanumer, A_b, Jcap, J_b, SuX1g, SuX2g, tmp, Jcaps
 	pointer (real colvector) scalar puwt
 
-	U2parddot = DGP.U2ddot * pRepl->Rpar[|kEx+1,.\.,.|]
+	U2parddot = DGP.U2ddot * Repl.Rpar[|kX1+1,.\.,.|]
 
 	if (w==1 & NClustVar & NFE==0) {  // first/only weight group? prep for optimized computation for bootstrapping cluster when no FE
 kappa=1
-		for (i=pRepl->k; i>=0; i--) {  // precompute various clusterwise sums
+		for (i=Repl.k; i>=0; i--) {  // precompute various clusterwise sums
 			puwt = i? &(U2parddot[,i]) : &DGP.u1dddot; if (haswt) puwt = &(*puwt :* *pwt)
 
 			if (kappa != 1) {
-				ScstaruY[i+1].M = _panelsum(*pRepl->py1, *puwt, infoBootData), _panelsum(pRepl->Z , *puwt, infoBootData)
+				ScstaruY[i+1].M = _panelsum(*Repl.py1, *puwt, infoBootData), _panelsum(Repl.Z , *puwt, infoBootData)
 				for (j=i; j>=0; j--)
 					Scstaruu[i+1,j+1].M = _panelsum(j? U2parddot[,j] : DGP.u1dddot, *puwt, infoBootData)
 			}
@@ -1299,19 +1303,19 @@ kappa=1
 			ScstaruX2 = _panelsum(*DGP.pX2, *puwt, infoBootData)'
 
 			ScstaruX                 [i+1].M = ScstaruX1 \ ScstaruX2
-			ScstaruXinvXX            [i+1].M = *pRepl->pinvXX * ScstaruX[i+1].M
-			ScstaruZperpinvZperpZperp[i+1].M = pRepl->invZperpZperp * _panelsum(pRepl->Zperp, *puwt, infoBootData)'
+			ScstaruXinvXX            [i+1].M = *Repl.pinvXX * ScstaruX[i+1].M
+			ScstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * _panelsum(Repl.Zperp, *puwt, infoBootData)'
 			
 			for (j=Clust.N;j;j--) {
-				FillingR2nonCTX    [i+1,j].M = (*pRepl->pXg    )[j].M * ScstaruXinvXX            [i+1].M
-				FillingR2nonCTZperp[i+1,j].M = (*pRepl->pZperpg)[j].M * ScstaruZperpinvZperpZperp[i+1].M 
+				FillingR2nonCTX    [i+1,j].M = Repl.Xg    [j].M * ScstaruXinvXX            [i+1].M
+				FillingR2nonCTZperp[i+1,j].M = Repl.Zperpg[j].M * ScstaruZperpinvZperpZperp[i+1].M 
 			}
 			// Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
 			for (g=Ncstar;g;g--) {
 			  SuX1g = _panelsum(*DGP.pX1, *puwt, infoCTCapcstar[g].M)
 				SuX2g = _panelsum(*DGP.pX2, *puwt, infoCTCapcstar[g].M)
 
-				SCTcapuXinvXX[i+1,g].M = pRepl->kEx? SuX1g * pRepl->invXX1 + SuX2g * *pRepl->pinvXX2 : SuX2g * *pRepl->pinvXX
+				SCTcapuXinvXX[i+1,g].M = Repl.kX1? SuX1g * Repl.invXX1 + SuX2g * *Repl.pinvXX2 : SuX2g * *Repl.pinvXX
 
 				// CT_cstar,cap[u:*X]. smatrix has 1 row for each u, 1 col for each all-error-cluster intersection. Elements have 1 row for each bootstrapping cluster, 1 col for each X var
 				for (j=rows(SuX1g); j; j--)
@@ -1319,38 +1323,38 @@ kappa=1
 			}
 		}
 
-		deltanumer = ProductTermkappa(1..pRepl->k, 0, kappa)  // *** need to handle LIML exception: kappa varies
+		deltanumer = ProductTermkappa(1..Repl.k, 0, kappa)  // *** need to handle LIML exception: kappa varies
 
-		for (i=pRepl->k;i;i--)
+		for (i=Repl.k;i;i--)
 			deltadenom[i].M = ProductTermkappa(1..i, i, kappa)
-		for (i=pRepl->k;i;i--) {
+		for (i=Repl.k;i;i--) {
 			Zyg[i].M = *Filling(i,0)
-			for(j=pRepl->k;j;j--)
+			for(j=Repl.k;j;j--)
   			ZZg[i,j].M = * Filling(i,j)
 		}
 	}
 
-	if (pRepl->k == 1) {  // WRE bootstrap optimized for for pRepl->k (# of coefficients in bootstrap regression) = 1
+	if (Repl.k == 1) {  // WRE bootstrap optimized for for Repl.k (# of coefficients in bootstrap regression) = 1
 		betas = deltanumer :* (As = 1 :/ deltadenom.M)
 		if (null)
 			if (Nw == 1)
-				numer = *pR * pRepl->Rpar * betas :+ (*pR * pRepl->R1invR1R1 * *pr1 - *pr)
+				numer = *pR * Repl.Rpar * betas :+ (*pR * Repl.R1invR1R1 * *pr1 - *pr)
 			else
-				numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = _numer = *pR * pRepl->Rpar * betas :+ (*pR * pRepl->R1invR1R1 * *pr1 - *pr)
+				numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = _numer = *pR * Repl.Rpar * betas :+ (*pR * Repl.R1invR1R1 * *pr1 - *pr)
 		else {
 			if (Nw == 1)
-				numer = *pR * pRepl->Rpar * (betas :- DGP.beta0)
+				numer = *pR * Repl.Rpar * (betas :- DGP.beta0)
 			else
-				numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = _numer = *pR * pRepl->Rpar * (betas :- DGP.beta0)
+				numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = _numer = *pR * Repl.Rpar * (betas :- DGP.beta0)
 			if (w==1) {
-				numer[1] = *pR * pRepl->Rpar * betas[1] + pRepl->R1invR1R1 * *pr1 - *pr
+				numer[1] = *pR * Repl.Rpar * betas[1] + Repl.R1invR1R1 * *pr1 - *pr
 				if (Nw == 1)
 					_numer[1] = numer[1]
 			}
 		}
 		if (bootstrapt) {
 			if (robust) {
-				Jcaps = (Zyg.M :- (cols(ZZg.M)==1? ZZg.M * betas : ZZg.M :* betas)) :* (As * pRepl->RRpar)  // if null tests exog vars only, then ZZ is same in all replications, and ZZg.M has just 1 col
+				Jcaps = (Zyg.M :- (cols(ZZg.M)==1? ZZg.M * betas : ZZg.M :* betas)) :* (As * Repl.RRpar)  // if null tests exog vars only, then ZZ is same in all replications, and ZZg.M has just 1 col
 				for (c=1; c<=NErrClustCombs; c++) {  // sum sandwich over error clusterings
 					if (NClustVar != 1 & rows(Clust[c].order))
 						Jcaps = Jcaps[Clust[c].order,]
@@ -1358,7 +1362,7 @@ kappa=1
 					_clustAccum(denom.M, c, colsum(Jcap:*Jcap))
 				}
 			} else  // spherical errors
-				denom.M = As * (pRepl->RRpar * pRepl->RRpar * pRepl->uuc)
+				denom.M = As * (Repl.RRpar * Repl.RRpar * Repl.uuc)
 
 			if (Nw==1)
 				pDist                                            = &((sqrt? numer:/sqrt(denom.M) : numer :* numer :/ denom.M)')
@@ -1367,24 +1371,24 @@ kappa=1
 			denom.M = denom.M[1]
 		}
 
-	} else {  // WRE bootstrap for pRepl->k (# of coefficients in bootstrap regression) > 1
+	} else {  // WRE bootstrap for Repl.k (# of coefficients in bootstrap regression) > 1
 
 		for (b=cols(v); b; b--) {  // WRE bootstrap
-			for (i=pRepl->k;i;i--)
+			for (i=Repl.k;i;i--)
 				deltadenom_b[|.,i\i,i|] = deltadenom[i].M[,b]  // fill uppper triangle, which is all that invsym() looks at
 			beta_b  = (A_b = invsym(deltadenom_b)) * deltanumer[,b]
-			numer_b = null | w==1 & b==1? *pR * (pRepl->Rpar * beta_b + pRepl->R1invR1R1 * *pr1) - *pr : *pR * pRepl->Rpar * (beta_b - DGP.beta0)
+			numer_b = null | w==1 & b==1? *pR * (Repl.Rpar * beta_b + Repl.R1invR1R1 * *pr1) - *pr : *pR * Repl.Rpar * (beta_b - DGP.beta0)
 
 			if (bootstrapt) {
 				if (robust) {  // Compute denominator for this WRE test stat
 					Jcap = JNcapk
-					for(i=pRepl->k;i;i--) {
+					for(i=Repl.k;i;i--) {
 						tmp = Zyg[i].M[,b]
-						for(j=pRepl->k-1;j;j--)
+						for(j=Repl.k-1;j;j--)
 							tmp  = tmp - (cols(ZZg[i,j].M[,b])==1? ZZg[i,j].M : ZZg[i,j].M[,b]) * beta_b[j]  // if a row of null tests exog vars only, then some elements of ZZ are same in all replications, and ZZg[i,j].M has just 1 col
-						Jcap[,i] = tmp - (cols(ZZg[i,pRepl->k].M)==1? ZZg[i,pRepl->k].M : ZZg[i,pRepl->k].M[,b]) * beta_b[pRepl->k]
+						Jcap[,i] = tmp - (cols(ZZg[i,Repl.k].M)==1? ZZg[i,Repl.k].M : ZZg[i,Repl.k].M[,b]) * beta_b[Repl.k]
 					}
-					Jcap = Jcap * (A_b * pRepl->RRpar')
+					Jcap = Jcap * (A_b * Repl.RRpar')
 
 					for (c=1; c<=NErrClustCombs; c++) {
 						if (NClustVar != 1 & rows(Clust[c].order))
@@ -1393,7 +1397,7 @@ kappa=1
 						_clustAccum(denom.M, c, cross(J_b,J_b))
 					}
 				} else  // spherical errors
-					denom.M = (pRepl->RRpar * A_b * pRepl->RRpar') * pRepl->uuc
+					denom.M = (Repl.RRpar * A_b * Repl.RRpar') * Repl.uuc
 
 				(*pDist)[b+WeightGrpStart[w]-1] = sqrt? numer_b/sqrt(denom.M) : cross(numer_b, invsym(denom.M) * numer_b)  // hand-code for 2-dimensional?
 			}
@@ -1405,10 +1409,10 @@ kappa=1
 
 
 void boottest::PrepARubin(real colvector r) {
-  pRepl->InitEndog(&(*py1 - *pY2 * r), NULL/*, &(*DGP.pX2y1 - DGP.X2Y2 * r), &(*DGP.pX1y1 - DGP.X1Y2 * r)*/)
-  pRepl->InitEstimate()
-  pRepl->Estimate(*pr1)
-  pRepl->InitTestDenoms()
+  Repl.InitEndog(&(*py1 - *pY2 * r), NULL/*, &(*DGP.pX2y1 - DGP.X2Y2 * r), &(*DGP.pX1y1 - DGP.X1Y2 * r)*/)
+  Repl.InitEstimate(*pr1)
+  Repl.Estimate(*pr1)
+  Repl.InitTestDenoms()
 }
 
 // Construct stuff that depends linearly or quadratically on r, possibly by interpolation
@@ -1578,7 +1582,7 @@ void boottest::_makeInterpolables(real colvector r) {
 
   makeNumerAndJ(1)  // compute J = kappa * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 
-  if      ( ARubin) numer[,1] = u_sd * pM->beta[|kEx+1\.|] // coefficients on excluded instruments in ARubin OLS
+  if      ( ARubin) numer[,1] = u_sd * pM->beta[|kX1+1\.|] // coefficients on excluded instruments in ARubin OLS
   else if (null==0) numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - r) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 }
 

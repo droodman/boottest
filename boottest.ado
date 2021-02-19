@@ -383,7 +383,7 @@ program define _boottest, rclass sortpreserve
 			forvalues i=1/`:word count `revarlist'' {
 				local var: word `i' of ``varlist''
 				_ms_parse_parts `var'
-				if !r(omit) | 1 {
+				if !r(omit) /*| 1*/ {
 					local _revarlist `_revarlist' `:word `i' of `revarlist''
 					if inlist("`varlist'", "Xnames_exog", "Xnames_endog") {
 						local pos: list posof "`var'" in colnamesC
