@@ -911,7 +911,8 @@ if (WREnonARubin) {
     }
 
     purerobust = NClustVar & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
-    granular   = NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar)
+    granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
+		                           NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar)
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
@@ -1281,7 +1282,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real scalar ind2
   retval = Repl.FillingT0[ind1+1,ind2+1].M :+ (cols(T1)==1? T1 :* v : T1 * v)
 
 	if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
-		if (2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)))
+		if (granular)
 			if (favorspeed())  // create NxB matrix or avoid?
 				retval = retval - _panelsum(SstaruPX[ind1+1].M*v :* SstaruMZperp[ind2+1].M*v, *pinfoErrData)  // SstaruMZperp stored negated, so subtract
 			else  // create pieces of each N x B matrix one at a time rather than whole thing at once
@@ -1337,6 +1338,11 @@ kappa=1
 			SstaruMZperp[i+1].M = Repl.Zperp * SstaruZperpinvZperpZperp[i+1].M
 			for (g=Nobs;g;g--)  // subtract "crosstab" of observation by cap-group of u
 				SstaruMZperp[i+1].M[g,IDBootData[g]] = SstaruMZperp[i+1].M[g,IDBootData[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
+			
+			if (granular & favorspeed() & 0) {
+				SstaruPX    [i+1].M = SstaruPX    [i+1].M * v
+				SstaruMZperp[i+1].M = SstaruMZperp[i+1].M * v
+			}
 		}
 
 		deltanumer = ProductTermkappa(1..Repl.kZ, 0, kappa)  // *** handle LIML exception: kappa varies
@@ -1825,18 +1831,49 @@ real scalar boottest::r_to_p(real colvector r) {
 	return (getpadj())
 }
 
-real scalar boottest::search(real scalar alpha, real scalar p_lo, real scalar lo, real scalar p_hi, real scalar hi) {
-	real scalar mid, _p
-	mid = lo + (alpha-p_lo)/(p_hi-p_lo)*(hi-lo)  // interpolate linearly
-//	mid = lo + ( reldif(p_hi-p_lo, 1/BFeas)<1e-6 & BFeas? (hi - lo)/2 : (alpha-p_lo)/(p_hi-p_lo)*(hi-lo) ) // interpolate linearly until bracketing a single bump-up; then switch to binary search
-//	mid = lo + (hi - lo)/2  // binary search
-	if (reldif(lo,mid)<ptol | reldif(hi,mid)<ptol | (BFeas & abs(p_hi-p_lo)<(1+(ptype==1))/BFeas*1.000001))
-		return (mid)
-	if ( ((_p = r_to_p(mid)) < alpha) == (p_lo < alpha) )
-		return(search(alpha, _p, mid, p_hi, hi))
-	return(search(alpha, p_lo, lo, _p, mid))
-}
 
+// Chandrupatla 1997, "A new hybrid quadratic-bisection algorithm for finding the zero of a nonlinear function without using derivatives"
+real scalar boottest::search(real scalar alpha, real scalar f1, real scalar x1, real scalar f2, real scalar x2) {
+	real scalar tol, x, t, fx, phi1, phi1_2, xi1, x3, f3
+	tol = 0.000000001
+	
+	if (alpha < f1 & f1 < f2 | alpha > f1 & f1 > f2)  // no interior solution; return closer boundary
+		return(x1)
+
+	if (alpha < f2 & f2 < f1 | alpha > f2 & f2 > f1)  // no interior solution; return closer boundary
+		return(x2)
+	
+	t = 0.5
+	do {
+		x = x1 + t * (x2 - x1)
+		fx = r_to_p(x)
+
+		if ((fx > f1) == (fx > f2))   // violation of monotonicity because of precision problems? That's as good as it gets.
+			return(x)
+
+		if ((fx < alpha) == (f1 < alpha)) {
+			x3 = x1; x1 = x; f3 = f1; f1 = fx
+		} else {
+			x3 = x2; x2 = x1; x1 = x; f3 = f2; f2 = f1; f1 = fx
+		}
+
+		if (abs(fx - alpha) < tol | abs(x2 - x1) < tol)
+			return (abs(f1 - alpha) < abs(f2 - alpha)?  x1 : x2)
+
+		phi1 = (f1 - f2) / (f3 - f2)
+		phi1_2 = phi1 * phi1
+		xi1 = (x1 - x2) / (x3 - x2)
+		if (xi1 > 2 * phi1 - phi1_2 | phi1_2 > xi1 )
+			t = 0.5
+		else {
+			t = ((f3 - alpha) / (f1 - f2) + (x3 - x1) / ((x2 - x1) * (f3 - f1)) * (f2 - alpha)) * (f1 - alpha) / (f3 - f2)
+			if (t < 0.000001)
+				t = 0.000001
+			else if (t > 0.999999)
+				t = 0.999999
+		}
+	} while (1)
+}
 
 // derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
 void boottest::plot() {
