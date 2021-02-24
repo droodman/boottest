@@ -65,7 +65,7 @@ class boottest {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, kZ, kY2, kX1, l, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
 		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
-	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot, deltadenom_b, JNcapk, ZR1ex, invR1R1par, CT
+	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot, deltadenom_b, _Jcap, ZR1ex, invR1R1par, CT
 	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
 	real rowvector peak
 	string scalar wttype, madjtype, seed
@@ -1000,7 +1000,7 @@ if (WREnonARubin) {
 				SstaruMZperp = SstaruPX = SstaruX = SstaruXinvXX = SstaruZperpinvZperpZperp = deltadenom = SstaruY = Zyg = smatrix(Repl.kZ+1)
 				Sstaruu = smatrix(Repl.kZ+1, Repl.kZ+1)
 				SCTcapuXinvXX = smatrix(Repl.kZ+1, Nstar)
-				JNcapk = J(Clust.N, Repl.kZ, 0)
+				_Jcap = J(Clust.N, Repl.kZ, 0)
 			}
 		} else {
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
@@ -1250,62 +1250,64 @@ real matrix boottest::ProductTermkappa(real rowvector ind1, real scalar ind2, re
 
 
 // Workhorse for CRVE sandwich filling
-// With reference to notional Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of (P_X-P_Zperp)*Y[,ind1]_g' (M_Zperp*Y[,ind2])_g,
+// With reference to notional Y = [y1 Z], given 0-based columns indexes within it, ind1, return all bootstrap realizations of P_X *Y[,ind1]_g ' u\hat_1g^*b
 // for all groups in the intersection of all error clusterings
-// With reference to Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[,ind1]'(M_Zperp-kappa*M_Xpar)*Y[,ind2] for kappa CONSTANT across replications,
-// ind1 can be a rowvector of indices, which then refers to Z only; in this case ind1 vars should all be in X1 or Y2 but not both
-pointer(real matrix) scalar boottest::Filling(real scalar ind1, real scalar ind2) {
-	real scalar i; real matrix retval, T1, S
+// columns of betas are the bootstrap estimates for each replication
+pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix betas) {
+	real scalar i, ind2; real matrix retval, T1, S; pointer (real matrix) scalar pbetav; real rowvector _beta
+	pragma unset retval
 
-	if (Repl.Yendog[ind1+1]==0 & Repl.Yendog[ind2+1]==0)  // product involves purely exogenous variables, doesn't depend on bootstrap
-		return (&(Repl.FillingT0[ind1+1,ind2+1].M))
+	for (ind2=0; ind2<=Repl.kZ; ind2++) {
+		pbetav = ind2? &(v :* (_beta = -betas[ind2,])) : &v
 
-	if (Repl.Yendog[ind1+1])
-  	T1 = Repl.SMZperpYX[ind2+1].M * SstaruXinvXX[ind1+1].M
+		if (Repl.Yendog[ind1+1])
+			T1 = Repl.SMZperpYX[ind2+1].M * SstaruXinvXX[ind1+1].M
 
-	if (Repl.Yendog[ind2+1]) {  // add CT of u2 * PXY1
-		if (NClustVar == NBootClustVar & !subcluster)  // simple case of one clustering: full crosstab is diagonal
-			if (Repl.Yendog[ind1+1])
-				_diag(T1, diagonal(T1) + SstaruXinvXX[ind2+1].M ' (ind1? Repl.XZ[,ind1] : *Repl.pXy1par))
-			else
-				T1 =                     SstaruXinvXX[ind2+1].M ' (ind1? Repl.XZ[,ind1] : *Repl.pXy1par)  // keep T1 as vector if it's just going to be a diagonal matrix
-		else {
-		  if (Repl.Yendog[ind1+1]==0)
-				T1 = JNcapNstar
-			for (i=Nstar;i;i--)
-				T1[IDCTCapstar[i].M, i] = T1[IDCTCapstar[i].M, i] + SCTcapuXinvXX[ind2+1,i].M * (ind1? Repl.XZ[,ind1] : *Repl.pXy1par)
+		if (Repl.Yendog[ind2+1]) {  // add CT of u2 * PXY1
+			if (NClustVar == NBootClustVar & !subcluster)  // simple case of one clustering: full crosstab is diagonal
+				if (Repl.Yendog[ind1+1])
+					_diag(T1, diagonal(T1) + SstaruXinvXX[ind2+1].M ' (ind1? Repl.XZ[,ind1] : *Repl.pXy1par))
+				else
+					T1 =                     SstaruXinvXX[ind2+1].M ' (ind1? Repl.XZ[,ind1] : *Repl.pXy1par)  // keep T1 as vector if it's just going to be a diagonal matrix
+			else {
+				if (Repl.Yendog[ind1+1]==0)
+					T1 = JNcapNstar
+				for (i=Nstar;i;i--)
+					T1[IDCTCapstar[i].M, i] = T1[IDCTCapstar[i].M, i] + SCTcapuXinvXX[ind2+1,i].M * (ind1? Repl.XZ[,ind1] : *Repl.pXy1par)
+			}
+			if (cols(Repl.Zperp))
+				T1 = T1 - Repl.SPXYZperp[ind1+1].M * SstaruZperpinvZperpZperp[ind2+1].M
 		}
-		if (cols(Repl.Zperp))
-      T1 = T1 - Repl.SPXYZperp[ind1+1].M * SstaruZperpinvZperpZperp[ind2+1].M
-	}
 
-  retval = Repl.FillingT0[ind1+1,ind2+1].M :+ (cols(T1)==1? T1 :* v : T1 * v)
+		retval = ind2? retval + Repl.FillingT0[ind1+1,ind2+1].M * _beta  + (cols(T1)==1? T1 :* *pbetav : T1 * *pbetav) :   // - x*beta components
+														Repl.FillingT0[ind1+1,     1].M         :+ (cols(T1)==1? T1 :* *pbetav : T1 *       v)     // y component
 
-	if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
-		if (granular)
-			if (favorspeed())  // create NxB matrix or avoid?
-				retval = retval - _panelsum(SstaruPX[ind1+1].M*v :* SstaruMZperp[ind2+1].M*v, *pinfoErrData)  // SstaruMZperp stored negated, so subtract
-			else  // create pieces of each N x B matrix one at a time rather than whole thing at once
+		if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
+			if (granular)
+				if (favorspeed())  // create NxB matrix or avoid?
+					retval = retval - _panelsum(SstaruPX[ind1+1].M*v :* SstaruMZperp[ind2+1].M* *pbetav, *pinfoErrData)  // SstaruMZperp stored negated, so subtract
+				else  // create pieces of each N x B matrix one at a time rather than whole thing at once
+					for (i=rows(retval);i;i--) {
+						S = (*pinfoErrData)[i,]', (.\.)
+						retval[i,] = retval[i,] - colsum(SstaruPX[ind1+1].M[|S|]*v :* SstaruMZperp[ind2+1].M[|S|]* *pbetav)
+					}
+			else  // given matrix dimensions, do colsum(v :* A'B * v) rather than colsum(Av:*Bv)
 				for (i=rows(retval);i;i--) {
 					S = (*pinfoErrData)[i,]', (.\.)
-					retval[i,] = retval[i,] - colsum(SstaruPX[ind1+1].M[|S|]*v :* SstaruMZperp[ind2+1].M[|S|]*v)
-				}
-		else  // given matrix dimensions, do colsum(v :* A'B * v) rather than colsum(Av:*Bv)
-			for (i=rows(retval);i;i--) {
-				S = (*pinfoErrData)[i,]', (.\.)
-				retval[i,] = retval[i,] - colsum(v :* (SstaruPX[ind1+1].M[|S|] ' SstaruMZperp[ind2+1].M[|S|]) *v)
-			}		
-
+					retval[i,] = retval[i,] - colsum(v :* (SstaruPX[ind1+1].M[|S|] ' SstaruMZperp[ind2+1].M[|S|]) * *pbetav)
+				}		
+	}
 	return(&retval)
 }
 
 
 void boottest::makeWREStats(real scalar w) {
 	real scalar c, b, i, j, g, kappa
-	real colvector numer_b, beta_b
+	real colvector numer_b
 	real rowvector betas, As, _numer
-	real matrix SstaruX1, SstaruX2, deltanumer, A_b, Jcap, J_b, SuX1g, SuX2g, tmp, Jcaps
+	real matrix SstaruX1, SstaruX2, deltanumer, Jcap, J_b, SuX1g, SuX2g, Jcaps
 	pointer (real colvector) scalar puwt
+	struct smatrix rowvector A
 
 	U2parddot = DGP.U2ddot * Repl.RparY
 
@@ -1344,20 +1346,10 @@ kappa=1
 				SstaruMZperp[i+1].M = SstaruMZperp[i+1].M * v
 			}
 		}
-
-		deltanumer = ProductTermkappa(1..Repl.kZ, 0, kappa)  // *** handle LIML exception: kappa varies
-
-		for (i=Repl.kZ;i;i--)
-			deltadenom[i].M = ProductTermkappa(1..i, i, kappa)
-		for (i=Repl.kZ;i;i--) {
-			Zyg[i].M = *Filling(i,0)
-			for(j=Repl.kZ;j;j--)
-  			ZZg[i,j].M = *Filling(i,j)
-		}
 	}
 
 	if (Repl.kZ == 1) {  // WRE bootstrap optimized for for Repl.kZ (# of coefficients in bootstrap regression) = 1
-		betas = deltanumer :/ (As = deltadenom.M)
+		betas = ProductTermkappa(1..Repl.kZ, 0, kappa) :/ (As = ProductTermkappa(1, 1, kappa))
 		if (null)
 			if (Nw == 1)
 				numer = betas :+ (Repl.Rt1 - *pr) / Repl.RRpar
@@ -1376,7 +1368,7 @@ kappa=1
 		}
 		if (bootstrapt) {
 			if (robust) {
-				Jcaps = (Zyg.M - ZZg.M :* betas) :/ As  // if null tests exog vars only, then ZZ is same in all replications, and ZZg.M has just 1 col
+				Jcaps = *Filling(1, betas) :/ As  // if null tests exog vars only, then ZZ is same in all replications, and ZZg.M has just 1 col
 				for (c=1; c<=NErrClustCombs; c++) {  // sum sandwich over error clusterings
 					if (NClustVar != 1 & rows(Clust[c].order))
 						Jcaps = Jcaps[Clust[c].order,]
@@ -1395,22 +1387,29 @@ kappa=1
 
 	} else {  // WRE bootstrap for Repl.kZ > 1
 
+		deltanumer = ProductTermkappa(1..Repl.kZ, 0, kappa)  // *** handle LIML exception: kappa varies
+
+		for (i=Repl.kZ;i;i--)
+			deltadenom[i].M = ProductTermkappa(1..i, i, kappa)
+
+		betas = J(Repl.kZ, cols(v), 0)
+		A = smatrix(cols(v))
 		for (b=cols(v); b; b--) {  // WRE bootstrap
 			for (i=Repl.kZ;i;i--)
 				deltadenom_b[|.,i\i,i|] = deltadenom[i].M[,b]  // fill uppper triangle, which is all that invsym() looks at
-			beta_b  = (A_b = invsym(deltadenom_b)) * deltanumer[,b]
-			numer_b = null | w==1 & b==1? (Repl.RRpar * beta_b + Repl.Rt1) - *pr : Repl.RRpar * (beta_b - DGP.beta0)
+			betas[,b]  = (A[b].M = invsym(deltadenom_b)) * deltanumer[,b]
+		}
+		for(i=Repl.kZ;i;i--)
+			Zyg[i].M = *Filling(i, betas)
+
+		for (b=cols(v); b; b--) {  // WRE bootstrap
+			numer_b = null | w==1 & b==1? (Repl.RRpar * betas[,b] + Repl.Rt1) - *pr : Repl.RRpar * (betas[,b] - DGP.beta0)
 
 			if (bootstrapt) {
 				if (robust) {  // Compute denominator for this WRE test stat
-					Jcap = JNcapk
-					for(i=Repl.kZ;i;i--) {
-						tmp = Zyg[i].M[,b]
-						for(j=Repl.kZ-1;j;j--)
-							tmp    = tmp - (cols(ZZg[i,      j].M)==1? ZZg[i,      j].M : ZZg[i,      j].M[,b]) * beta_b[      j]  // if a row of null tests exog vars only, then some elements of ZZ are same in all replications, and ZZg[i,j].M has just 1 col
-						Jcap[,i] = tmp - (cols(ZZg[i,Repl.kZ].M)==1? ZZg[i,Repl.kZ].M : ZZg[i,Repl.kZ].M[,b]) * beta_b[Repl.kZ]
-					}
-					Jcap = Jcap * (A_b * Repl.RRpar')
+					for(i=Repl.kZ;i;i--)
+						_Jcap[,i] = Zyg[i].M[,b]
+					Jcap = _Jcap * (A[b].M * Repl.RRpar')
 
 					for (c=1; c<=NErrClustCombs; c++) {
 						if (NClustVar != 1 & rows(Clust[c].order))
@@ -1419,7 +1418,7 @@ kappa=1
 						_clustAccum(denom.M, c, cross(J_b,J_b))
 					}
 				} else  // spherical errors
-					denom.M = (Repl.RRpar * A_b * Repl.RRpar') * Repl.uuc
+					denom.M = (Repl.RRpar * A[b].M * Repl.RRpar') * Repl.uuc
 
 				(*pDist)[b+WeightGrpStart[w]-1] = sqrt? numer_b/sqrt(denom.M) : cross(numer_b, invsym(denom.M) * numer_b)  // hand-code for 2-dimensional?
 			}
@@ -1833,37 +1832,30 @@ real scalar boottest::r_to_p(real colvector r) {
 
 
 // Chandrupatla 1997, "A new hybrid quadratic-bisection algorithm for finding the zero of a nonlinear function without using derivatives"
+// x1, x2 must bracket the true value, with f1=f(x1) and f2=f(x2) on opposite sides of alpha
 real scalar boottest::search(real scalar alpha, real scalar f1, real scalar x1, real scalar f2, real scalar x2) {
-	real scalar tol, x, t, fx, phi1, phi1_2, xi1, x3, f3
-	tol = 0.000000001
-	
-	if (alpha < f1 & f1 < f2 | alpha > f1 & f1 > f2)  // no interior solution; return closer boundary
-		return(x1)
-
-	if (alpha < f2 & f2 < f1 | alpha > f2 & f2 > f1)  // no interior solution; return closer boundary
-		return(x2)
+	real scalar x, t, fx, phi1, phi1_2, xi1, x3, f3
 	
 	t = 0.5
 	do {
-		x = x1 + t * (x2 - x1)
-		fx = r_to_p(x)
+		fx = r_to_p(x = x1 + t * (x2 - x1))
 
-		if ((fx > f1) == (fx > f2))   // violation of monotonicity because of precision problems? That's as good as it gets.
+		if (fx>f1 == fx>f2)   // violation of monotonicity because of precision problems? That's as good as it gets.
 			return(x)
 
-		if ((fx < alpha) == (f1 < alpha)) {
+		if (fx<alpha == f1<alpha) {
 			x3 = x1; x1 = x; f3 = f1; f1 = fx
 		} else {
 			x3 = x2; x2 = x1; x1 = x; f3 = f2; f2 = f1; f1 = fx
 		}
 
-		if (abs(fx - alpha) < tol | abs(x2 - x1) < tol)
-			return (abs(f1 - alpha) < abs(f2 - alpha)?  x1 : x2)
+		if (abs(fx - alpha) < (1+(ptype==1))/BFeas*1.000001 | reldif(x2,x1) < ptol)
+			return (abs(f1 - alpha) < abs(f2 - alpha)? x1 : x2)
 
 		phi1 = (f1 - f2) / (f3 - f2)
 		phi1_2 = phi1 * phi1
 		xi1 = (x1 - x2) / (x3 - x2)
-		if (xi1 > 2 * phi1 - phi1_2 | phi1_2 > xi1 )
+		if (phi1_2 > xi1 | xi1 > phi1 + phi1 - phi1_2)
 			t = 0.5
 		else {
 			t = ((f3 - alpha) / (f1 - f2) + (x3 - x1) / ((x2 - x1) * (f3 - f1)) * (f2 - alpha)) * (f1 - alpha) / (f3 - f2)
@@ -2148,5 +2140,5 @@ mata mlib add lboottest *(), dir("`c(sysdir_plus)'l")
 mata mlib index
 end
 boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
-* qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
-* boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr
+qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
+boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr seed(1231)
