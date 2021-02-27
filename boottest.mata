@@ -23,7 +23,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 struct smatrix {
 	real matrix M
@@ -44,27 +44,26 @@ struct structFE {
 }
 
 class boottestEstimator {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
-	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, kZ, kX1, kX2, kX, y1pary1par
-	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R0invR0R0, R1perp, T0, Rpar, RperpX, PXZ, YPXY, Zperp, invZperpZperp, Zex, Z, ZperpinvZperpZperp, YY, RRpar, invXX1, Pi, gamma, ZR1ex, ZR1, ZR1ZR1, X2ZR1, ZR1Y2, X1ZR1, ZZR1, RparX, RparY, R1invR1R1X, R1invR1R1Y, Rt1, invXXXZ, XinvXX
+	real scalar LIML, y1y1, uuc, Fuller, ARubinRepl, kappa, isDGP, kZ, kX1, kX2, kX, y1pary1par
+	real matrix XZ, XY2, XX, H_2SLS, invH, V, AR, XAR, U2ddot, ZY2, dbetadr, X2Y2, X1Y2, R1invR1R1, R1perp, Rpar, RperpX, PXZ, YPXY, Zperp, invZperpZperp, Zex, Z, ZperpinvZperpZperp, YY, RRpar, invXX1, Pi, gamma, ZR1ex, ZR1, ZR1ZR1, X2ZR1, ZR1Y2, X1ZR1, ZZR1, RparX, RparY, R1invR1R1X, R1invR1R1Y, Rt1, invXXXZ, XinvXX
 	real colvector t0, u1ddot, u1dddot, beta, beta0, PXy1
 	real rowvector y1Y2, Yendog, y1ZR1
 	pointer(real rowvector) py1parY2
 	pointer(real colvector) scalar py1, py1par, pX2y1par, pX1y1par, pZy1par, pXy1par
-	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pH, pR, pT, pX1, pX2, pinvXX2
+	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pH, pR, pT, pX1, pX2, pinvXX2, pX1X1
 	pointer (class boottest scalar) scalar parent
 	struct smatrix matrix CT_XAR, FillingT0
 	struct smatrix rowvector WXAR, SPXYZperp, SMZperpYX
 
 	private void new(), InitExog(), InitEndog(), InitTestDenoms(), SetR(), InitEstimate(), Estimate(), SetARubin()
-	pointer(real matrix) scalar partialFE()
-	private real matrix _select()/*, perp()
-	private struct smatrix rowvector ParPerp()*/
+	private real matrix _select(), perp()
+//	private struct smatrix rowvector ParPerp()
 }
 
 class boottest {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, kZ, kY2, kX1, l, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
 		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
-		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
+		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust, kX2, kX, overid
 	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot, deltadenom_b, _Jcap, ZR1ex, invR1R1par, CT
 	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
 	real rowvector peak
@@ -92,7 +91,7 @@ class boottest {
 	real colvector getdist(), getb()
 	private real scalar r_to_p(), search()
   private real matrix count_binary(), crosstabAllFE(), ProductTermkappa()
-	private pointer(real matrix) scalar Filling()
+	private pointer(real matrix) scalar Filling(), partialFE()
   private static real matrix combs()
   private static real colvector stableorder()
 	private real vector _selectindex()
@@ -100,12 +99,12 @@ class boottest {
 }
 
 void boottestEstimator::new() {
-	ARubin = 0
+	ARubinRepl = 0
   isDGP = 1  // by default, created object is for DGP rather than replication regression
 }
 
 void boottestEstimator::SetARubin(real scalar _AR) {
-	if (ARubin = _AR) LIML = Fuller = kappa = 0
+	if (ARubinRepl = _AR) LIML = Fuller = kappa = 0
 }
 
 // do select() but handle case that both cases are scalar and second is 0 by interpreting second arg as rowvector and returning J(1,0,0)
@@ -113,7 +112,7 @@ void boottestEstimator::SetARubin(real scalar _AR) {
 real matrix boottestEstimator::_select(real matrix X, real rowvector v)
 	return (rows(X)==1 & cols(X)==1 & v==0? J(1,0,0) : select(X,v))
 
-function P(X) return(X*invsym(X'X)*X')
+/*function P(X) return(X*invsym(X'X)*X')
 function M(X) return(I(rows(X))-P(X))
 
 
@@ -128,57 +127,29 @@ struct smatrix rowvector ParPerp(real matrix A) {
 	return (retval)
 }
 
-real matrix perp(real matrix A) {
-	real matrix vec; real rowvector val
-	pragma unset vec; pragma unset val
-	symeigensystem(A'invsym(A*A')*A, vec, val)
-	_edittozero(val, 10)
-	return (select(vec, !val))
-}
 real matrix par(real matrix A) {
 	real matrix vec; real rowvector val
 	pragma unset vec; pragma unset val
 	symeigensystem(A'invsym(A*A')*A, vec, val)
 	_edittozero(val, 10)
-	return (select(vec, val))
+	return (_select(vec, val))
+}
+*/
+
+real matrix boottestEstimator::perp(real matrix A) {
+	real matrix vec; real rowvector val
+	pragma unset vec; pragma unset val
+	symeigensystem(A'invsym(A*A')*A, vec, val)
+	_edittozero(val, 10)
+	return (_select(vec, !val))
 }
 
-// for DGP regression R has 0 rows, R1 for maintained constraints + null; for WRE replication regression R is for null, R1 for maintained constraints
-// for non-WRE, R should have zero rows or not be passed if null not imposed on DGP
+// R1 is constraints. R is attack surface for null
+// for DGP regression, R1 is maintained constraints + null if imposed while R should have 0 rows
+// for replication regressions R1 is maintained constraints, R is null
 void boottestEstimator::SetR(real matrix R1, real matrix R) {
-	real matrix RR1perp, vec; pointer (real matrix) scalar _pR; real rowvector val; pragma unset vec; pragma unset val
-
-	if (parent->WREnonARubin==0) {
-		// for OLS-based tests, this is called for DGP only. FWL is not exploited to shrink attack surface for null. 
-		// No boottestEstimator() is created for replication regressions [change?] so construct R1perp, T0 at in this instance, for replication, DGP regressions respectively
-		if (rows(R1)) {
-			R1invR1R1 = R1 ' invsym(R1 * R1')
-			symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 10)
-			R1perp = _select(vec, !val)
-			if (parent->ARubin) {
-				R1perp = blockdiag(R1perp[|.,. \ parent->kX1 , parent->kX1-rows(R1)|] , I(parent->kY2)) // adapt R1perp,R1invR1R1 from XExog, XEndog to XExog, ZEXcl. Assumes no constraints link XExog and XEndog
-				R1invR1R1 = R1invR1R1[|.,.\parent->kX1,.|] \ J(parent->kY2,1,0)
-			}
-		} else
-			R1perp = J(0,0,0)
-
-		if (rows(R1))
-			_pR = rows(R)? &(R1 \ R) : &R1
-		else if (rows(R))
-			_pR = &R
-		else {
-			T0 = J(0,0,0)
-			return
-		}
-		R0invR0R0 = invsym(*_pR * *_pR')
-		if (all(diagonal(R0invR0R0))==0)
-			_error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
-		R0invR0R0 = *_pR ' R0invR0R0
-		symeigensystem(R0invR0R0 * *_pR, vec, val); _edittozero(val, 10)
-		T0 = _select(vec, !val)
-
-		return
-	}
+	real matrix RR1perp, vec; real rowvector val
+	pragma unset vec; pragma unset val
 
 	this.pR = &R
 	if (rows(R1)) {
@@ -191,41 +162,43 @@ void boottestEstimator::SetR(real matrix R1, real matrix R) {
 	} else
 		R1invR1R1 = J(parent->kZ,0,0)  // and R1perp = I
 
-	// prepare to reduce regression via FWL
-	RR1perp = R \ J(parent->kY2, parent->kX1, 0), I(parent->kY2)  // rows to prevent partialling out of endogenous regressors
+	if (kappa) {			
+		// prepare to reduce regression via FWL
+		RR1perp = R \ J(parent->kY2, parent->kX1, 0), I(parent->kY2)  // rows to prevent partialling out of endogenous regressors
 
-	if (rows(R1))
-		RR1perp = RR1perp * R1perp 
-	symeigensystem(RR1perp ' invsym(RR1perp * RR1perp') * RR1perp, vec, val); _edittozero(val, 10)
+		if (rows(R1))
+			RR1perp = RR1perp * R1perp 
+		symeigensystem(RR1perp ' invsym(RR1perp * RR1perp') * RR1perp, vec, val); _edittozero(val, 10)
+		Rpar   = _select(vec,  val)
+		RperpX = _select(vec, !val)
 
-	Rpar   = _select(vec,  val)
-	RperpX = _select(vec, !val)
-	if (rows(R1)) {  // fold model constraint factors into Rpar, RperpX
-		Rpar  = R1perp * Rpar
-		RperpX = R1perp * RperpX
+		if (rows(R1)) {  // fold model constraint factors into Rpar, RperpX
+			Rpar  = R1perp * Rpar
+			RperpX = R1perp * RperpX
+		}
+		RRpar = R * Rpar
+
+		if (parent->kX1) {
+			RperpX     = cols(RperpX   )? RperpX   [|.,.\parent->kX1,.|] : J(parent->kX1,0,0)  // Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
+			RparX      = cols(Rpar     )? Rpar     [|.,.\parent->kX1,.|] : J(parent->kX1,0,0)  // part of Rpar that refers to X1
+			R1invR1R1X = cols(R1invR1R1)? R1invR1R1[|.,.\parent->kX1,.|] : J(parent->kX1,0,0)
+		} else {
+			RperpX     = J(0,cols(RperpX   ),0)
+			RparX      = J(0,cols(Rpar     ),0)
+			R1invR1R1X = J(0,cols(R1invR1R1),0)
+		}
+		RparY      = cols(Rpar     )? Rpar     [|parent->kX1+1,.\.,.|] : J(parent->kY2,0,0)  // part of Rpar that refers to Y2
+		R1invR1R1Y = cols(R1invR1R1)? R1invR1R1[|parent->kX1+1,.\.,.|] : J(parent->kY2,0,0)
 	}
-	RRpar = R * Rpar
-
-	if (parent->kX1) {
-		RperpX     = cols(RperpX   )? RperpX   [|.,.\parent->kX1,.|] : J(parent->kX1,0,0) // Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
-		RparX      = cols(Rpar     )? Rpar     [|.,.\parent->kX1,.|] : J(parent->kX1,0,0)  // part of Rpar that refers to X1
-		R1invR1R1X = cols(R1invR1R1)? R1invR1R1[|.,.\parent->kX1,.|] : J(parent->kX1,0,0)
-	}
-	RparY      = cols(Rpar     )? Rpar     [|parent->kX1+1,.\.,.|] : J(parent->kY2,0,0)  // part of Rpar that refers to Y2
-	R1invR1R1Y = cols(R1invR1R1)? R1invR1R1[|parent->kX1+1,.\.,.|] : J(parent->kY2,0,0)
 }
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestEstimator::InitExog() {
 	real matrix X2X1, XX1
 
-	if (isDGP)
-		parent->pX1 = partialFE(parent->pX1)
-		
-	if (cols(*parent->pX2)) {  // GMM, 2SLS, LIML
-		if (isDGP)
-			parent->pX2 = partialFE(parent->pX2)
-					
+	if (kappa) {  // GMM, 2SLS, LIML, Anderson-Rubin DGP
+"rows(*parent->pX1),cols(*parent->pX1),rows(RparX),cols(RparX)"
+rows(*parent->pX1),cols(*parent->pX1),rows(RparX),cols(RparX)
 		Zex   = *parent->pX1 * RparX       // exogenous component of Zpar
 		ZR1ex = *parent->pX1 * R1invR1R1X  // exogenous component of ZR1
 
@@ -260,22 +233,25 @@ void boottestEstimator::InitExog() {
 	} else {
 		kX1 = parent->kX1
 		pX1 = parent->pX1
-		pZZ = &cross(*pX1, *parent->pwt, *pX1)
+		pX2 = parent->pX2
+		if (ARubinRepl) {  // "Z" = OLS RHS--X in this case
+			X2X1 = cross(*pX2, *parent->pwt, *pX1)
+			pZZ = &(cross(*pX1, *parent->pwt, *pX1), X2X1' \ X2X1, cross(*pX2, *parent->pwt, *pX2))
+		} else  // OLS
+			pZZ = &cross(*pX1, *parent->pwt, *parent->pX1)
 	}
 }
 
 // stuff that can be done before R & r set, but depend on endogenous variables, which are bootstrapped in WRE
-void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer (real matrix) scalar _pY2) {
+void boottestEstimator::InitEndog() {
 	real matrix ZperpZ, ZperpY2, ZperpZR1; real scalar ind1, ind2, i; pointer (real colvector) scalar puwt
 
-	py1 = partialFE(_py1)
-	pY2 = partialFE(_pY2)
-	if (ARubin)
-		pX2y1 = &cross(*pX2, *parent->pwt, *py1)
+	py1 = parent->py1
+	pY2 = parent->pY2
 
 	if (kappa) {
-		Z   = Zex   + *pY2 * RparY // Zpar
-		ZR1 = ZR1ex + *pY2 * R1invR1R1Y
+		Z   = Zex    + *pY2 * RparY // Zpar
+		ZR1 = ZR1ex :+ *pY2 * R1invR1R1Y  // :+ needed in case cols(ZR1ex)=0
 		
 		ZperpY2  = cross(Zperp, *parent->pwt, *pY2 )
 		ZperpZ   = cross(Zperp, *parent->pwt, Zex  ) + ZperpY2 * RparY
@@ -312,7 +288,7 @@ void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer 
 			py1parY2   = &y1Y2 
 			pX2y1par   = pX2y1
 			pX1y1par   = pX1y1
-			pZy1par    = pZy1 
+			pZy1par    = pZy1
 			y1pary1par = y1y1 
 			pXy1par = &(*pX1y1 \ *pX2y1)
 			py1par = py1
@@ -326,60 +302,80 @@ void boottestEstimator::InitEndog(pointer (real colvector) scalar _py1, pointer 
 		if (isDGP==0 & parent->robust) {  // for replication regression, prepare for CRVE
 			Yendog = 1, colsum(RparY :!= 0)  // columns of Y = [y1 Zpar] that are endogenous (normally all)
 
-			PXZ = *pX2 * invXXXZ[|kX1+1,.\.,.|]; if (kX1) PXZ = PXZ + *pX1 * invXXXZ[|.,.\kX1,.|]
+			if (isDGP==0 & parent->robust & parent->bootstrapt) {  // for replication regression, prepare for CRVE
 
-			FillingT0 = smatrix(kZ+1, kZ+1)  // fixed component of groupwise term in sandwich filling
-			for (ind1=kZ; ind1; ind1--) {
-				puwt = parent->haswt? *parent->pwt :* PXZ[,ind1] : &PXZ[,ind1]
-				for (ind2=kZ; ind2; ind2--)
-					FillingT0[ind1+1,ind2+1].M = _panelsum(Z[,ind2], *puwt, *parent->pinfoErrData)
-			}
+				PXZ = *pX2 * invXXXZ[|kX1+1,.\.,.|]; if (kX1) PXZ = PXZ + *pX1 * invXXXZ[|.,.\kX1,.|]
 
-			for (i=kZ; i; i--) {  // precompute various clusterwise sums
-				puwt = &(PXZ[,i]); if (parent->haswt) puwt = &(*puwt :* *parent->pwt)
-				SPXYZperp[i+1].M = _panelsum(Zperp, *puwt, *parent->pinfoErrData)  // S_cap(P_(MZperpX) * Z :* Zperp)
-				
-				puwt = &(Z[,i]); if (parent->haswt) puwt = &(*puwt :* *parent->pwt)
-				SMZperpYX[i+1].M = _panelsum(*pX1, *puwt, *parent->pinfoErrData), _panelsum(*pX2, *puwt, *parent->pinfoErrData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
+				FillingT0 = smatrix(kZ+1, kZ+1)  // fixed component of groupwise term in sandwich filling
+				for (ind1=kZ; ind1; ind1--) {
+					puwt = parent->haswt? *parent->pwt :* PXZ[,ind1] : &PXZ[,ind1]
+					for (ind2=kZ; ind2; ind2--)
+						FillingT0[ind1+1,ind2+1].M = _panelsum(Z[,ind2], *puwt, *parent->pinfoErrData)
+				}
+
+				for (i=kZ; i; i--) {  // precompute various clusterwise sums
+					puwt = &(PXZ[,i]); if (parent->haswt) puwt = &(*puwt :* *parent->pwt)
+					SPXYZperp[i+1].M = _panelsum(Zperp, *puwt, *parent->pinfoErrData)  // S_cap(P_(MZperpX) * Z :* Zperp)
+					
+					puwt = &(Z[,i]); if (parent->haswt) puwt = &(*puwt :* *parent->pwt)
+					SMZperpYX[i+1].M = _panelsum(*pX1, *puwt, *parent->pinfoErrData), _panelsum(*pX2, *puwt, *parent->pinfoErrData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
+				}
 			}
 		}
 	} else {  // OLS / ARubin
-		pZy1 = pX1y1 = &cross(*pX1, *parent->pwt, *py1)
-		if (ARubin) {
-			pZy1 = &(*pZy1 \ *pX2y1)
-			pZZ = &XX
+		pZy1 = &cross(*pX1, *parent->pwt, *py1)
+		if (ARubinRepl) {
+			XY2 =    cross(*pX1, *parent->pwt, *pY2) \ cross(*pX2, *parent->pwt, *pY2) // for use on LHS-- Y - Y2 *r  "ZR1" = Y2
+			pZy1 = &(*pZy1 \ cross(*pX2, *parent->pwt, *py1))  // X1 & X2 become "Z" (RHS) in A-R replication regression
 		}
 	}
 }
 
 // do most of estimation; for LIML r1 must be passed now in order to solve eigenvalue problem involving it
+// inconsistency: for replication regression of Anderson-Rubin, r1 refers to the *null*, not the maintained constraints
 // For OLS, compute beta0 (beta when r=0) and dbetadr without knowing r1, for efficiency
 // For WRE, should only be called once for the replication regressions, since for them r1 is the unchanging model constraints
 void boottestEstimator::InitEstimate(real colvector r1) {
 	real rowvector val; real colvector invXXXy1par, ZXinvXXXy1par; real matrix vec; pointer (real matrix) scalar pbetadenom; real scalar i; pointer (real colvector) scalar puwt
 	pragma unset vec; pragma unset val
 
-	if (kappa) {
-		if (cols(R1invR1R1)) {
-			y1pary1par = y1y1 - 2 * y1ZR1 * r1 + r1 ' ZR1ZR1 * r1
-			py1parY2 =  &(y1Y2  - r1 ' ZR1Y2)
-			pX2y1par = &(*pX2y1 - X2ZR1 * r1)
-			pX1y1par = &(*pX1y1 - X1ZR1 * r1)
-			pZy1par  = &(*pZy1  - ZZR1  * r1)
-			pXy1par  = &(*pX1y1par \ *pX2y1par)
+	if (ARubinRepl) {
+		py1par   = &(*py1  - *pY2 * r1)
+		pZy1par  = &(*pZy1  - XY2 * r1)
+	}	else if (kappa & cols(R1invR1R1)) {
+		y1pary1par = y1y1 - 2 * y1ZR1 * r1 + r1 ' ZR1ZR1 * r1
+		py1parY2 =  &(y1Y2  - r1 ' ZR1Y2)
+		pX2y1par = &(*pX2y1 - X2ZR1 * r1)
+		pX1y1par = &(*pX1y1 - X1ZR1 * r1)
+		pZy1par  = &(*pZy1  - ZZR1  * r1)
+		pXy1par  = &(*pX1y1par \ *pX2y1par)
 
-			py1par = &(*py1 - ZR1 * r1) 
-		}
+		py1par = &(*py1 - ZR1 * r1)
+	} else {
+		py1par = py1
+		pZy1par = pZy1
+	}
 
+	if (kappa)
+		ZXinvXXXy1par = invXXXZ ' (*pXy1par)
+
+	if (kappa | (parent->WREnonARubin & isDGP==0 & parent->robust)) {
 		YY = y1pary1par, *pZy1par' \ *pZy1par, *pZZ
 
 		invXXXy1par = *pinvXX * *pXy1par
-		ZXinvXXXy1par = invXXXZ ' (*pXy1par)
 		YPXY = invXXXy1par ' (*pXy1par) , ZXinvXXXy1par' \ ZXinvXXXy1par , XZ ' invXXXZ
+	}
 
-		if (isDGP==0 & parent->robust) {  // for replication regression, prepare for CRVE
-			Rt1 = *pR * R1invR1R1 * r1
+	if (LIML) {
+		eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), vec, val)
+		kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
+		if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->l)
+	}
 
+	if (parent->WREnonARubin & isDGP==0 & parent->robust) {  // for replication regression, prepare for CRVE
+		Rt1 = *pR * R1invR1R1 * r1
+
+		if (parent->bootstrapt) {
 			PXy1 = *pX2 * invXXXy1par[|kX1+1,.\.,.|]; if (kX1) PXy1 = PXy1 + *pX1 * invXXXy1par[|.,.\kX1,.|]
 
 			puwt = parent->haswt? &(PXy1 :* *parent->pwt) : &PXy1
@@ -391,25 +387,24 @@ void boottestEstimator::InitEstimate(real colvector r1) {
 			for (i=kZ; i; i--)
 				FillingT0[i+1,1].M = _panelsum(PXZ[,i], *puwt, *parent->pinfoErrData)
 			FillingT0.M          = _panelsum(PXy1   , *puwt, *parent->pinfoErrData)
-			SMZperpYX.M = _panelsum(*pX1, *puwt, *parent->pinfoErrData), _panelsum(*pX2, *puwt, *parent->pinfoErrData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
+			SMZperpYX.M          = _panelsum(*pX1   , *puwt, *parent->pinfoErrData), _panelsum(*pX2, *puwt, *parent->pinfoErrData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
 		}
-		
-		if (LIML) {
-			eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), vec, val)
-			kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
-			if (Fuller) kappa = kappa - 1 / (parent->_Nobs - parent->l)
-		}
-
-		if (isDGP==0) {
-			pH = kappa==1? &H_2SLS : &((1-kappa)* *pZZ + kappa*H_2SLS)
-			pbetadenom = &(invH = invsym(*pH))
-			beta0 = *pbetadenom *  (kappa==1? ZXinvXXXy1par : (kappa * ZXinvXXXy1par + (1-kappa) * *pZy1par))  // concentrated estimator, for computing residuals and, via left-multiplication by R*Rpar, generating null LHS
-		}
+	}
+	
+	if (kappa) {
+		pH = kappa==1? &H_2SLS : &((1-kappa)* *pZZ + kappa*H_2SLS)
+		pbetadenom = &(invH = invsym(*pH))
+		beta0 = *pbetadenom *  (kappa==1? ZXinvXXXy1par : (kappa * ZXinvXXXy1par + (1-kappa) * *pZy1par))  // concentrated estimator, for computing residuals and, via left-multiplication by R*Rpar, generating null LHS
 	} else {
 		pH = pZZ
-		pbetadenom = &(invH = invsym(*pH))
-		beta0 = *pbetadenom * *pZy1 * R0invR0R0
-		dbetadr = *pbetadenom * *pZZ * R0invR0R0 - R0invR0R0
+		if (rows(R1perp)) {
+			pbetadenom = &(R1perp * invsym(R1perp ' (*pH) * R1perp) * R1perp')
+			invH = J(0,0,0)
+		} else
+			pbetadenom = &(invH = invsym(*pH))
+
+		beta0 = *pbetadenom * *pZy1par
+		dbetadr = *pbetadenom * *pZZ * R1invR1R1 - R1invR1R1
 	}
 }
 
@@ -420,19 +415,21 @@ void boottestEstimator::Estimate(real colvector r1) {
 	beta = rows(r1) & parent->WREnonARubin==0? beta0 - dbetadr * r1 : beta0  // change so WRE call to Estimate() doesn't pass r1, so "rows(r1)" suffices
 
 	if (isDGP | parent->bootstrapt | parent->WREnonARubin==0 | parent->robust==0) {  // don't need residuals in replication regressions in bootstrap-c on WRE/non-ARubin
-		if (ARubin) {
-			u1ddot = *py1 - *pX2 * beta[|kX1+1\.|]
+		if (ARubinRepl) {  // Anderson-Rubin replication regression, which is OLS on X
+			u1ddot = *py1par - *pX2 * beta[|kX1+1\.|]
 			if (kX1)
 				u1ddot =  u1ddot - *pX1 * beta[|.\kX1|]
 		} else
-  			u1ddot = *py1par - Z * beta
-		if ((parent->robust | parent->scoreBS)==0 | (isDGP & LIML))  // useful in non-robust, residual-based bootstrap, and in computing u1ddot^2 in LIML (just below)
+		  		u1ddot = parent->WRE? *py1par - Z    * beta :
+				                        *py1    - *pX1 * beta
+
+		if ((parent->robust | parent->scoreBS)==0 | (isDGP & kappa))  // useful in non-robust, residual-based bootstrap, and in computing u1ddot^2 in LIML (just below)
 			uu = (1 \ -beta) ' YY * (1 \ -beta)
 		if ((parent->robust | parent->scoreBS)==0 & parent->bootstrapt==0)
 			uuc = parent->hascons? uu : uu - (parent->haswt? cross(u1ddot, *parent->pwt) : sum(u1ddot))^2 / parent->_Nobs  // sum of squares after centering, N * Var
 	}
 
-	if (isDGP & LIML) {  // after IV/GMM DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
+	if (isDGP & kappa) {  // after IV/GMM DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
 		Xu = *pXy1par - XZ * beta
 		negXuinvuu = Xu / -uu
 		Pi = invsym(XX + negXuinvuu * Xu') * (negXuinvuu * (*py1parY2 - beta ' ZY2) + XY2)
@@ -447,18 +444,18 @@ void boottestEstimator::Estimate(real colvector r1) {
 // but, confusingly, since the non-AR OLS code never creates an object for replication regresssions, in that case this is called on the DGP regression object
 void boottestEstimator::InitTestDenoms() {
 	real matrix VAR; real scalar d, c; struct smatrix rowvector _CT_XAR; pointer (real matrix) scalar pWXAR
-	pA = &(rows(invH)? invH : invsym(*pH))
-	AR = *pA * RRpar  // *** RRpar undefined for OLS
+
+	pA = cols(parent->Repl.R1perp) & ARubinRepl==0? &(parent->Repl.R1perp * invsym(parent->Repl.R1perp ' (*pH) * parent->Repl.R1perp) * parent->Repl.R1perp') :
+	                                                &(rows(invH)? invH : invsym(*pH))
+	AR = *pA * *parent->pR'
 
 	if (parent->scoreBS | parent->robust) {
 		if (kappa) {
 			VAR = V * AR
 			XAR = *pX2 * VAR[|kX1+1,.\.,.|]; if (kX1) XAR = XAR + *pX1 * VAR[|.,.\kX1,.|]
-		} else if (ARubin) {
-			XAR = *pX2 * AR[|kX1+1,.\.,.|]
-			if (kX1)
-				XAR = XAR + *pX1 * AR[|.,.\kX1,.|]
-		} else
+		} else if (ARubinRepl)
+				XAR = kX1? *pX1 * AR[|.,.\kX1,.|] + *pX2 * AR[|kX1+1,.\.,.|] : *pX2 * AR
+		else
 			XAR = *pX1 * AR
 
 			if (parent->bootstrapt == 0) return
@@ -490,13 +487,13 @@ void boottestEstimator::InitTestDenoms() {
 
 
 // partial fixed effects out of a data matrix
-pointer(real matrix) scalar boottestEstimator::partialFE(pointer(real matrix) scalar pIn) {
+pointer(real matrix) scalar boottest::partialFE(pointer(real matrix) scalar pIn) {
 	real matrix Out, tmp; real scalar i
-	if (parent->NFE & pIn!=NULL) {
+	if (NFE & pIn!=NULL) {
 		Out = *pIn
-		for (i=parent->NFE;i;i--) {
-			tmp = Out[parent->FEs[i].is,]
-			Out[parent->FEs[i].is,] = tmp :- cross(parent->FEs[i].wt, tmp)
+		for (i=NFE;i;i--) {
+			tmp = Out[FEs[i].is,]
+			Out[FEs[i].is,] = tmp :- cross(FEs[i].wt, tmp)
 		}
 		return(&Out)
 	}
@@ -791,7 +788,7 @@ void boottest::_clustAccum(real matrix X, real scalar c, real matrix Y)
             (Clust[c].multiplier != 1?   Clust[c].multiplier  * Y :  Y) :
             (Clust[c].multiplier != 1? (-Clust[c].multiplier) * Y : -Y))
 
-						
+
 void boottest::Init() {  // for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
   real colvector sortID, o, _FEID, IDAllData, IDErrData
 	real rowvector ClustCols
@@ -888,6 +885,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
       if (scoreBS | WREnonARubin==0)
         ClustShare = haswt? _panelsum(*pwt, *pinfoErrData)/sumwt : ((*pinfoErrData)[,2]-(*pinfoErrData)[,1]:+ 1)/Nobs // share of observations by group 
+
 if (WREnonARubin) {
 (void) _panelsetup(*pID,            1..NClustVar, IDAllData)
 (void) _panelsetup(*pID, subcluster+1..NClustVar, IDErrData)
@@ -913,7 +911,7 @@ if (WREnonARubin) {
     purerobust = NClustVar & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
 		                           NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar)
-
+granular = 0
     if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; Fused to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
@@ -966,7 +964,12 @@ if (WREnonARubin) {
 
     if (robust & FEboot==0 & granular < NErrClust & B & FEboot==0 & bootstrapt)
       infoBootAll = _panelsetup(*pIDAll, 1..NBootClustVar)  // info for bootstrapping clusters wrt data collapsed to intersections of all bootstrapping & error clusters
-  }
+
+		pX1 = partialFE(pX1)
+		pX2 = partialFE(pX2)
+		py1 = partialFE(py1)
+		pY2 = partialFE(pY2)
+	}
 
   if (granular & (WREnonARubin & purerobust)==0)
     if (NFE)
@@ -978,53 +981,62 @@ if (WREnonARubin) {
     df = rows(*pR)
   else {
     DGP.parent = &this
-		DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))
-		DGP.InitExog()
+		Repl.parent = &this
+		Repl.isDGP = 0
+
+    if (WRE)
+      DGP.LIML = kX2!=kY2; DGP.Fuller = 0; DGP.kappa = 1
+
+		if (ARubin) {
+      if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
+        DGP.SetR(*pR1, J(0,kZ,0))  // no-null model in DGP
+				DGP.InitExog()
+				DGP.InitEndog()
+        DGP.InitEstimate(*pr1)
+        DGP.Estimate(*pr1)
+        confpeak = DGP.beta  // estimated coordinate of confidence peak
+      }
+
+      pR = &(J(kX2,kX1,0), I(kX2))  // For Anderson-Rubin make attack surface all endog vars
+			Repl.SetR(kX1 & rows(*pR1)? ((*pR1)[|.,.\.,kX1|], J(rows(*pR1),kX2,0)) : J(0, kX, 0), *pR)  // and convert model constraints from referring to X1, Y2 to X1, X2
+    } else {
+      Repl.LIML = this.LIML; Repl.Fuller = this.Fuller; Repl.kappa = this.kappa
+			Repl.SetR(*pR1, *pR)
+		}
 
     if (WRE) {
-			Repl.parent = &this
-      Repl.isDGP = 0
-      DGP.LIML = 1; DGP.Fuller = 0; DGP.kappa = 1
-      if (ARubin==0) { 
-        Repl.LIML = this.LIML; Repl.Fuller = this.Fuller; Repl.kappa = this.kappa
-      }
       Repl.SetARubin(ARubin)
-			Repl.SetR(*pR1, *pR)
 			Repl.InitExog()
-			Repl.InitEndog(py1, pY2)
-			Repl.InitEstimate(*pr1)
+			Repl.InitEndog()
 
 			if (ARubin==0) {
-			  ZZg = smatrix(Repl.kZ, Repl.kZ)
-				deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
-				SstaruMZperp = SstaruPX = SstaruX = SstaruXinvXX = SstaruZperpinvZperpZperp = deltadenom = SstaruY = Zyg = smatrix(Repl.kZ+1)
-				Sstaruu = smatrix(Repl.kZ+1, Repl.kZ+1)
-				SCTcapuXinvXX = smatrix(Repl.kZ+1, Nstar)
-				_Jcap = J(Clust.N, Repl.kZ, 0)
+				Repl.InitEstimate(*pr1)
+
+				SstaruXinvXX = SstaruX = smatrix(Repl.kZ+1)
+				if (bootstrapt) {
+					ZZg = smatrix(Repl.kZ, Repl.kZ)
+					deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
+					SstaruMZperp = SstaruPX = SstaruZperpinvZperpZperp = deltadenom = SstaruY = Zyg = SstaruX
+					Sstaruu = smatrix(Repl.kZ+1, Repl.kZ+1)
+					SCTcapuXinvXX = smatrix(Repl.kZ+1, Nstar)
+					_Jcap = J(Clust.N, Repl.kZ, 0)
+				}
 			}
 		} else {
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
     }
 
-    DGP.InitEndog(py1, pY2)
+    DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))
+		DGP.InitExog()
+		DGP.InitEndog()
+		DGP.InitEstimate(null? *pr1 \ *pr : *pr1)
 
-    if (ARubin) {
-      if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
-        DGP.SetR(*pR1, J(0,kZ,0))  // no-null model in DGP
-        DGP.InitEstimate(*pr1)
-        DGP.Estimate(*pr1)
-        confpeak = *pR * DGP.beta  // estimated coordinate of confidence peak
-      }
-      pR = &(J(kX2,kX1,0), I(kX2))  // for ARubin test, picks out coefs on excluded exogenous variables
-    }
     df = rows(*pR)
     
     if (granular) {
       euXAR = smatrix(df)
-      pX = ARubin? &(*pX1, *pX2) : pX1
+      pX = ARubin? &(*pX1, *pX2) : pX1  // *** a hack?
     }
-
-    DGP.InitEstimate(null? *pr1 \ *pr : *pr1)
 
     if (ARubin) {
       kZ = l
@@ -1321,12 +1333,6 @@ kappa=1
 				for (j=i; j>=0; j--)
 					Sstaruu[i+1,j+1].M = _panelsum(j? U2parddot[,j] : DGP.u1dddot, *puwt, infoBootData)
 			}
-			// Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
-			for (g=Nstar;g;g--) {
-			  SuX1g = _panelsum(*DGP.pX1, *puwt, infoCTCapstar[g].M)
-				SuX2g = _panelsum(*DGP.pX2, *puwt, infoCTCapstar[g].M)
-				SCTcapuXinvXX[i+1,g].M = Repl.kX1? SuX1g * Repl.invXX1 + SuX2g * *Repl.pinvXX2 : SuX2g * *Repl.pinvXX
-			}
 
 			// S_star(u :* X), S_star(u :* Zperp) for residuals u for each endog var; store transposed
 			SstaruX1 = _panelsum(*Repl.pX1, *puwt, infoBootData)'
@@ -1334,16 +1340,20 @@ kappa=1
 			SstaruX                 [i+1].M = SstaruX1 \ SstaruX2
 
 			SstaruXinvXX            [i+1].M = *Repl.pinvXX * SstaruX[i+1].M
-			SstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * _panelsum(Repl.Zperp, *puwt, infoBootData)'
-			SstaruPX                [i+1].M = Repl.XinvXX * SstaruX[i+1].M
+			if (bootstrapt) {
+				// Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
+				for (g=Nstar;g;g--) {
+					SuX1g = _panelsum(*DGP.pX1, *puwt, infoCTCapstar[g].M)
+					SuX2g = _panelsum(*DGP.pX2, *puwt, infoCTCapstar[g].M)
+					SCTcapuXinvXX[i+1,g].M = Repl.kX1? SuX1g * Repl.invXX1 + SuX2g * *Repl.pinvXX2 : SuX2g * *Repl.pinvXX
+				}
 
-			SstaruMZperp[i+1].M = Repl.Zperp * SstaruZperpinvZperpZperp[i+1].M
-			for (g=Nobs;g;g--)  // subtract "crosstab" of observation by cap-group of u
-				SstaruMZperp[i+1].M[g,IDBootData[g]] = SstaruMZperp[i+1].M[g,IDBootData[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
-			
-			if (granular & favorspeed() & 0) {
-				SstaruPX    [i+1].M = SstaruPX    [i+1].M * v
-				SstaruMZperp[i+1].M = SstaruMZperp[i+1].M * v
+				SstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * _panelsum(Repl.Zperp, *puwt, infoBootData)'
+				SstaruPX                [i+1].M = Repl.XinvXX * SstaruX[i+1].M
+
+				SstaruMZperp[i+1].M = Repl.Zperp * SstaruZperpinvZperpZperp[i+1].M
+				for (g=Nobs;g;g--)  // subtract "crosstab" of observation by cap-group of u
+					SstaruMZperp[i+1].M[g,IDBootData[g]] = SstaruMZperp[i+1].M[g,IDBootData[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
 			}
 		}
 	}
@@ -1430,8 +1440,7 @@ kappa=1
 
 
 void boottest::PrepARubin(real colvector r) {
-  Repl.InitEndog(&(*Repl.py1par - *pY2 * r), NULL/*, &(*DGP.pX2y1 - DGP.X2Y2 * r), &(*DGP.pX1y1 - DGP.X1Y2 * r)*/)
-  Repl.InitEstimate(*pr1)
+  Repl.InitEstimate(*pr)
   Repl.Estimate(*pr1)
   Repl.InitTestDenoms()
 }
@@ -1549,6 +1558,7 @@ void boottest::_makeInterpolables(real colvector r) {
   else {  // same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined
     puwt = haswt? &(*puddot :* *pwt) : puddot
     ptmp = &_panelsum(*pX1, *puwt, infoBootData)
+
     if (ARubin)
       ptmp = &(*ptmp, _panelsum(*pX2, *puwt, infoBootData))
     SuwtXA = *pM->pA * (*ptmp)'
@@ -1564,9 +1574,9 @@ void boottest::_makeInterpolables(real colvector r) {
         for (d=df;d;d--) {
           tmp = pM->XAR[,d]; if (haswt) tmp = tmp :* *pwt
           if (ARubin)  // final term in (64) in paper, for c=intersection of all error clusters
-            Kd[d].M = (_panelsum(*pX1, tmp, *pinfoErrData), _panelsum(*pX2, tmp, *pinfoErrData)) * SuwtXA
+	            Kd[d].M = (_panelsum(*pX1, tmp, *pinfoErrData), _panelsum(*pX2, tmp, *pinfoErrData)) * SuwtXA
           else
-            Kd[d].M =  _panelsum(*pX1, tmp, *pinfoErrData                                      ) * SuwtXA
+            Kd[d].M =  _panelsum(*pX1, tmp, *pinfoErrData)                                       * SuwtXA
         }
 
       if (NFE & FEboot==0)
@@ -1604,7 +1614,7 @@ void boottest::_makeInterpolables(real colvector r) {
 
   makeNumerAndJ(1)  // compute J = kappa * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 
-  if      ( ARubin) numer[,1] = u_sd * pM->beta[|kX1+1\.|] // coefficients on excluded instruments in ARubin OLS
+  if      ( ARubin) numer[,1] = u_sd * pM->beta[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
   else if (null==0) numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - r) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 }
 
@@ -1618,7 +1628,7 @@ void boottest::makeNumerAndJ(real scalar w) {  // called to *prepare* interpolat
     else if (robust==0 | granular)
 	    numer                                         = *pR * (betadev = SuwtXA * v)
     else
-	    numer                                         = (*pR * SuwtXA) * v
+			numer                                         = (*pR * SuwtXA) * v
   else
     if (scoreBS)
       numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = B? cross(SuwtXA, v) : SuwtXA * u_sd
@@ -1627,13 +1637,13 @@ void boottest::makeNumerAndJ(real scalar w) {  // called to *prepare* interpolat
     else
       numer[|WeightGrpStart[w] \ WeightGrpStop[w]|] = (*pR * SuwtXA) * v
 
-  if (B & robust & GMM==0) {
+	if (B & robust & GMM==0) {
     if (granular)  // prep optimized treatment when bootstrapping by many/small groups
       if (purerobust)
-        ustar = *DGP.partialFE(&(*puddot :* v)) - *pX * betadev
+        ustar = *partialFE(&(*puddot :* v)) - *pX * betadev
       else {  // clusters small but not all singletons
         if (NFE) {
-          ustar = *DGP.partialFE(&(*puddot :* v[IDBootData,]))
+          ustar = *partialFE(&(*puddot :* v[IDBootData,]))
           for (d=df;d;d--)
             (*pJcd)[1,d].M = _panelsum(ustar,             pM->WXAR[d].M, *pinfoErrData)                                   - _panelsum(*pX, pM->WXAR[d].M, *pinfoErrData) * betadev
         } else
@@ -1641,7 +1651,7 @@ void boottest::makeNumerAndJ(real scalar w) {  // called to *prepare* interpolat
             (*pJcd)[1,d].M = _panelsum(_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[IDBootAll,], infoErrAll) - _panelsum(*pX, pM->WXAR[d].M, *pinfoErrData) * betadev
       }
 
-    for (c=NErrClustCombs; c>granular; c--)
+		for (c=NErrClustCombs; c>granular; c--)
       for (d=df;d;d--)
         (*pJcd)[c,d].M = Kcd[c,d].M * v
   }
@@ -1660,7 +1670,7 @@ void boottest::makeNonWREStats(real scalar w) {
         for (j=i;j;j--) {
           if (c = purerobust) _clustAccum(denom[i,j].M, c, cross(pM->WXAR[i].M, pM->WXAR[j].M, ustar2))  // c=purerobust not a bug
           for (c++; c<=NErrClustCombs; c++)
-            _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))  // (60)
+	           _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))  // (60)
         }
     }
 
@@ -1813,7 +1823,7 @@ void boottest::crosstabCapstarMinus(real matrix M, real colvector v) {
 			M[|(i\i), tmp|] = M[|(i\i), tmp|] - v[|tmp|]'
 		}
 	else if (NClustVar == NBootClustVar)  // crosstab c,c* is square
-		_diag(M, diagonal(M) + v)
+		_diag(M, diagonal(M) - v)
 	else  // crosstab c,c* is tall
 		for (i=Nstar;i;i--) {
 			tmp = pBootClust->info[i,]'
@@ -1832,7 +1842,7 @@ real scalar boottest::r_to_p(real colvector r) {
 
 
 // Chandrupatla 1997, "A new hybrid quadratic-bisection algorithm for finding the zero of a nonlinear function without using derivatives"
-// x1, x2 must bracket the true value, with f1=f(x1) and f2=f(x2) on opposite sides of alpha
+// x1, x2 must bracket the true value, with f1=f(x1) and f2=f(x2)
 real scalar boottest::search(real scalar alpha, real scalar f1, real scalar x1, real scalar f2, real scalar x2) {
 	real scalar x, t, fx, phi1, phi1_2, xi1, x3, f3
 	
@@ -1878,7 +1888,7 @@ void boottest::plot() {
 
   boottest()
   if (ARubin==0) {
-    halfwidth = (-5 * invnormal(alpha/2)) * sqrt(diagonal(getV()))
+    halfwidth = (-1.5 * invnormal(alpha/2)) * sqrt(diagonal(getV()))
     confpeak = getb() + *pr
   } else
     halfwidth = abs(confpeak) * invnormal(getpadj(1)/2) / invnormal(alpha/2)
@@ -2132,7 +2142,6 @@ timer_clear()
 	if (distname != "") st_matrix(distname, M.getdist(diststat))
 	if (vname != "" & B) st_matrix(vname, M.getv())
 	M.close()
-timer()
 }
 
 mata mlib create lboottest, dir("`c(sysdir_plus)'l") replace
