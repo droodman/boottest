@@ -23,7 +23,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 struct smatrix {
 	real matrix M
@@ -1217,46 +1217,47 @@ void boottest::makeWildWeights(real scalar _B, real scalar first) {
 
 
 // With reference to Y = [y1 Z], given 0-based columns indexes within it, ind1, ind2, return all bootstrap realizations of Y[,ind1]'(M_Zperp-kappa*M_Xpar)*Y[,ind2] for kappa CONSTANT across replications,
-// ind1 can be a rowvector of indices, which then refers to Z only
+// ind1 can be a rowvector of indices
 real matrix boottest::HessianFixedkappa(real rowvector ind1, real scalar ind2, real scalar kappa) {
-	real scalar i; real matrix retval, T1L, T1R, T2, MZperpTerm; pointer (real matrix) scalar pSstaruY
+	real scalar i; real matrix retval, T2, MZperpTerm; pointer (real colvector) scalar pT1L, pT1R
 
-	T1R = (ind2? *pcol(Repl.invXXXZ,ind2) : Repl.invXXXy1par)
-	if (Repl.Yendog[ind2+1])
-		T1R = T1R :+ SstaruXinvXX[ind2+1].M * v  // right-side linear term
+	if (kappa) {
+		pT1R = ind2? pcol(Repl.invXXXZ,ind2) : &Repl.invXXXy1par
+		if (Repl.Yendog[ind2+1])
+			pT1R = &(*pT1R :+ SstaruXinvXX[ind2+1].M * v)  // right-side linear term
 
-	if (cols(ind1) == 1) {
-		T1L = *pcol(Repl.XZ,ind1)
-		if (Repl.Yendog[ind1+1])
-			T1L = T1L :+ SstaruX[ind1+1].M * v
-		retval = colsum(T1L:* T1R)  // multiply in the left-side linear term
-	} else {
-		retval = J(cols(ind1), cols(v), 0)
-		for (i=cols(ind1);i;i--) {
-			T1L = *pcol(Repl.XZ,ind1[i])
-			if (Repl.Yendog[ind1[i]+1])
-				T1L = T1L :+ SstaruX[ind1[i]+1].M * v
-			retval[i,] = colsum(T1L :* T1R)  // multiply in the left-side linear terms for each ind1
+		if (cols(ind1) == 1) {
+			pT1L = ind1? pcol(Repl.XZ,ind1) : Repl.pXy1par
+			if (Repl.Yendog[ind1+1])
+				pT1L = &(*pT1L :+ SstaruX[ind1+1].M * v)
+			retval = colsum(*pT1L :* *pT1R)  // multiply in the left-side linear term
+		} else {
+			retval = J(cols(ind1), cols(v), 0)
+			for (i=cols(ind1);i;i--) {
+				pT1L = ind1[i]? pcol(Repl.XZ,ind1[i]) : Repl.pXy1par
+				if (Repl.Yendog[ind1[i]+1])
+					pT1L = &(*pT1L :+ SstaruX[ind1[i]+1].M * v)
+				retval[i,] = colsum(*pT1L :* *pT1R)  // multiply in the left-side linear terms for each ind1
+			}
 		}
 	}
 
 	if (kappa != 1) {
-		pSstaruY = pcol(SstaruY[ind2+1].M, ind1:+1)
-
 		if (cols(ind1) > 1)
 			MZperpTerm = J(cols(ind1),cols(v),0)
 		for (i=cols(ind1);i;i--)  // 
 			if (Repl.Yendog[ind1[i]+1]) {
-				T2 = SstaruZperpinvZperpZperp[ind1+1].M ' SstaruZperp[ind2+1].M  // quadratic term
+				T2 = SstaruZperpinvZperpZperp[ind1[i]+1].M ' SstaruZperp[ind2+1].M  // quadratic term
 				_diag(T2, diagonal(T2) - (ind1[i] <= ind2? Sstaruu[ind2+1, ind1[i]+1].M : Sstaruu[ind1[i]+1, ind2+1].M))  // minus diagonal crosstab
 
 				if (cols(ind1) > 1)
-					MZperpTerm[i,] = (*pSstaruY + *pcol(SstaruY[ind1[i]+1].M, ind2+1)) ' v - colsum(v :* T2 * v)
+					MZperpTerm[i,] = (*pcol(SstaruY[ind2+1].M, ind1[i]+1) + *pcol(SstaruY[ind1[i]+1].M, ind2+1)) ' v - colsum(v :* T2 * v)
 				else
-					MZperpTerm     = (*pSstaruY + *pcol(SstaruY[ind1[i]+1].M, ind2+1)) ' v - colsum(v :* T2 * v)
+					MZperpTerm     = (*pcol(SstaruY[ind2+1].M, ind1[i]+1) + *pcol(SstaruY[ind1[i]+1].M, ind2+1)) ' v - colsum(v :* T2 * v)
 			}
 			
-		retval = kappa :* retval + (1 - kappa) :* (MZperpTerm :+ Repl.YY[ind1:+1,ind2+1])
+		retval = kappa? kappa :* retval + (1 - kappa) :* (MZperpTerm :+ Repl.YY[ind1:+1,ind2+1]) :
+		                                                  MZperpTerm :+ Repl.YY[ind1:+1,ind2+1]
 	}
 	return(retval)
 }
@@ -1343,19 +1344,20 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 void boottest::makeWREStats(real scalar w) {
 	real scalar c, b, i, j, g, kappa
 	real colvector numer_b
-	real rowvector betas, As, _numer
-	real matrix SstaruX1, SstaruX2, deltanumer, Jcap, J_b, SuX1g, SuX2g, Jcaps
+	real rowvector betas, As, _numer, val
+	real matrix SstaruX1, SstaruX2, deltanumer, Jcap, J_b, SuX1g, SuX2g, Jcaps, vec
 	pointer (real colvector) scalar puwt
 	struct smatrix rowvector A
-
+	pragma unset vec; pragma unset val
+kappa=1
 	U2parddot = DGP.U2ddot * Repl.RparY
 
 	if (w==1 & NClustVar & NFE==0) {  // first/only weight group? prep for optimized computation for bootstrapping cluster when no FE
-kappa=1
+
 		for (i=Repl.kZ; i>=0; i--) {  // precompute various clusterwise sums
 			puwt = i? pcol(U2parddot,i) : &DGP.u1dddot; if (haswt) puwt = &(*puwt :* *pwt)
 
-			if (kappa != 1) {
+			if (kappa != 1 | 1 /******/ ) {
 				SstaruY[i+1].M = *_panelsum(*Repl.py1par, *puwt, infoBootData), *_panelsum(Repl.Z, *puwt, infoBootData)
 				for (j=i; j>=0; j--)
 					Sstaruu[i+1,j+1].M = *_panelsum(j? *pcol(U2parddot,j) : DGP.u1dddot, *puwt, infoBootData)
@@ -1386,7 +1388,7 @@ kappa=1
 		}
 	}
 
-	if (Repl.kZ == 1) {  // WRE bootstrap optimized for for Repl.kZ (# of coefficients in bootstrap regression) = 1
+	if (Repl.kZ == 1 & 0) {  // WRE bootstrap optimized for for Repl.kZ (# of coefficients in bootstrap regression) = 1
 		betas = HessianFixedkappa(1..Repl.kZ, 0, kappa) :/ (As = HessianFixedkappa(1, 1, kappa))
 		if (null)
 			if (Nw == 1)
@@ -1424,19 +1426,43 @@ kappa=1
 		}
 
 	} else {  // WRE bootstrap for Repl.kZ > 1
-
-		deltanumer = HessianFixedkappa(1..Repl.kZ, 0, kappa)  // *** handle LIML exception: kappa varies
-
-		for (i=Repl.kZ;i;i--)
-			deltadenom[i].M = HessianFixedkappa(1..i, i, kappa)
-
+struct smatrix rowvector YYstar, YPXYstar
+real matrix YYstar_b, YPXYstar_b
+YYstar_b = YPXYstar_b = J(Repl.kZ+1, Repl.kZ+1, 0)
+YYstar = YPXYstar = smatrix(Repl.kZ+1)
 		betas = J(Repl.kZ, cols(v), 0)
 		A = smatrix(cols(v))
-		for (b=cols(v); b; b--) {  // WRE bootstrap
+
+		if (LIML | 1) {
+			for (i=Repl.kZ;i>=0;i--) {
+				YYstar  [i+1].M = HessianFixedkappa(0..i      , i, 0)  // kappa=0 => Y*MZperp*Y
+				YPXYstar[i+1].M = HessianFixedkappa(i..Repl.kZ, i, 1)  // kappa=1 => Y*PXpar*Y
+			}
+			for (b=cols(v); b; b--) {
+				for (i=Repl.kZ;i>=0;i--) {
+					YYstar_b  [|.,i+1\i+1,i+1|] = YYstar  [i+1].M[,b]  // fill uppper triangle, which is all that invsym() looks at
+					YPXYstar_b[|i+1,i+1\Repl.kZ+1,i+1|] = YPXYstar[i+1].M[,b]  // fill lower triangle to prepare for _makesymmetric()
+				}
+				_makesymmetric(YPXYstar_b)
+				eigensystemselecti(invsym(YYstar_b) * YPXYstar_b, Repl.kZ+1\Repl.kZ+1, vec, val)
+				kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
+				if (Fuller) kappa = kappa - 1 / (_Nobs - l)
+kappa=1
+				betas[,b] = (A[b].M = invsym(kappa*YPXYstar_b[|2,2\.,.|] + (1-kappa)*YYstar_b[|2,2\.,.|])) * (kappa*YPXYstar_b[|2,1\.,1|] + (1-kappa)*YYstar_b[|1,2\1,.|]')
+			}
+		} else {
+			deltanumer = HessianFixedkappa(1..Repl.kZ, 0, kappa)
+
 			for (i=Repl.kZ;i;i--)
-				deltadenom_b[|.,i\i,i|] = deltadenom[i].M[,b]  // fill uppper triangle, which is all that invsym() looks at
-			betas[,b]  = (A[b].M = invsym(deltadenom_b)) * deltanumer[,b]
+				deltadenom[i].M = HessianFixedkappa(1..i, i, kappa)
+
+			for (b=cols(v); b; b--) {  // WRE bootstrap
+				for (i=Repl.kZ;i;i--)
+					deltadenom_b[|.,i\i,i|] = deltadenom[i].M[,b]  // fill uppper triangle, which is all that invsym() looks at
+				betas[,b]  = (A[b].M = invsym(deltadenom_b)) * deltanumer[,b]
+			}
 		}
+		
 		for(i=Repl.kZ;i;i--)
 			Zyg[i].M = *Filling(i, betas)
 
