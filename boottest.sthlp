@@ -109,8 +109,9 @@ For exact replication of earlier results, an older version, 2.0.5, is available 
 {net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}.
 
 {pstd} Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
-which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather than that of t/z/F/chi2 statistics. Theory favors the latter, 
-but Young (2019) presents evidence that the bootstrap-c is more reliable, at least in instrumental variables estimation in economics. The option 
+which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather than that of t/z/F/chi2 statistics. Standard theory favors the latter, 
+but Young (2019) presents evidence that the bootstrap-c (or "non-studentized" test) is more reliable, at least in instrumental variables estimation. Theory and simulation in
+Wang (2021) favors the non-studentized test when instruments are weak (but strong in at least one cluster). The option 
 {cmdab:stat:istic(c)} invokes the feature.
 
 {pstd} As of version 2.7.0, of 26 April 2020, {cmd:boottest} requires Stata version 13 or later. Version 2.6.0, which also works in Stata versions 11 and 12, can be downloaded
@@ -150,8 +151,8 @@ distribution. In contrast, the bootstrap-c uses the same bootstrap data-generati
 combinations thereof. From the bootstrap numerators, the bootstrap-c algorithm then computes a single covariance matrix for use in all the statistics. For one-dimensional hypotheses,
 dividing the test statistic numerator and its bootstrap replications by this universal denominator has no substantive effect; but it is needed for higher-dimensional hypothesis in order
 to norm the numerators, which are vectors. Under standard asumptions, the
-bootstrap-t, unlike the bootstrap-c, offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) provides evidence
-that in instrumental variables estimation in economics, the bootstrap-c is more reliable. {cmd:boottest} offers both through the {cmdab:stat:istic()} option, {cmd:stat(t)} being the default.
+bootstrap-t, unlike the bootstrap-c, offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) and Wang (2021) provide evidence
+that in instrumental variables estimation, the bootstrap-c is more reliable, at least, perhaps, when instruments are weak. {cmd:boottest} offers both through the {cmdab:stat:istic()} option, {cmd:stat(t)} being the default.
 
 {p 4 6 0}
 If one instructs {cmd:boottest} to generate zero bootstrap replications ({cmd:reps(0)}), then, depending on the bootstrap chosen and whether {cmd:ar} is specified, it will default to:
@@ -570,7 +571,8 @@ estimation. {it:Proc. Cambridge Philos. Soc.} 44: 50-57.{p_end}
 {p 4 8 2}Roodman, D., J. MacKinnon, M. Nielsen, and M. Webb. 2019. Fast and wild: bootstrap inference in Stata using boottest. {it:Stata Journal} 19(1): 4-60.{p_end}
 {p 4 8 2}Wald, A. 1943. Tests of statistical hypotheses concerning several parameters when the number of observations is
 large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
+{p 4 8 2}Wang, W. 2021. Wild Bootstrap for Instrumental Variables Regression with Weak Instruments and Few Clusters. https://mpra.ub.uni-muenchen.de/106227.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
 {p 4 8 2}Wu, C.F.J. 1986. Jackknife, bootstrap and other resampling methods in regression analysis (with discussions). {it:Annals of Statistics}
 14: 1261-1350.{p_end}
-{p 4 8 2}Young, A. 2019. Consistency without inference: instrumental variables in practical applications. http://personal.lse.ac.uk/YoungA/ConsistencyWithoutInference.pdf.{p_end}
+{p 4 8 2}Young, A. 2019. Consistency without inference: instrumental variables in practical applications. https://personal.lse.ac.uk/YoungA/ConsistencyWithoutInference.pdf.{p_end}
