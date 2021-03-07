@@ -23,7 +23,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
 	real matrix M
@@ -91,7 +91,7 @@ class boottest {
 	pointer (class boottestEstimator scalar) scalar pM
 	struct structboottestClust colvector Clust
 	struct smatrix matrix denom, Kcd, denom0, Jcd0, SCTcapuXinvXX, Sstaruu, CTuX
-	struct smatrix rowvector Kd, euXAR, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, SstaruX, SstaruXinvXX, SstaruZperpinvZperpZperp, deltadenom, ZZg, Zyg, SstaruY, SstaruMZperp, SstaruPX, SstaruZperp, YYstar, YPXYstar, CTFEu
+	struct smatrix rowvector Kd, euXAR, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, SstaruX, SstaruXinvXX, SstaruZperpinvZperpZperp, deltadenom, Zyg, SstaruY, SstaruMZperp, SstaruPX, SstaruZperp, YYstar, YPXYstar, CTFEu
   struct ssmatrix rowvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
 	pointer(struct smatrix matrix) scalar pJcd
@@ -885,7 +885,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     purerobust = NClustVar & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
 		                           NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar)
-granular=0
+
     if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; Fused to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
@@ -1017,12 +1017,11 @@ if (WREnonARubin & robust & granular==0) {
 					Repl.InitTestDenoms()
 				else {
           if (LIML & Repl.kZ==1 & Nw==1) As = betas = J(1, B+1, 0)
-					SstaruXinvXX = SstaruX = smatrix(Repl.kZ+1)
-					if (bootstrapt) {
-						ZZg = smatrix(Repl.kZ, Repl.kZ)
+					SstaruZperpinvZperpZperp = SstaruZperp = SstaruY = SstaruXinvXX = SstaruX = smatrix(Repl.kZ+1)
+					Sstaruu = smatrix(Repl.kZ+1, Repl.kZ+1)
+						if (bootstrapt) {
 						deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
-						SstaruZperp = SstaruZperpinvZperpZperp = SstaruMZperp = SstaruPX = deltadenom = SstaruY = Zyg = SstaruX
-						Sstaruu = smatrix(Repl.kZ+1, Repl.kZ+1)
+						SstaruMZperp = SstaruPX = deltadenom = Zyg = SstaruX
 						_Jcap = J(Clust.N, Repl.kZ, 0)
 						if (granular==0)
 							SCTcapuXinvXX = smatrix(Repl.kZ+1, Nstar)
@@ -1030,7 +1029,7 @@ if (WREnonARubin & robust & granular==0) {
 							YYstar = YPXYstar = SstaruX
 							YYstar_b = YPXYstar_b = J(Repl.kZ+1, Repl.kZ+1, 0)
 						}
-            if (NFE & (granular==0 | kappa!=1 | LIML))
+            if (NFE & (bootstrapt | kappa != 1 | LIML))
               CTFEu = SstaruX
 					}
 				}
@@ -1348,14 +1347,17 @@ void boottest::PrepWRE() {
 					Sstaruu[i+1,j+1].M = *_panelsum(j? *pcol(U2parddot,j) : DGP.u1dddot, *puwt, infoBootData)
 			}
 
-      if (NFE & (kappa != 1 | LIML | granular==0))
+      if (NFE & (bootstrapt | kappa != 1 | LIML))
         CTFEu[i+1].M = crosstabFE(*puwt, infoBootData)
 
 			// S_star(u :* X), S_star(u :* Zperp) for residuals u for each endog var; store transposed
 			SstaruX                 [i+1].M = *_panelsum2(*Repl.pX1, *Repl.pX2, *puwt, infoBootData)'
 			SstaruXinvXX            [i+1].M = *Repl.pinvXX * SstaruX[i+1].M
-			if (bootstrapt | kappa != 1 | LIML)
+
+			if (bootstrapt | kappa!=1 | LIML) {
 				SstaruZperp           [i+1].M = *_panelsum(Repl.Zperp, *puwt, infoBootData)'
+      	SstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * SstaruZperp[i+1].M
+      }
 
 			if (bootstrapt) {
 				if (granular==0)  // Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
@@ -1367,11 +1369,10 @@ void boottest::PrepWRE() {
 					}
 				
 				SstaruPX                [i+1].M = Repl.XinvXX        * SstaruX                 [i+1].M
-				SstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * SstaruZperp             [i+1].M
 				SstaruMZperp            [i+1].M = Repl.Zperp         * SstaruZperpinvZperpZperp[i+1].M
 				for (g=Nobs;g;g--)  // subtract "crosstab" of observation by cap-group of u
 					SstaruMZperp[i+1].M[g,IDBootData[g]] = SstaruMZperp[i+1].M[g,IDBootData[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
-        if (granular==0 & NFE)
+        if (NFE)
 	        SstaruMZperp[i+1].M = SstaruMZperp[i+1].M + (invFEwt :* CTFEu[i+1].M)[*pFEID,]
 			}
 		}
@@ -2199,7 +2200,3 @@ end
 qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
 boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
 
-qui ivreg2    D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
-boottest DL.lpris_totpop=-1/3, cluster( year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
-qui xtivreg D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe 
-boottest DL.lpris_totpop=-1/3, cluster( year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
