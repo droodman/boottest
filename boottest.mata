@@ -23,7 +23,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 struct smatrix {
 	real matrix M
@@ -70,8 +70,8 @@ class boottestEstimator {  // class for analyitcal OLS, 2SLS, LIML, GMM estimati
 	pointer(real colvector) scalar py1, py1par, pX2y1par, pX1y1par, pZy1par, pXy1par
 	pointer(real matrix) scalar pY2, pZZ, pZy1, pX2y1, pX1y1, pA, pW, pinvXX, pH, pR, pT, pX1, pX2, pinvXX2, pX1X1
 	pointer (class boottest scalar) scalar parent
-	struct smatrix matrix CT_XAR, FillingT0
-	struct smatrix rowvector WXAR, SPXYZperp, SMZperpYX
+	struct smatrix matrix FillingT0
+	struct smatrix rowvector WXAR, SPXYZperp, SMZperpYX, CT_XAR, CT_FEcapPY
 
 	private void new(), InitVars(), InitTestDenoms(), SetR(), Estimate(), SetARubin()
 	private real matrix _select(), perp()
@@ -79,20 +79,19 @@ class boottestEstimator {  // class for analyitcal OLS, 2SLS, LIML, GMM estimati
 
 class boottest {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, GMM, Nobs, _Nobs, kZ, kY2, kX1, l, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
-		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, ///
+		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, BootClust, ///
 		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q1, q, interpolable, interpolating, interpolate_u, robust, kX2, kX, overid
-	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDErr, U2parddot, deltadenom_b, _Jcap, ZR1ex, invR1R1par, CT, YYstar_b, YPXYstar_b
-	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, wtFE, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles
+	real matrix AR, numer, v, ustar, TARubin, T0, L0invR0L0, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDCap, U2parddot, deltadenom_b, _Jcap, ZR1ex, invR1R1par, CT, YYstar_b, YPXYstar_b
+	real colvector DistCDR, t, tARubin, plotX, plotY, t0, beta, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles, invFEwt
 	real rowvector peak, betas, As
 	string scalar wttype, madjtype, seed
-	pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pinfoAllData, pinfoErrData, pIDAll
+	pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pinfoAllData, pinfoCapData, pIDAll
 	pointer (real colvector) scalar pr1, pr, py1, pSc, pwt, pW, pA, puddot, pDist
 	class boottestEstimator scalar DGP, Repl
 	pointer (class boottestEstimator scalar) scalar pM
 	struct structboottestClust colvector Clust
-	pointer (struct structboottestClust scalar) scalar pBootClust
 	struct smatrix matrix denom, Kcd, denom0, Jcd0, SCTcapuXinvXX, Sstaruu, CTuX
-	struct smatrix rowvector Kd, euXAR, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, SstaruX, SstaruXinvXX, SstaruZperpinvZperpZperp, deltadenom, ZZg, Zyg, SstaruY, SstaruMZperp, SstaruPX, SstaruZperp, YYstar, YPXYstar
+	struct smatrix rowvector Kd, euXAR, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, SstaruX, SstaruXinvXX, SstaruZperpinvZperpZperp, deltadenom, ZZg, Zyg, SstaruY, SstaruMZperp, SstaruPX, SstaruZperp, YYstar, YPXYstar, CTFEu
   struct ssmatrix rowvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
 	pointer(struct smatrix matrix) scalar pJcd
@@ -107,7 +106,7 @@ class boottest {
 	real rowvector getpeak()
 	real colvector getdist(), getb()
 	private real scalar r_to_p(), search()
-  private real matrix count_binary(), crosstabAllFE(), HessianFixedkappa()
+  private real matrix count_binary(), crosstabFE(), HessianFixedkappa()
 	private pointer(real matrix) scalar Filling(), partialFE()
   private static real matrix combs()
   private static real colvector stableorder()
@@ -208,7 +207,7 @@ void boottestEstimator::SetR(real matrix R1, real matrix R) {
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestEstimator::InitVars() {
-	real matrix X2X1, XX1, ZperpZ, ZperpY2, ZperpZR1; real scalar ind1, ind2, i; pointer (real colvector) scalar puwt; pointer (real matrix) scalar pbetadenom
+	real matrix X2X1, XX1, ZperpZ, ZperpY2, ZperpZR1; real scalar i,j; pointer (real colvector) scalar puwt; pointer (real matrix) scalar pbetadenom
 
 	if (kappa) {  // GMM, 2SLS, LIML, Anderson-Rubin DGP
 		Zex   = *parent->pX1 * RparX       // exogenous component of Zpar
@@ -309,16 +308,20 @@ void boottestEstimator::InitVars() {
 				PXZ = X12B(*pX1, *pX2, invXXXZ)
 
 				FillingT0 = smatrix(kZ+1, kZ+1)  // fixed component of groupwise term in sandwich filling
-				for (ind1=kZ; ind1; ind1--) {
-					puwt = pvHadw(*pcol(PXZ,ind1), *parent->pwt)
-					for (ind2=kZ; ind2; ind2--)
-						FillingT0[ind1+1,ind2+1].M = *_panelsum(*pcol(Z,ind2), *puwt, *parent->pinfoErrData)
+        if (parent->NFE)
+        	CT_FEcapPY = smatrix(kZ+1)
+				for (i=kZ; i; i--) {
+					puwt = pvHadw(*pcol(PXZ,i), *parent->pwt)
+          if (parent->NFE)
+          	CT_FEcapPY[i+1].M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
+					for (j=kZ; j; j--)
+						FillingT0[i+1,j+1].M = *_panelsum(*pcol(Z,j), *puwt, *parent->pinfoCapData)
 				}
 
 				for (i=kZ; i; i--) {  // precompute various clusterwise sums
-					SPXYZperp[i+1].M = *_panelsum(Zperp, *pvHadw(*pcol(PXZ,i), *parent->pwt), *parent->pinfoErrData)  // S_cap(P_(MZperpX) * Z :* Zperp)
+					SPXYZperp[i+1].M = *_panelsum(Zperp, *pvHadw(*pcol(PXZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(P_(MZperpX) * Z :* Zperp)
 					if (parent->granular==0)
-						SMZperpYX[i+1].M = *_panelsum2(*pX1, *pX2, *pvHadw(*pcol(Z,i), *parent->pwt), *parent->pinfoErrData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
+						SMZperpYX[i+1].M = *_panelsum2(*pX1, *pX2, *pvHadw(*pcol(Z,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
 				}
 			}
 		}
@@ -345,7 +348,7 @@ void boottestEstimator::InitVars() {
 // non-WRE stuff that doesn't depend on r, for test stat denominators in replication regressions
 // since the non-AR OLS code never creates an object for replication regresssions, in that case this is called on the DGP regression object
 void boottestEstimator::InitTestDenoms() {
-	real scalar d, c; struct smatrix rowvector _CT_XAR; pointer (real matrix) scalar pWXAR
+	real scalar d; pointer (real matrix) scalar pWXAR
 
 	pA = ARubinRepl==0 & cols(parent->Repl.R1perp)? &(parent->Repl.R1perp * invsym(parent->Repl.R1perp ' (*pH) * parent->Repl.R1perp) * parent->Repl.R1perp') :
 	                                                &(rows(invH)? invH : invsym(*pH))
@@ -364,20 +367,12 @@ void boottestEstimator::InitTestDenoms() {
 				WXAR[d].M = (*pWXAR)[,d]
 		}
 		
-		if (parent->NFE & parent->robust & (parent->FEboot | parent->scoreBS)==0 & parent->granular < parent->NErrClustCombs) {
-			if (pWXAR==NULL) pWXAR = pvHadw(XAR, *parent->pwt)
-			CT_XAR = smatrix(parent->NErrClustCombs, parent->df)
+		if (parent->NFE & parent->robust & (parent->FEboot | parent->scoreBS)==0 & parent->granular < parent->NErrClustCombs) {  // make first factor, second term of (64) for c = ∩ (c=1)
+			if (pWXAR==NULL)
+        pWXAR = pvHadw(XAR, *parent->pwt)
+			CT_XAR = smatrix(parent->df)
 			for (d=parent->df;d;d--)
-				CT_XAR[1,d].M = parent->crosstabAllFE((*pWXAR)[,d])
-			if (parent->NClustVar > 1) {
-				_CT_XAR = CT_XAR[1,]
-				for (c=2; c<=parent->NErrClustCombs; c++)
-					for (d=parent->df;d;d--) {
-						if (rows(parent->Clust[c].order))
-							_CT_XAR[d].M = _CT_XAR[d].M[parent->Clust[c].order,]
-						CT_XAR[c,d].M = *_panelsum(_CT_XAR[d].M, parent->Clust[c].info)
-					}
-			}
+				CT_XAR[d].M = parent->crosstabFE((*pWXAR)[,d], *parent->pinfoCapData)
 		}
 	}
 }
@@ -454,7 +449,7 @@ void boottestEstimator::Estimate(real colvector r1) {
 			u1dddot = u1ddot + U2ddot * (gamma = R1invR1R1Y * r1 + RparY * beta)
 		}
 
-	} else if (parent->WREnonARubin & parent->robust) {  // for replication regression, prepare for CRVE
+	} else if (parent->WREnonARubin & parent->robust) {  // prepare WRE replication regressions
 		Rt1 = *pR * R1invR1R1 * r1
 
 		if (parent->bootstrapt) {
@@ -462,15 +457,18 @@ void boottestEstimator::Estimate(real colvector r1) {
 
 			puwt = pvHadw(PXy1, *parent->pwt)
 			for (i=kZ; i; i--)
-				FillingT0[1,i+1].M = *_panelsum(*pcol(Z,i), *puwt, *parent->pinfoErrData)
-			SPXYZperp.M = *_panelsum(Zperp, *puwt, *parent->pinfoErrData)  // S_cap(P_(MZperpX) * y1 :* Zperp)
+				FillingT0[1,i+1].M = *_panelsum(*pcol(Z,i), *puwt, *parent->pinfoCapData)
+			SPXYZperp.M = *_panelsum(Zperp, *puwt, *parent->pinfoCapData)  // S_cap(P_(MZperpX) * y1 :* Zperp)
+
+      if (parent->NFE)
+      	CT_FEcapPY.M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
 
 			puwt = pvHadw(*py1par, *parent->pwt)
 			for (i=kZ; i; i--)
-				FillingT0[i+1,1].M = *_panelsum(*pcol(PXZ,i), *puwt, *parent->pinfoErrData)
-			FillingT0.M          = *_panelsum(PXy1        , *puwt, *parent->pinfoErrData)
+				FillingT0[i+1,1].M = *_panelsum(*pcol(PXZ,i), *puwt, *parent->pinfoCapData)
+			FillingT0.M          = *_panelsum(PXy1        , *puwt, *parent->pinfoCapData)
 			if (parent->granular==0)
-				SMZperpYX.M        = *_panelsum2(*pX1, *pX2 , *puwt, *parent->pinfoErrData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
+				SMZperpYX.M        = *_panelsum2(*pX1, *pX2 , *puwt, *parent->pinfoCapData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
 		}
 	}
 }
@@ -782,11 +780,11 @@ void boottest::_clustAccum(real matrix X, real scalar c, real matrix Y)
 
 
 void boottest::Init() {  // for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
-  real colvector sortID, o, _FEID, IDAllData, IDErrData
+  real colvector sortID, o, _FEID, IDAllData, IDCapData
 	real rowvector ClustCols
 	real matrix Combs, tmp
-	real scalar i, j, c, minN, sumN, _B, i_FE
-	pragma unset IDAllData; pragma unset IDErrData
+	real scalar i, j, c, minN, sumN, _B, i_FE, sumFEwt
+	pragma unset IDAllData; pragma unset IDCapData
 
   Nobs = rows(*pX1)
   NClustVar = cols(*pID)
@@ -817,14 +815,14 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     if (NClustVar)
       infoBootData = _panelsetup(*pID, 1..NBootClustVar, IDBootData)
     else
-      pinfoErrData = &(infoBootData = J(Nobs,0,0))
+      pinfoCapData = &(infoBootData = J(Nobs,0,0))
   else if (NClustVar)
     if (NClustVar > NBootClustVar)  // bootstrap Cluster grouping defs rel to original data
       infoBootData = _panelsetup(*pID, 1..NBootClustVar)
     else
       infoBootData = _panelsetup(*pID, 1..NClustVar)
   else
-    pinfoErrData = pinfoAllData = &(infoBootData = J(Nobs,0,0))  // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
+    pinfoCapData = pinfoAllData = &(infoBootData = J(Nobs,0,0))  // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
   Nstar = rows(infoBootData)
 
   if (bootstrapt) {
@@ -836,17 +834,12 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       NErrClustCombs = length(Clust)
       subcluster = NClustVar - NErrClust
 
-      pinfoAllData = NClustVar > NBootClustVar? &_panelsetup(*pID,            1..NClustVar) : &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab EXAR wrt bootstrapping cluster & intersection of all error clusterings
-      pinfoErrData = NClustVar > NErrClust    ? &_panelsetup(*pID, subcluster+1..NClustVar) : pinfoAllData  // info for intersections of error clustering wrt data
-       IDErr = rows(*pinfoErrData)==Nobs? *pID :   (*pID)[(*pinfoErrData)[,1],]   // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+      pinfoAllData = NClustVar > NBootClustVar? &_panelsetup(*pID,            1..NClustVar) : &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
+      pinfoCapData = NClustVar > NErrClust    ? &_panelsetup(*pID, subcluster+1..NClustVar) : pinfoAllData  // info for intersections of error clustering wrt data
+       IDCap = rows(*pinfoCapData)==Nobs? *pID :   (*pID)[(*pinfoCapData)[,1],]   // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
       pIDAll = rows(*pinfoAllData)==Nobs?  pID : &((*pID)[(*pinfoAllData)[,1],])  // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
 
-      if (subcluster) {  // for subcluster bootstrap, bootstrapping cluster is not among error clustering combinations
-        pBootClust = &(structboottestClust())
-        pBootClust->info = _panelsetup(*pIDAll, 1..NBootClustVar)  // bootstrapping cluster info w.r.t. all-bootstrap & error-cluster intersections
-        Nstar = rows(pBootClust->info)
-      } else
-        pBootClust = &(Clust[2^(NClustVar - NBootClustVar)])  // *** inefficient because copies large objects? *** location of bootstrap clustering within list of cluster combinations
+      BootClust = 2^(NClustVar - NBootClustVar)  // location of bootstrap clustering within list of cluster combinations
 
 			for (c=1; c<=NErrClustCombs; c++) {  // for each error clustering combination
         ClustCols = subcluster :+ _selectindex(Combs[c,])
@@ -854,15 +847,15 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
         if (c == 1)
           if (subcluster) {
-            IDErr = IDErr[ Clust.order = stableorder(IDErr, ClustCols), ]
-            Clust.info       = _panelsetup(IDErr, ClustCols)
+            IDCap = IDCap[ Clust.order = stableorder(IDCap, ClustCols), ]
+            Clust.info       = _panelsetup(IDCap, ClustCols)
           } else
             Clust.info       = J(rows(*pinfoAllData),0,0)  // causes no collapsing of data in _panelsum() calls
         else {
           if (any(Combs[|c, min(_selectindex(Combs[c,] :!= Combs[c-1,])) \ c,.|])) // if this sort ordering same as last to some point and missing thereafter, no need to re-sort
-            IDErr = IDErr[ Clust[c].order = stableorder(IDErr, ClustCols), ]
+            IDCap = IDCap[ Clust[c].order = stableorder(IDCap, ClustCols), ]
 
-          Clust[c].info      = _panelsetup(IDErr, ClustCols)
+          Clust[c].info      = _panelsetup(IDCap, ClustCols)
         }
 
         Clust[c].N           = rows(Clust[c].info)
@@ -876,21 +869,10 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       }
 
       if (scoreBS | WREnonARubin==0)
-        ClustShare = haswt? *_panelsum(*pwt, *pinfoErrData)/sumwt : ((*pinfoErrData)[,2]-(*pinfoErrData)[,1]:+ 1)/Nobs // share of observations by group 
-
-if (WREnonARubin & granular==0) {
-(void) _panelsetup(*pID,            1..NClustVar, IDAllData)
-(void) _panelsetup(*pID, subcluster+1..NClustVar, IDErrData)
-				IDCTCapstar = infoCTCapstar = smatrix(Nstar)
-				for (i=Nstar;i;i--) {
-					t = IDAllData[|infoBootData[i,]'|]                        // ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
-					infoCTCapstar[i].M = (*pinfoAllData)[t[1]::t[rows(t)],]  // for those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
-					IDCTCapstar[i].M = IDErrData[infoCTCapstar[i].M[,1]]    // ID numbers of those groupings w.r.t. the all-error-clusterings grouping
-				}
-}
+        ClustShare = haswt? *_panelsum(*pwt, *pinfoCapData)/sumwt : ((*pinfoCapData)[,2]-(*pinfoCapData)[,1]:+ 1)/Nobs // share of observations by group 
 
     } else {  // if no clustering, cast "robust" as clustering by observation
-      pBootClust = &(Clust = structboottestClust())
+      Clust = structboottestClust()
       Clust.multiplier = small? _Nobs / (_Nobs - 1) : 1
       Clust.even = 1
       sumN = Clust.N = Nobs
@@ -903,30 +885,42 @@ if (WREnonARubin & granular==0) {
     purerobust = NClustVar & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
 		                           NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar)
-
-		if (robust & purerobust==0) {
+granular=0
+    if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; Fused to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
       if ((scoreBS & B) | (WREnonARubin /*& (NClustVar != NBootClustVar | subcluster)*/))
         JNcapNstar = J(Clust.N, Nstar, 0)
     }
+if (WREnonARubin & robust & granular==0) {
+(void) _panelsetup(*pID,            1..NClustVar, IDAllData)
+(void) _panelsetup(*pID, subcluster+1..NClustVar, IDCapData)
+				IDCTCapstar = infoCTCapstar = smatrix(Nstar)
+				for (i=Nstar;i;i--) {
+					t = IDAllData[|infoBootData[i,]'|]                       // ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
+					infoCTCapstar[i].M = (*pinfoAllData)[t[1]::t[rows(t)],]  // for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
+					IDCTCapstar[i].M = IDCapData[infoCTCapstar[i].M[,1]]     // ID numbers of those groupings w.r.t. the all-error-clusterings grouping
+				}
+}
+
   } else
     minN = rows(infoBootData)
 
   if (NFE) {
     sortID = (*pFEID)[o = stableorder(*pFEID, 1)]
-    i_FE = 1; FEboot = B>0; j = Nobs; _FEID = wtFE = J(Nobs, 1, 1)
+    i_FE = 1; FEboot = B>0; j = Nobs; _FEID = J(Nobs, 1, 1)
+    invFEwt = J(NFE,1,0)
     FEs = structFE(NFE)
     for (i=Nobs-1;i;i--) {
       if (sortID[i] != sortID[i+1]) {
         FEs[i_FE].is = o[|i+1\j|]
         if (haswt) {
           tmp  = (*pwt)[FEs[i_FE].is]
-          FEs[i_FE].wt = tmp / colsum(tmp)
+          FEs[i_FE].wt = tmp / (sumFEwt = colsum(tmp))
         } else
-          FEs[i_FE].wt = J(j-i, 1, 1/(j-i))
-        if (B & robust & granular < NErrClust)
-          wtFE[FEs[i_FE].is] = FEs[i_FE].wt
+          FEs[i_FE].wt = J(j-i, 1, 1/(sumFEwt = j-i))
+        if ((B & robust & granular < NErrClust) | (WREnonARubin & robust & granular & bootstrapt))
+            invFEwt[i_FE] = 1 / sumFEwt
 
         j = i
         
@@ -941,12 +935,11 @@ if (WREnonARubin & granular==0) {
     FEs[NFE].is = FEs[NFE].is = o[|.\j|]
     if (haswt) {
       tmp  = (*pwt)[FEs[NFE].is]
-      FEs[NFE].wt = tmp / colsum(tmp)
+      FEs[NFE].wt = tmp / (sumFEwt = colsum(tmp))
     } else
-      FEs[NFE].wt = J(j-i,1,1/(j-i))
-    if (B & robust & granular < NErrClust)
-      wtFE[FEs[NFE].is] = FEs[NFE].wt
-
+      FEs[NFE].wt = J(j-i,1,1/(sumFEwt = j-i))
+    if ((B & robust & granular < NErrClust) | (WREnonARubin & robust & granular & bootstrapt))
+      invFEwt[NFE] = 1 / sumFEwt
     if (B & FEboot & NClustVar) {  // are all of this FE's obs in same bootstrapping cluster?
       tmp = (*pID)[FEs[NFE].is, 1..NBootClustVar]
       FEboot = all(tmp :== tmp[1,])
@@ -1010,6 +1003,9 @@ if (WREnonARubin & granular==0) {
 			Repl.SetR(*pR1, *pR)
 		}
 
+    df = rows(*pR)  
+		pM = &(IV? Repl : DGP)
+
     if (IV) {
       Repl.SetARubin(ARubin)
 			Repl.InitVars()
@@ -1034,6 +1030,8 @@ if (WREnonARubin & granular==0) {
 							YYstar = YPXYstar = SstaruX
 							YYstar_b = YPXYstar_b = J(Repl.kZ+1, Repl.kZ+1, 0)
 						}
+            if (NFE & (granular==0 | kappa!=1 | LIML))
+              CTFEu = SstaruX
 					}
 				}
 			}
@@ -1045,10 +1043,6 @@ if (WREnonARubin & granular==0) {
 		DGP.InitVars()
     if (WREnonARubin==0)
 			DGP.InitTestDenoms()
-
-    df = rows(*pR)
-    
-		pM = &(IV? Repl : DGP)
 
 	  if (granular)
       euXAR = smatrix(df)
@@ -1242,6 +1236,9 @@ real matrix boottest::HessianFixedkappa(real rowvector ind1, real scalar ind2, r
 				T2 = SstaruZperpinvZperpZperp[ind1[i]+1].M ' SstaruZperp[ind2+1].M  // quadratic term
 				_diag(T2, diagonal(T2) - (ind1[i] <= ind2? Sstaruu[ind2+1, ind1[i]+1].M : Sstaruu[ind1[i]+1, ind2+1].M))  // minus diagonal crosstab
 
+        if (NFE)
+          T2 = T2 + CTFEu[ind1[i]+1].M ' (invFEwt :* CTFEu[ind2+1].M)
+
 				if (cols(ind1) > 1)
 					MZperpTerm[i,] = (*pcol(SstaruY[ind2+1].M, ind1[i]+1) + *pcol(SstaruY[ind1[i]+1].M, ind2+1)) ' v - colsum(v :* T2 * v)
 				else
@@ -1269,12 +1266,12 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 			if (Repl.Yendog[ind1+1])
 				pPXYstar = &(*pPXYstar :+ SstaruPX[ind1+1].M * v)
 
-			retval = *_panelsum(*pPXYstar :* (*Repl.py1 :- SstaruMZperp.M * v), *pwt, *pinfoErrData)
+			retval = *_panelsum(*pPXYstar :* (*Repl.py1 :- SstaruMZperp.M * v), *pwt, *pinfoCapData)
 
 			for (ind2=Repl.kZ;ind2;ind2--) {
 				_beta = -betas[ind2,]
 				retval = retval + *_panelsum(*pPXYstar :* (Repl.Yendog[ind2+1]? *pcol(Repl.Z,ind2) * _beta :- SstaruMZperp[ind2+1].M * (v :* _beta) :
-				                                                                *pcol(Repl.Z,ind2) * _beta                                           ), *pwt, *pinfoErrData)
+				                                                                *pcol(Repl.Z,ind2) * _beta                                           ), *pwt, *pinfoCapData)
 			}
 		} else { // create pieces of each N x B matrix one at a time rather than whole thing at once
 			retval = J(Clust.N, cols(v), 0)
@@ -1283,7 +1280,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 					pbetav = &(v :* (_beta = -betas[ind2,]))
 
 				for (i=Clust.N;i;i--) {
-					S = (*pinfoErrData)[i,]'
+					S = (*pinfoCapData)[i,]'
 
 					pPXYstar = ind1? &Repl.PXZ[|S,(ind1\ind1)|] : &Repl.PXy1[|S|]
 					if (Repl.Yendog[ind1+1])
@@ -1304,7 +1301,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 			if (Repl.Yendog[ind1+1])
 				T1 = Repl.SMZperpYX[ind2+1].M * SstaruXinvXX[ind1+1].M
 
-			if (Repl.Yendog[ind2+1]) {  // add CT of u2 * PXY1
+			if (Repl.Yendog[ind2+1]) {  // add CT of U2 * PXY1
 				if (NClustVar == NBootClustVar & !subcluster)  // simple case of one clustering: full crosstab is diagonal
 					if (cols(T1))
 						_diag(T1, diagonal(T1) + SstaruXinvXX[ind2+1].M ' (ind1? *pcol(Repl.XZ,ind1) : *Repl.pXy1par))
@@ -1318,15 +1315,16 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 				}
 				if (cols(Repl.Zperp))
 					T1 = T1 - Repl.SPXYZperp[ind1+1].M * SstaruZperpinvZperpZperp[ind2+1].M
+        if (NFE)
+	        T1 = T1 - Repl.CT_FEcapPY[ind1+1].M ' CTFEu[ind2+1].M
 			}
 
 			retval = ind2? retval + Repl.FillingT0[ind1+1,ind2+1].M * _beta  + (cols(T1)==1? T1 :* *pbetav : T1 * *pbetav) :   // - x*beta components
 															Repl.FillingT0[ind1+1,     1].M         :+ (cols(T1)==1? T1 :* *pbetav : T1 *       v)     // y component
-
 			if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
 				for (i=Clust.N;i;i--) {
-					S = (*pinfoErrData)[i,]', (.\.)
-					retval[i,] = retval[i,] - colsum(v :* (SstaruPX[ind1+1].M[|S|] ' SstaruMZperp[ind2+1].M[|S|]) * *pbetav)
+					S = (*pinfoCapData)[i,]', (.\.)
+					retval[i,] = retval[i,] - colsum(v :* cross(SstaruPX[ind1+1].M[|S|], haswt? (*pwt)[|S|] : 1, SstaruMZperp[ind2+1].M[|S|]) * *pbetav)  // *** efficient, or move Xg over?
 				}		
 		}
 	}
@@ -1350,6 +1348,9 @@ void boottest::PrepWRE() {
 					Sstaruu[i+1,j+1].M = *_panelsum(j? *pcol(U2parddot,j) : DGP.u1dddot, *puwt, infoBootData)
 			}
 
+      if (NFE & (kappa != 1 | LIML | granular==0))
+        CTFEu[i+1].M = crosstabFE(*puwt, infoBootData)
+
 			// S_star(u :* X), S_star(u :* Zperp) for residuals u for each endog var; store transposed
 			SstaruX                 [i+1].M = *_panelsum2(*Repl.pX1, *Repl.pX2, *puwt, infoBootData)'
 			SstaruXinvXX            [i+1].M = *Repl.pinvXX * SstaruX[i+1].M
@@ -1361,14 +1362,17 @@ void boottest::PrepWRE() {
 					for (g=Nstar;g;g--) {
 						SuX1g = *_panelsum(*DGP.pX1, *puwt, infoCTCapstar[g].M)
 						SuX2g = *_panelsum(*DGP.pX2, *puwt, infoCTCapstar[g].M)
-						SCTcapuXinvXX[i+1,g].M = Repl.kX1? SuX1g * Repl.invXX1 + SuX2g * *Repl.pinvXX2 : SuX2g * *Repl.pinvXX
+						SCTcapuXinvXX[i+1,g].M = Repl.kX1? SuX1g * Repl.invXX1 + SuX2g * *Repl.pinvXX2 : 
+                                                                     SuX2g * *Repl.pinvXX
 					}
 				
-				SstaruPX                [i+1].M = Repl.XinvXX        * SstaruX[i+1].M
-				SstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * SstaruZperp[i+1].M
+				SstaruPX                [i+1].M = Repl.XinvXX        * SstaruX                 [i+1].M
+				SstaruZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * SstaruZperp             [i+1].M
 				SstaruMZperp            [i+1].M = Repl.Zperp         * SstaruZperpinvZperpZperp[i+1].M
 				for (g=Nobs;g;g--)  // subtract "crosstab" of observation by cap-group of u
 					SstaruMZperp[i+1].M[g,IDBootData[g]] = SstaruMZperp[i+1].M[g,IDBootData[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
+        if (granular==0 & NFE)
+	        SstaruMZperp[i+1].M = SstaruMZperp[i+1].M + (invFEwt :* CTFEu[i+1].M)[*pFEID,]
 			}
 		}
 	}
@@ -1386,7 +1390,6 @@ void boottest::makeWREStats(real scalar w) {
 	if (Repl.kZ == 1) {  // optimized code for 1 coefficient in bootstrap regression
 		if (LIML) {
 			if (Nw>1) As = betas = J(1, cols(v), 0)
-
 			YYstar.M      = HessianFixedkappa(0   , 0, 0)  // kappa=0 => Y*MZperp*Y
 			YPXYstar.M    = HessianFixedkappa(0..1, 0, 1)  // kappa=1 => Y*PXpar*Y
 			YYstar  [2].M = HessianFixedkappa(0..1, 1, 0)  // kappa=0 => Y*MZperp*Y
@@ -1406,7 +1409,7 @@ void boottest::makeWREStats(real scalar w) {
 		} else
 			betas = HessianFixedkappa(1..Repl.kZ, 0, kappa) :/ (As = HessianFixedkappa(1, 1, kappa))
 
-		if (null)
+    if (null)
 			if (Nw == 1)
 				numer = betas :+ (Repl.Rt1 - *pr) / Repl.RRpar
 			else
@@ -1434,7 +1437,6 @@ void boottest::makeWREStats(real scalar w) {
 				}
 			} else
 				denom.M = Repl.uuc :/ As
-
 			if (Nw==1)
 				pDist                                            = &((sqrt?  numer:/sqrt(denom.M) :  numer :*  numer :/ denom.M)')
 			else
@@ -1484,12 +1486,9 @@ void boottest::makeWREStats(real scalar w) {
 
 			if (bootstrapt) {
 				if (robust) {  // Compute denominator for this WRE test stat
-					if (Repl.kZ > 1) {
-						for(i=Repl.kZ;i;i--)
-							_Jcap[,i] = Zyg[i].M[,b]
-						Jcap = _Jcap * (A[b].M * Repl.RRpar')
-					} else
-						Jcap = Zyg.M[,b] * (A[b].M * Repl.RRpar')
+          for(i=Repl.kZ;i;i--)
+            _Jcap[,i] = Zyg[i].M[,b]
+          Jcap = _Jcap * (A[b].M * Repl.RRpar')
 
 					for (c=1; c<=NErrClustCombs; c++) {
 						if (NClustVar != 1 & rows(Clust[c].order))
@@ -1614,7 +1613,6 @@ void boottest::_makeInterpolables(real colvector r) {
 		if (scoreBS | (robust & granular < NErrClustCombs))
 			uXAR = *puddot :* pM->XAR
 	}
-    
 
   SuwtXA = scoreBS?
 	           (B? 
@@ -1631,14 +1629,16 @@ void boottest::_makeInterpolables(real colvector r) {
           Kd[d].M = JNcapNstar  // inefficient, but not optimizing for the score bootstrap
       else
         for (d=df;d;d--)
-          Kd[d].M = *_panelsum2(*pX1, *pX2, *pvHadw(*pcol(pM->XAR,d), *pwt), *pinfoErrData) * SuwtXA  // final term in (64) in paper, for c=intersection of all error clusters
+          Kd[d].M = *_panelsum2(*pX1, *pX2, *pvHadw(*pcol(pM->XAR,d), *pwt), *pinfoCapData) * SuwtXA  // final term in (64), for c=intersection of all error clusters
 
       if (NFE & FEboot==0)
-        CT_WE = *_panelsum(crosstabAllFE(wtFE :* *puddot), infoBootAll)'
+        CT_WE = crosstabFE(*pwt :* *puddot, infoBootData)
 
 			for (d=df;d;d--) {  // subtract crosstab of u:*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
 				crosstabCapstarMinus(Kd[d].M, *pcol(*pustarXAR,d))
-				if (scoreBS)
+        if (NFE & FEboot==0)
+          Kd[d].M = Kd[d].M + pM->CT_XAR[d].M ' (invFEwt :* CT_WE)  // middle term of (64)
+        if (scoreBS)
 					Kd[d].M = Kd[d].M - ClustShare * colsum(Kd[d].M) // recenter
 			}
 
@@ -1646,11 +1646,8 @@ void boottest::_makeInterpolables(real colvector r) {
         if (rows(Clust[c].order))
           for (d=df;d;d--)
             Kd[d].M = Kd[d].M[Clust[c].order,]
-        for (d=df;d;d--) {
+        for (d=df;d;d--)
           Kcd[c,d].M = *_panelsum(Kd[d].M, Clust[c].info)
-          if (NFE & FEboot==0)
-            Kcd[c,d].M = Kcd[c,d].M + *_panelsum(pM->CT_XAR[c,d].M, Clust[c].info) * CT_WE
-        }
       }
     } else {  // B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
       if (scoreBS)
@@ -1669,7 +1666,7 @@ void boottest::_makeInterpolables(real colvector r) {
   makeNumerAndJ(1)  // compute J = kappa * v; if Nw > 1, then this is for 1st group; if interpolating, it is only group, and may be needed now to prep interpolation
 
   if      ( ARubin) numer[,1] = u_sd * pM->beta[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
-  else if (null==0) numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - r) // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+  else if (null==0) numer[,1] = u_sd * (*pR * (ML? beta : pM->beta) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
 }
 
 // compute stuff depending linearly on v, needed to prep for interpolation
@@ -1699,10 +1696,10 @@ void boottest::makeNumerAndJ(real scalar w) {  // called to *prepare* interpolat
         if (NFE) {
           ustar = *partialFE(&(*puddot :* v[IDBootData,]))
           for (d=df;d;d--)
-            (*pJcd)[1,d].M = *_panelsum(ustar, pM->WXAR[d].M, *pinfoErrData)                                            - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoErrData) * betadev
+            (*pJcd)[1,d].M = *_panelsum(ustar, pM->WXAR[d].M, *pinfoCapData)                                            - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
         } else
           for (d=df;d;d--)
-            (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[IDBootAll,], infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoErrData) * betadev
+            (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[IDBootAll,], infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
       }
 
 		for (c=NErrClustCombs; c>granular; c--)
@@ -1853,16 +1850,18 @@ real matrix boottest::count_binary(real scalar N, real scalar lo, real scalar hi
 	return (J(1, cols(tmp), lo), J(1, cols(tmp), hi) \ tmp, tmp)
 }
 
-// cross-tab sum of a column vector w.r.t. intersection-of-error & bootstrap-clustering-vars and fixed-effect var
-real matrix boottest::crosstabAllFE(real colvector v) {
+
+// cross-tab sum of a column vector w.r.t. given panel info and fixed-effect var
+// one row per FE, one col per other grouping
+real matrix boottest::crosstabFE(real colvector v, real matrix info) {
 	real matrix retval; real scalar i, j, tmp; real colvector _FEID, _v
-	retval = J(rows(*pinfoAllData), NFE, 0)
-	for (i=rows(*pinfoAllData);i;i--) {
-		_FEID = panelsubmatrix(*pFEID, i, *pinfoAllData)
-		_v    = panelsubmatrix(v     , i, *pinfoAllData)
+	retval = J(NFE, rows(info), 0)
+	for (i=cols(retval);i;i--) {
+		_FEID = panelsubmatrix(*pFEID, i, info)
+		_v    = panelsubmatrix(v     , i, info)
 		for (j=rows(_FEID);j;j--) {
 			tmp = _FEID[j] 
-			retval[i,tmp] = retval[i,tmp] + _v[j]
+			retval[tmp,i] = retval[tmp,i] + _v[j]
 		}
 	}
 	return(retval)
@@ -1883,7 +1882,7 @@ void boottest::crosstabCapstarMinus(real matrix M, real colvector v) {
 		_diag(M, diagonal(M) - v)
 	else  // crosstab c,c* is tall
 		for (i=Nstar;i;i--) {
-			tmp = pBootClust->info[i,]'
+			tmp = Clust[BootClust].info[i,]'
 			M[|tmp, (i\i)|] = M[|tmp, (i\i)|] - v[|tmp|]
 		}
 }
@@ -2194,10 +2193,13 @@ mata mlib create lboottest, dir("`c(sysdir_plus)'l") replace
 mata mlib add lboottest *(), dir("`c(sysdir_plus)'l")
 mata mlib index
 end
-qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
-boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
-qui ivregress liml D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
-boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
+
 --
+
 qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
-boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr seed(1231)
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
+
+qui ivreg2    D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
+boottest DL.lpris_totpop=-1/3, cluster( year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
+qui xtivreg D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe 
+boottest DL.lpris_totpop=-1/3, cluster( year) bootcluster(year) ptype(equaltail) reps(199) seed(1231) noci
