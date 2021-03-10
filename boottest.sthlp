@@ -317,10 +317,8 @@ set while still allowing plotting of the confidence curve.
 if, in searching for the boundaries of a confidence set, {cmd:boottest}'s last two bracketing guesses for a bound have a relative difference less than 
 1e-6, then convergence is declared. This option is useful if the identification of 
 bounds is time consuming. To identify confidence set bounds, {cmd:boottest} first computes the {it:p} value at the evenly spaced
-grid points (see options just below). It prints a dot after each of these evaluations. Then it determines between which grid points the {it:p} value crosses the 
-specified confidence level, usually 0.05, and iteratively searches for exact cross-over points. In this step, no dots are 
-printed. If you experience a long delay after the row of dots has printed, specifying a looser tolerance, such as with {cmd:ptol(1-e3)}, may shorten this step
-while still producing adequately precise results.
+grid points (see options just below). Then it determines between which grid points the {it:p} value crosses the 
+specified confidence level, usually 0.05, and iteratively searches for exact cross-over points.
 
 {phang}{opt gridmin(# [#])}, {opt gridmax(# [#])}, {opt gridpoints(# [#])} override the default lower and upper bounds and the resolution of the grid search,
 as described above. By default, {cmd:boottest} picks the lower and upper bounds by working

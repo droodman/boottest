@@ -1,5 +1,5 @@
-*! boottest 3.0.2 18 December 2020
-*! Copyright (C) 2015-20 David Roodman
+*! boottest 3.1.0 9 March 2021
+*! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -705,7 +705,7 @@ program define _boottest, rclass sortpreserve
 		}
 
 		if "`madjust'" != "" {
-			di _col(`=strlen("bonferroni")-strlen("`madjust'")+1') as txt strproper("`madjust'") "-adjusted prob = " as res %10.4f `padj'
+			di _col(`=strlen("bonferroni")-strlen("`madjust'")+3') as txt strproper("`madjust'") "-adjusted prob = " as res %10.4f `padj'
 			return scalar padj`_h' = `padj'
 		}
 
@@ -822,6 +822,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.1.0 Complete overhaul of WRE for ~100X speed gain
 * 3.0.2 Dropped "KK" calculation (last expression in eq 60 in paper) because inefficient when interpolating. Refined plotting to minimize interpolation anchor resets. Refined criterion to use "granular"-optimized code (many small clusters).
 * 3.0.1 Recompiled in Stata 13
 * 3.0.0 Exploit linearity/quadratic form in denominators too. ~10X speed-up over 2018 version for inverting tests after OLS.
