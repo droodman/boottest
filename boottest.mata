@@ -76,11 +76,11 @@ class boottest {
 		sqrt, hascons, LIML, Fuller, kappa, IV, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, BootClust, ///
 		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX, overid
 	real matrix AR, v, ustar, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDCap, U2parddot, deltadenom_b, _Jcap, ZR1ex, invR1R1par, YYstar_b, YPXYstar_b, numerw
-	real colvector DistCDR, plotX, plotY, beta, ClustShare, IDBootData, IDBootAll, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles, invFEwt
+	real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles, invFEwt
 	real rowvector peak, betas, As
 	string scalar wttype, madjtype, seed
 	pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pinfoAllData, pinfoCapData, pIDAll, pnumer
-	pointer (real colvector) scalar pr1, pr, py1, pSc, pwt, pW, pA, puddot, pDist
+	pointer (real colvector) scalar pr1, pr, py1, pSc, pwt, pW, pA, puddot, pDist, pIDBootData, pIDBootAll
 	class boottestEstimator scalar DGP, Repl
   pointer(class boottestEstimator scalar) scalar pM
 	struct structboottestClust rowvector Clust
@@ -497,7 +497,7 @@ void boottest::new() {
 	confpeak = MaxMatSize = .
 	pY2 = pX1 = pX2 = py1 = pSc = pID = pFEID = pR1 = pR = pwt = &J(0,0,0)
 	pr1 = pr = &J(0,1,0)
-	IDBootData = .
+	pIDBootData = &.
 }
 
 // important to call this when done: break loops in data structure topology to enable garbage collection
@@ -660,7 +660,7 @@ void boottest::setMaxMatSize(real scalar MaxMatSize) {
 }
 
 real colvector boottest::getdist(| string scalar diststat) {
-	pointer (real rowvector) scalar _pnumer; real colvector _dist
+	pointer (real rowvector) scalar _pnumer
 	if (dirty) boottest()
 	if (diststat == "numer") {
 		_pnumer = u_sd==1? pnumer : &(*pnumer / u_sd)
@@ -792,12 +792,19 @@ void boottest::storeWtGrpResults(pointer(real matrix) scalar pdest, real scalar 
 
 
 
+
+
+
+
+
+
 void boottest::Init() {  // for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
-  real colvector sortID, o, _FEID, IDAllData, IDCapData
+  real colvector sortID, o, _FEID
+  pointer (real colvector) scalar pIDAllData, pIDCapData
 	real rowvector ClustCols
 	real matrix Combs, tmp
 	real scalar i, j, c, minN, sumN, _B, i_FE, sumFEwt
-	pragma unset IDAllData; pragma unset IDCapData
+	pragma unset pIDAllData; pragma unset pIDCapData
 
   Nobs = rows(*pX1)
   NClustVar = cols(*pID)
@@ -826,11 +833,11 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
   if (WREnonARubin)
     if (NClustVar)
-      infoBootData = _panelsetup(*pID, 1..NBootClustVar, IDBootData)
+      infoBootData = _panelsetup(*pID, 1..NBootClustVar, pIDBootData)
     else
-      pinfoCapData = &(infoBootData = J(Nobs,0,0))
+      pinfoCapData = &(infoBootData = J(Nobs,0,0))  // no clustering, so no collapsing by cluster
   else if (NClustVar)
-    if (NClustVar > NBootClustVar)  // bootstrap Cluster grouping defs rel to original data
+    if (NClustVar > NBootClustVar)  // bootstrap cluster grouping defs rel to original data
       infoBootData = _panelsetup(*pID, 1..NBootClustVar)
     else
       infoBootData = _panelsetup(*pID, 1..NClustVar)
@@ -847,8 +854,24 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       NErrClustCombs = length(Clust)
       subcluster = NClustVar - NErrClust
 
-      pinfoAllData = NClustVar > NBootClustVar? &_panelsetup(*pID,            1..NClustVar) : &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
-      pinfoCapData = NClustVar > NErrClust    ? &_panelsetup(*pID, subcluster+1..NClustVar) : pinfoAllData  // info for intersections of error clustering wrt data
+      if (NClustVar > NBootClustVar)  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
+        pinfoAllData = WREnonARubin & granular==0? &_panelsetup(*pID, 1..NClustVar, pIDAllData) : 
+                                                   &_panelsetup(*pID, 1..NClustVar            )
+      else {
+        pinfoAllData = &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
+        if (WREnonARubin & granular==0)
+          pIDAllData = pIDBootData  //  *** inefficient
+      }
+
+      if (NClustVar > NErrClust)  // info for intersections of error clustering wrt data
+        pinfoCapData = WREnonARubin & granular==0? &_panelsetup(*pID, subcluster+1..NClustVar, pIDCapData) :
+                                                   &_panelsetup(*pID, subcluster+1..NClustVar            )
+      else {
+        pinfoCapData = pinfoAllData  // info for intersections of error clustering wrt data
+        if (WREnonARubin & granular==0)
+          pIDCapData = pIDAllData
+      }
+
        IDCap = rows(*pinfoCapData)==Nobs? *pID :   (*pID)[(*pinfoCapData)[,1],]   // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
       pIDAll = rows(*pinfoAllData)==Nobs?  pID : &((*pID)[(*pinfoAllData)[,1],])  // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
 
@@ -895,26 +918,29 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
         ClustShare = haswt? *pwt/sumwt : 1/_Nobs
     }
 
-    purerobust = NClustVar & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
+    purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
-		                           NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar)
+		                           purerobust | robust & (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar * kZ + Clust.N * Nstar
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
-        infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; Fused to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
+        infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
       if ((scoreBS & B) | (WREnonARubin & granular==0 & bootstrapt))
         JNcapNstar = J(Clust.N, Nstar, 0)
     }
-if (WREnonARubin & robust & granular==0) {
-(void) _panelsetup(*pID,            1..NClustVar, IDAllData)
-(void) _panelsetup(*pID, subcluster+1..NClustVar, IDCapData)
-				IDCTCapstar = infoCTCapstar = smatrix(Nstar)
-				for (i=Nstar;i;i--) {
-					tmp = IDAllData[|infoBootData[i,]'|]                           // ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
-					infoCTCapstar[i].M = (*pinfoAllData)[tmp[1]::tmp[rows(tmp)],]  // for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
-					IDCTCapstar[i].M = IDCapData[infoCTCapstar[i].M[,1]]           // ID numbers of those groupings w.r.t. the all-error-clusterings grouping
-				}
-}
+
+  if (WREnonARubin & robust & bootstrapt & granular==0) {
+  	if (cols(*pIDAllData) == 0) {
+      (void) _panelsetup(*pID,            1..NClustVar, pIDAllData)
+      (void) _panelsetup(*pID, subcluster+1..NClustVar, pIDCapData)
+    }
+    IDCTCapstar = infoCTCapstar = smatrix(Nstar)
+    for (i=Nstar;i;i--) {
+      tmp = (*pIDAllData)[|infoBootData[i,]'|]                           // ID numbers w.r.t. intersection of all bootstrap/error clusterings contained in bootstrap cluster i
+      infoCTCapstar[i].M = (*pinfoAllData)[tmp[1]::tmp[rows(tmp)],]  // for each of those ID's, panel info for the all-bootstrap/error-clusterings data row groupings
+      IDCTCapstar[i].M = (*pIDCapData)[infoCTCapstar[i].M[,1]]           // ID numbers of those groupings w.r.t. the all-error-clusterings grouping
+    }
+  }
 
   } else
     minN = rows(infoBootData)
@@ -969,16 +995,16 @@ if (WREnonARubin & robust & granular==0) {
 		pY2 = partialFE(pY2)
 	}
 
-  if (granular & (WREnonARubin & purerobust)==0)
+  if (B & robust & granular & GMM==0 & purerobust==0 & WREnonARubin==0)
     if (NFE)
-      (void) _panelsetup(*pID   , 1..NBootClustVar, IDBootData)
+      (void) _panelsetup(*pID   , 1..NBootClustVar, pIDBootData)
     else
-      (void) _panelsetup(*pIDAll, 1..NBootClustVar, IDBootAll )
+      (void) _panelsetup(*pIDAll, 1..NBootClustVar, pIDBootAll )
 
   if (enumerate = (B & weighttype==0 & Nstar*ln(2) < ln(B)+1e-6))  // generate full Rademacher set?
     MaxMatSize = .
 
-  Nw = MaxMatSize == .? 1 : ceil((B+1) * max((rows(IDBootData), rows(IDBootAll), Nstar)) * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
+  Nw = MaxMatSize == .? 1 : ceil((B+1) * max((rows(*pIDBootData), rows(*pIDBootAll), Nstar)) * 8 / MaxMatSize / 1.0X+1E) // 1.0X+1E = giga(byte)
   if (Nw == 1) {
     makeWildWeights(B, 1)  // make all wild weights, once
     if (enumerate) B = cols(v) - 1  // replications reduced to 2^G
@@ -996,8 +1022,13 @@ if (WREnonARubin & robust & granular==0) {
     DGP.parent = Repl.parent = &this
     DGP.isDGP = 1
     
+    if (ARubin) {
+      pR  = &(J(kX2,kX1,0), I(kX2))  // attack surface is all endog vars
+      pR1 = &(kX1 & rows(*pR1)? ((*pR1)[|.,.\.,kX1|], J(rows(*pR1),kX2,0)) : J(0, kX, 0))  // and convert model constraints from referring to X1, Y2 to X1, X2
+    }
+    df = rows(*pR)
+
     if (WRE==0 & kappa==0) {  // regular OLS
-      df = rows(*pR)
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
       DGP.SetR (null? *pR1 \ *pR : *pR1, J(0,kZ,0))  // DGP constraints: model constraints + null if imposed
       Repl.SetR(*pR1, *pR)  // process replication restraints = model constraints only
@@ -1005,7 +1036,7 @@ if (WREnonARubin & robust & granular==0) {
       DGP.InitTestDenoms(Repl.R1perp)
       pM = &DGP  // estimator object from which to get A, AR, XAR
     } else if (ARubin) {
-      if (willplot) {  // for plotting/CI purposes get original point estimate if not normally generated
+      if (willplot) {  // for plotting/CI purposes get original point estimate since not normally generated
         DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
         DGP.SetR(*pR1, J(0,kZ,0))  // no-null model
         DGP.InitVars()
@@ -1016,12 +1047,10 @@ if (WREnonARubin & robust & granular==0) {
        
       DGP.LIML = DGP.Fuller = DGP.kappa = 0    
       DGP.ARubin = 1
-      pR = &(J(kX2,kX1,0), I(kX2))  // For Anderson-Rubin make attack surface all endog vars
-      DGP.SetR(kX1 & rows(*pR1)? ((*pR1)[|.,.\.,kX1|], J(rows(*pR1),kX2,0)) : J(0, kX, 0), *pR)  // and convert model constraints from referring to X1, Y2 to X1, X2
+      DGP.SetR(*pR1, *pR)
       DGP.InitVars()
       pM = &DGP  // estimator object from which to get A, AR, XAR
       kZ = l
-      df = rows(*pR)
     } else if (WREnonARubin) {
       DGP.LIML = DGP.LIML = kX2!=kY2; DGP.Fuller = 0; DGP.kappa = 1
       DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))  // DGP constraints: model constraints + null if imposed
@@ -1031,7 +1060,6 @@ if (WREnonARubin & robust & granular==0) {
         DGP.Estimate()
         DGP.MakeResiduals()
       }
-      df = rows(*pR)
 
       Repl.parent = &this
       Repl.isDGP = 0
@@ -1056,8 +1084,7 @@ if (WREnonARubin & robust & granular==0) {
         if (NFE & (bootstrapt | kappa != 1 | LIML))
           CTFEu = SstaruX
       }
-    } else if (kappa & scoreBS) {  // the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R1, one with FWL, one not.
-      df = rows(*pR)
+    } else {  // the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R1, one with FWL, one not.
       DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
       DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))  // DGP constraints: model constraints + null if imposed
       DGP.InitVars()
@@ -1403,8 +1430,11 @@ void boottest::PrepWRE() {
 				
 				SstaruPX                [i+1].M = Repl.XinvXX        * SstaruX                 [i+1].M
 				SstaruMZperp            [i+1].M = Repl.Zperp         * SstaruZperpinvZperpZperp[i+1].M
-				for (g=Nobs;g;g--)  // subtract "crosstab" of observation by cap-group of u
-					SstaruMZperp[i+1].M[g,IDBootData[g]] = SstaruMZperp[i+1].M[g,IDBootData[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
+				if (Nobs == Nstar)  // subtract "crosstab" of observation by cap-group of u
+          _diag(SstaruMZperp[i+1].M, diagonal(SstaruMZperp[i+1].M) - (i? U2parddot[,i] : DGP.u1dddot))  // case: bootstrapping by observation
+        else
+          for (g=Nobs;g;g--)
+            SstaruMZperp[i+1].M[g,(*pIDBootData)[g]] = SstaruMZperp[i+1].M[g,(*pIDBootData)[g]] - (i? U2parddot[g,i] : DGP.u1dddot[g])
         if (NFE)
 	        SstaruMZperp[i+1].M = SstaruMZperp[i+1].M + (invFEwt :* CTFEu[i+1].M)[*pFEID,]
 			}
@@ -1617,7 +1647,7 @@ void boottest::makeInterpolables() {
 
 // Construct stuff that depends linearly or quadratically on r and doesn't depend on v. Does one bit relevant for WRE prep. No interpolation.
 void boottest::_makeInterpolables(real colvector r) {
-  real scalar d, c; pointer (real matrix) scalar pustarXAR, ptmp; real colvector r0
+  real scalar d, c; pointer (real matrix) scalar pustarXAR, ptmp
 
   if (ML)
 		uXAR = *pSc * (AR = *pA * *pR')
@@ -1718,12 +1748,12 @@ void boottest::makeNumerAndJ(real scalar w, | real colvector r) {  // called to 
         ustar = *partialFE(&(*puddot :* v)) - X12B(*pX1, *pX2, betadev)
       else {  // clusters small but not all singletons
         if (NFE) {
-          ustar = *partialFE(&(*puddot :* v[IDBootData,]))
+          ustar = *partialFE(&(*puddot :* v[*pIDBootData,]))
           for (d=df;d;d--)
-            (*pJcd)[1,d].M = *_panelsum(ustar, pM->WXAR[d].M, *pinfoCapData)                                            - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
-        } else
+            (*pJcd)[1,d].M = *_panelsum(ustar, pM->WXAR[d].M, *pinfoCapData)                                              - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
+        } else 
           for (d=df;d;d--)
-            (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[IDBootAll,], infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
+            (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[*pIDBootAll,], infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
       }
 
 		for (c=NErrClustCombs; c>granular; c--)
@@ -1745,7 +1775,7 @@ void boottest::makeNonWREStats(real scalar w) {
         for (j=i;j;j--) {
           if (c = purerobust) _clustAccum(denom[i,j].M, c, cross(pM->WXAR[i].M, pM->WXAR[j].M, ustar2))  // c=purerobust not a bug
           for (c++; c<=NErrClustCombs; c++)
-	           _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))  // (60)
+            _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))  // (60)
         }
     }
 
@@ -1815,10 +1845,10 @@ void boottest::makeNonWREStats(real scalar w) {
 
 // like panelsetup() but can group on multiple columns, like sort(), and faster. But doesn't take minobs, maxobs arguments.
 // Does take optional third argument, a matrix in which to store standardized ID variable, starting from 1
-real matrix _panelsetup(real matrix X, real rowvector cols, | real colvector ID) {
+real matrix _panelsetup(real matrix X, real rowvector cols, | pointer(real colvector) scalar pID) {
 	real matrix info; real scalar i, N; real scalar p; real rowvector tmp, id
 	N = rows(X)
-	info = J(N, 2, N); if (args()>2) ID = J(N, 1, 1)
+	info = J(N, 2, N); if (args()>2) pID = &J(N, 1, 1)
 	info[1,1] = p = 1
 	id = X[1, cols]
 	for (i=2; i<=N; i++) {
@@ -1827,7 +1857,7 @@ real matrix _panelsetup(real matrix X, real rowvector cols, | real colvector ID)
 			info[++p,1] = i
 			id = tmp
 		}
-		if (args()>2) ID[i] = p
+		if (args()>2) (*pID)[i] = p
 	}
 	return (info[|.,.\p,.|])
 }
