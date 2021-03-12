@@ -11,7 +11,7 @@ program myprobit // custom likelihood evaluator
 end
 
 cap log close
-log using "C:\Users\drood\OneDrive\Documents\Macros\boottest\unit tests.log", replace
+qui log using "C:\Users\drood\OneDrive\Documents\Macros\boottest\unit tests.log", replace
 
 version 13
 
@@ -127,4 +127,4 @@ foreach crimevar in Violent Property {
   boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr
 }
 
-log close
+qui log close

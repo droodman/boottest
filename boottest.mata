@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
 	real matrix M
@@ -56,9 +56,9 @@ pointer (real colvector) scalar pvHadw(real matrix v, real matrix w)
 	return(w==1? &v : (v==1? &w : &(v :* w)))
 
 class boottestOLS {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
-	real scalar LIML, y1y1, uuc, Fuller, ARubin, kappa, isDGP, kZ, kX1, kX2, kX, y1pary1par
-	real colvector u1ddot, u1dddot, beta, beta0, PXy1, invXXXy1par, ZXinvXXXy1par
-	real rowvector y1Y2, Yendog, y1ZR1
+	real scalar LIML, uuc, Fuller, ARubin, kappa, isDGP, kZ, kX1, kX2, kX
+	real colvector u1ddot, u1dddot, beta, beta0, PXy1, invXXXy1par
+	real rowvector Yendog
   real matrix Zperp, invZperpZperp, ZperpinvZperpZperp, XZ, PXZ, Z, YPXY, R1invR1R1, R1perp, Rpar, RperpX, RRpar, R1invR1R1X, RparX, RparY, RAR, RR1invR1R1, invH, dbetadr, YY, AR, XAR, R1invR1R1Y, invXXXZ, U2ddot, invXX1, XinvXX, Rt1
 	pointer(real rowvector) scalar py1parY2
 	pointer(real colvector) scalar py1, py1par, pX2y1par, pX1y1par, pZy1par, pXy1par, pr1, pZy1, pX2y1, pX1y1
@@ -80,6 +80,9 @@ class boottestARubin extends boottestOLS {
 
 class boottestIVGMM extends boottestOLS {
 	real matrix XY2, XX, H_2SLS, V, ZY2, X2Y2, X1Y2, Zex, gamma, ZR1ex, ZR1, ZR1ZR1, X2ZR1, ZR1Y2, X1ZR1, ZZR1
+  real colvector ZXinvXXXy1par
+  real rowvector y1Y2, y1ZR1
+  real scalar y1y1, y1pary1par
 	private void new()
 	private virtual void InitVars(), InitEstimate(), Estimate(), MakeResiduals(), MakeAR()
 }
