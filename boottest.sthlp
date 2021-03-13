@@ -1,12 +1,12 @@
 {smcl}
-{* *! version 2.8.0 28 November 2020}{...}
+{* *! version 3.1.0 13 March 2021}{...}
 {help boottest:boottest}
 {hline}{...}
 
 {title:Title}
 
 {pstd}
-Test linear hypotheses using wild or score bootstrap or Rao or Wald test for OLS, 2SLS, LIML, Fuller, {it:k}-class, linear GMM, or general ML estimation with classical, heteroskedasticity-robust, 
+Test linear hypotheses using wild or score bootstrap or Rao or Wald test for OLS, 2SLS, LIML, Fuller, {it:k}-class, or general ML estimation with classical, heteroskedasticity-robust, 
 or (multi-way-) clustered standard errors and optional fixed effects{p_end}
 
 {title:Syntax}
@@ -70,7 +70,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {p2colreset}{...}
 
 {pstd}
-These options are relevant when testing one or two hypotheses after OLS/2SLS/GMM/LIML, when by default a confidence function is plotted and, if there is one
+These options are relevant when testing one or two hypotheses after OLS/2SLS/LIML/k-class, when by default a confidence function is plotted and, if there is one
 hypothesis, a confidence set is derived:
 
 {synoptset 45 tabbed}{...}
@@ -102,20 +102,29 @@ hypothesis, a confidence set is derived:
 
 {title:Updates}
 
-{pstd} Version 2.0.6 of {cmd:boottest}, released in May 2018, introduced two changes that can slightly affect results. The default for {opt r:eps(#)}
-is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
-For exact replication of earlier results, an older version, 2.0.5, is available as a
-{browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed in Stata 13 or later via
-{net "from https://raw.github.com/droodman/boottest/v2.0.5":net from https://raw.github.com/droodman/boottest/v2.0.5}.
-
-{pstd} Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
-which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather than that of t/z/F/chi2 statistics. Standard theory favors the latter, 
-but Young (2019) presents evidence that the bootstrap-c (or "non-studentized" test) is more reliable, at least in instrumental variables estimation. Theory and simulation in
+{p 2 4 0}* Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
+which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather t/z/F/chi2 statistics. Standard theory favors the latter, 
+but Young (2019) presents evidence that the bootstrap-c (or "non-studentized" test) is more reliable, at least in instrumental variables estimation. And theory and simulation in
 Wang (2021) favors the non-studentized test when instruments are weak (but strong in at least one cluster). The option 
 {cmdab:stat:istic(c)} invokes the feature.
 
-{pstd} As of version 2.7.0, of 26 April 2020, {cmd:boottest} requires Stata version 13 or later. Version 2.6.0, which also works in Stata versions 11 and 12, can be downloaded
+{p 2 4 0}* Version 2.0.6 of {cmd:boottest}, released in May 2018, introduced two changes that can slightly affect results. The default for {opt r:eps(#)}
+is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
+For exact replication of earlier results, an older version, 2.0.5, is available as a
+{browse "https://github.com/droodman/boottest/tree/2d93ed35025e2e10276151b3a64e443853d60bad":Github archive}, and can be directly installed in Stata 13 or later via
+{stata "net install boottest, replace from(https://raw.github.com/droodman/boottest/v2.0.5)":net install boottest, replace from(https://raw.github.com/droodman/boottest/v2.0.5)}.
+
+{p 2 4 0}* As of version 2.7.0, of 26 April 2020, {cmd:boottest} requires Stata version 13 or later. Version 2.6.0, which also works in Stata versions 11 and 12, can be downloaded
 from {browse "https://github.com/droodman/boottest/archive/For-Stata-11,-12.zip"}.
+
+{p 2 4 0}* Version 3.1.0, released in March 2021, also introduced a change that can slightly affect results, specifically the bounds for confidence sets. It switched to a faster algorithm for
+pinpointing these bounds (Chandrupatla 1997). In the bootstrap, the {it:p} value as a function of the trial parameter value is a step function when viewed at high resolution: it can only take 
+values {it:n}/{it:B} where {it:n} is an integer and {it:B} is the number of bootstrap replications. As a result, when searching for the cross-over point for, say, {it:p} = 0.05, a locations in a small range are equally valid. The
+new algorithm happens to settle at slightly different points. The last boottest version before this change is 3.0.2, and is available via 
+{stata "net install boottest, replace from(https://raw.github.com/droodman/boottest/v3.0.2)":net install boottest, replace from(https://raw.github.com/droodman/boottest/v3.0.2)}.
+
+{p 2 4 0}* Version 3.1.0 also added support for {cmd:ivreg2}'s {cmd:partial()} option, and radically sped up the bootstrap after IV/GMM regressions. But it dropped support for linear GMM regressions;
+the lost feature stood on shaky ground anyway, since {cmd:boottest} did not recalculate the GMM weight matrix on each replication.
 
 {marker description}{...}
 {title:Description}
@@ -135,7 +144,7 @@ several tests to run on the data sets. The bootstraps are:
 2SLS, LIML, Fuller LIML, and {it:k}-class estimation.
 
 {p 4 6 0}
-* The score bootstrap developed by Kline and Santos (2012) as an adaptation of the wild bootstrap to the general extremum estimator, including 2SLS, LIML, ML, and GMM. In 
+* The score bootstrap developed by Kline and Santos (2012) as an adaptation of the wild bootstrap to the general extremum estimator, including 2SLS, LIML, and ML. In 
 estimators such as probit and logit, residuals are not well-defined, which prevents application of the wild bootstrap. As its name suggests, the score bootstrap 
 works with a generalized analog of residuals, scores. Also, the score bootstrap does not require re-estimation on each replication, which would be 
 computationally prohibitive with many ML-based estimators.
@@ -172,7 +181,7 @@ provided by {help test}. {cmd:waldtest} adds value by allowing you to incorporat
 after estimation commands that do not support those adjustments.
 
 {pstd}
-The tests are available after OLS, constrained OLS, 2SLS, LIML, and GMM estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
+The tests are available after OLS, constrained OLS, 2SLS, and LIML estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
 {stata ssc describe cmp:ivreg2}. The
 program works with Fuller LIML and {it:k}-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
 effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; or {help reghdfe:reghdfe}. And it works after most Stata 
@@ -210,9 +219,6 @@ original estimate. In particular, you can perform inference with multi-way clust
 By default, the null is imposed before bootstrapping (Fisher and Hall 1990; Davidson and MacKinnon 1999; Cameron, Gelbach, and Miller 2008). The {opt nonul:l} option overrides this behavior. With IV
 estimation, the null is imposed only on the second-stage equation. Thus, after {cmd:ivregress 2sls Y X1 (X2 = Z)}, imposing the null of X1 = 0 results in the equivalent of 
 {cmd:ivregress 2sls Y (X2 = X1 Z)}, not {cmd:ivregress 2sls Y (X2 = Z)}.
-
-{pstd}
-After GMM estimation, {cmd:boottest} bootstraps only with the final weight matrix. It does not replicate the process for computing that matrix.
 
 {pstd}{cmd:boottest}'s bootstrap-based tests are generally fast, though the WRE runs substantially slower than the others. The code is optimized for clustered standard errors and 
 runs most efficiently in Stata version 13 or later.

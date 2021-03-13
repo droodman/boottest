@@ -360,7 +360,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by indus
 . 
 . qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
 
-. boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph // override estimate's clustering
+. boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // override estimate's clustering
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
@@ -374,7 +374,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age o
 
 . qui reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)
 
-. boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph // should match previous result
+. boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // should match previous result
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
@@ -454,7 +454,7 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by clus
                         Prob>|t| =     0.7486
 
 . 
-. qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit // same probit estimate as previous
+. qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit  // same probit estimate as previous
 
 . boottest tenure                                                             // requires Stata 14.0 or later
 
@@ -530,7 +530,7 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusteri
 . sysuse auto, clear
 (1978 Automobile Data)
 
-. ml model lf myprobit (foreign = mpg weight) // define model
+. ml model lf myprobit (foreign = mpg weight)  // define model
 
 . qui ml max // estimate
 
@@ -782,6 +782,87 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state
 
 95% confidence set for null hypothesis expression: [., -1.042] U [-.9491, .06533] U [.5087, .]
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. 
+. qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust small
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                           t(20) =     0.9661
+    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+
+95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. qui ivreghdfe D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, absorb(state) small
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                           t(20) =     0.9661
+    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+
+95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. qui xtivreg   D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe small
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                           t(20) =     0.9661
+    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+
+95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. 
+. qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                               z =     1.3178
+    2 * min(Prob>|z|, Prob<-|z|) =     0.4747
+
+. qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust partial(i.year i.state)
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                               z =     1.3178
+    2 * min(Prob>|z|, Prob<-|z|) =     0.4747
 
 . 
 . qui log close

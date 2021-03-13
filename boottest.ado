@@ -1,4 +1,4 @@
-*! boottest 3.1.0 9 March 2021
+*! boottest 3.1.0 12 March 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -79,14 +79,15 @@ program define _boottest, rclass sortpreserve
 		di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
 		exit 198
 	}
-	if ("`ivcmd'"=="ivreg2") & e(partial_ct)>0 & e(partial_ct)<. {
-		di as err "Doesn't work after {cmd:ivreg2} with the {cmd:partial()} option."
-		exit 198
-	}
 	if "`e(cmd)'"=="regress" & "`e(model)'" == "iv" {
 		di as err "Doesn't support the undocumented IV syntax of {cmd:regress}."
 		exit 198
 	}
+  
+  if ("`ivcmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm") {
+  	di as err "GMM no longer supported."
+    exit 198
+  }
 
 	tokenize `"`0'"', parse(",")
 	if `"`1'"' != "," {
@@ -204,7 +205,6 @@ program define _boottest, rclass sortpreserve
 		local ptype `symmetric'`equaltail'`lower'`upper'
 	}
  
-
 	if `"`statistic'"'=="" local statistic t
 	else if !inlist(`"`statistic'"', "t", "c") {
 		di as err "The {cmd:stat:istic} option must be {cmd:t} or {cmd:c}."
@@ -220,6 +220,7 @@ program define _boottest, rclass sortpreserve
 	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| (inlist("`cmd'","reghdfe","ivreghdfe") & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
+  local partial = 0`e(partial_ct)' & "`e(cmd)'"=="ivreg2"
 
 	local fuller `e(fuller)'  // "" if missing
 	local K = e(kclass)  // "." if missing
@@ -264,10 +265,8 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se teststat df df_r hold C C0 CC0 b V b0 V0 keepC keepW repsname repsFeasname t NBootClustname
+	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname
 	mat `b' = e(b)
-	local k = colsof(`b')  // column count before possible removal of _cons term in FE models
-
 	if "`e(wtype)'" != "" {
 		tokenize `e(wexp)'
 		cap confirm var `2'
@@ -319,7 +318,9 @@ program define _boottest, rclass sortpreserve
 	makecns
 	if "`e(Cns)'" != "" {
 		local hascns 1
-		mat `C' = e(Cns)
+		mat `C1' = e(Cns)
+    mat `R1' = `C1'[1...,1..colsof(`C1')-1]
+    mat `r1' = `C1'[1...,   colsof(`C1')  ]
 	}
 
 	cap _estimates drop `hold'
@@ -332,75 +333,58 @@ program define _boottest, rclass sortpreserve
 		local Ynames `e(depvar)'
 
 		local colnames: colnames e(b)
+    if `partial' local colnames `colnames' `e(partial1)'
+    local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
 		local _cons _cons
 		local colnames: list colnames - _cons
 		if `IV' {
 			local Xnames_endog `e(instd)'
 			local Xnames_exog: list colnames - Xnames_endog
-			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress")
+			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress") | e(partialcons)
 			local ZExclnames `e(insts)'
-			local ZExclnames `:list ZExclnames - Xnames_exog'
+			local ZExclnames: list ZExclnames - Xnames_exog
 		}
 		else {
 			local Xnames_exog: colnames e(b)
-			local _cons _cons
-			local cons = "`:list Xnames_exog & _cons'"!=""
-			local Xnames_exog: list Xnames_exog - _cons
+			local cons = "`:list Xnames_exog & _cons'" != ""
+      local Xnames_exog: list Xnames_exog - _cons
 		}
+
+		local cons = `cons' & !0`NFE'  // no constant in FE model
 		if !`cons' local _cons
 
-		local GMM = ("`ivcmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm")
-		if `GMM' {
-			if `reps' di as txt _n "Bootstrapping purely with final GMM moment weighting matrix."
-			tempname W
-			mat `W' = e(W)
-			local colnamesW: colnames `W'
-			local colnamesW: list colnamesW - _cons
-			mata _boottestp = J(`cons',1,cols(st_matrix("`W'"))) \ order(tokens("`colnamesW'")', 1)[invorder(order(tokens("`Xnames_exog' `ZExclnames'")', 1))]
-			mata st_matrix("`W'", st_matrix("`W'")[_boottestp,_boottestp])  // ensure weight matrix in order cons-other included exog-excluded exog
-		}
+		mata _boottestp = J(`cons', 1, `k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))]  // for putting vars in cons-exog-endog order
+*    mata         st_local("Xnames_exog" , invtokens(sort(tokens(st_local("Xnames_exog" ))', 1)'))  // for this standardization, sort regressor lists by name
+*    if `IV' mata st_local("Xnames_endog", invtokens(sort(tokens(st_local("Xnames_endog"))', 1)'))
+		if `cons' mat `keepC' = 1
+		local colnames `_cons' `Xnames_exog' `Xnames_endog'
 
-		mata _boottestp = J(`cons',1,`k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))] \ `k'+1
-
-		if 0`NFE' & `cons' {
-			mata _boottestp = _boottestp[|2\.|]
-			local cons 0
-			local _cons
-		}
-		
-		if 0`hascns' mata st_matrix("`C'" , st_matrix("`C'" )[,_boottestp])
-
-		if `cons' {
-			mat `keepC' = 1
-			mat `keepW' = 1
-		}
-		local colnamesC `_cons' `Xnames_exog' `Xnames_endog'
-		local colnamesW `_cons' `Xnames_exog' `ZExclnames'
-		foreach varlist in Ynames Xnames_exog Xnames_endog ZExclnames {
-			fvrevar ``varlist'' if e(sample)
-			local revarlist `r(varlist)'
+		foreach varlist in Xnames_exog Ynames Xnames_endog ZExclnames {
 			local _revarlist
-			forvalues i=1/`:word count `revarlist'' {
+			forvalues i=1/`:word count ``varlist''' {
 				local var: word `i' of ``varlist''
 				_ms_parse_parts `var'
-				if !r(omit) /*| 1*/ {
-					local _revarlist `_revarlist' `:word `i' of `revarlist''
+				if !r(omit) {
+        	fvrevar `:word `i' of ``varlist''' if e(sample)
+					local _revarlist `_revarlist' `r(varlist)'
 					if inlist("`varlist'", "Xnames_exog", "Xnames_endog") {
-						local pos: list posof "`var'" in colnamesC
+						local pos: list posof "`var'" in colnames
 						if `pos' mat `keepC' = nullmat(`keepC'), `pos'
-					}
-					if inlist("`varlist'", "Xnames_exog", "ZExclnames") & `GMM' {
-						local pos: list posof "`var'" in colnamesW
-						if `pos' mat `keepW' = nullmat(`keepW'), `pos'
 					}
 				}
 			}
 			local `varlist' `_revarlist'
 		}
+		mata _boottestkeepC = st_matrix("`keepC'"); _boottestp = cols(_boottestkeepC)? _boottestp[_boottestkeepC] : J(0,1,0)
 
-		mata _boottestkeepC = st_matrix("`keepC'"); if (cols(_boottestkeepC)==0) _boottestkeepC=J(1,0,0) ;;
-		if 0`hascns' mata _boottestC = st_matrix("`C'")[,(_boottestkeepC,cols(st_matrix("`C'")))]; _boottestC = select(_boottestC,rowsum(_boottestC:!=0)); st_matrix("`C'", _boottestC)
-		if `GMM' mata st_matrix("`W'", st_matrix("`W'" )[st_matrix("`keepW'"), st_matrix("`keepW'")])
+		if 0`hascns' {
+      if `partial' mat `R1' = `R1', J(rowsof(`R1'), `:word count `e(partial1)'', 0)  // add blanks for partialled-out 
+      mata st_matrix("`R1'", st_matrix("`R1'")[,_boottestp])  // put cols in standardized order & drop those for omitted regressors
+      mata _boottestkeepC = rowsum(st_matrix("`R1'"):!=0)
+      mata st_matrix("`R1'", select(st_matrix("`R1'"), _boottestkeepC))  // drop rows corresponding purely to omitted variables
+      mata st_matrix("`r1'", select(st_matrix("`r1'"), _boottestkeepC))
+    }    
+
 		if `cons' local Xnames_exog `hold' `Xnames_exog'  // add constant term
 	}
 
@@ -453,14 +437,16 @@ program define _boottest, rclass sortpreserve
 			exit 111
 		}
 		
-		cap mat `C0' = e(Cns)
+		cap mat `C' = e(Cns)
 		if _rc exit 111
 		_estimates unhold `hold'
-		if r(k_autoCns) mat `C0' = `C0'[r(k_autoCns)+1...,1...]
-		scalar `df' = rowsof(`C0')
+		if r(k_autoCns) mat `C' = `C'[r(k_autoCns)+1...,1...]
+		scalar `df' = rowsof(`C')
+    mat `R' = `C'[1...,1..colsof(`C')-1]
+    mat `r' = `C'[1...,   colsof(`C')  ]
 
 		if `NFE' {
-			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`C0'"),st_matrixcolstripe("`C0'")[,2]':=="_cons"))))
+			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`R'"),st_matrixcolstripe("`R'")[,2]':=="_cons"))))
 
 			if `rc' {
 				di as err "In fixed-effect models, null hypotheses may not involve constant term."
@@ -479,17 +465,17 @@ program define _boottest, rclass sortpreserve
 		if `df'>1 & "`ptype'"!="symmetric" di as txt "Note: {cmd:ptype(`ptype')} ignored for multi-constraint null hypotheses."
 
 		if `df'<=2 { // a bit duplicative of code in the if-`ML' block just below...
-			if  "`graph'"=="" {
+			if  "`graph'"=="" {  // construct axis label(s)
 				local coleq: coleq `b'
 				if "`:word 1 of `coleq''"=="_" local coleq
 				local colnames: colnames `b'
-				forvalues r=1/2 {
+				forvalues i=1/2 {
 					local terms 0
-					local constraintLHS`r'
-					forvalues c=1/`=colsof(`C0')-1' {
-						if `C0'[`r',`c'] {
-							if `terms++' local constraintLHS`r' `constraintLHS`r''+
-							local constraintLHS`r' `constraintLHS`r'' `=cond(`C0'[`r',`c']!=1,"`=`C0'[`r',`c']'*","")'`=cond("`coleq'"=="","","[`:word `c' of `coleq'']")'`:word `c' of `colnames''
+					local constraintLHS`i'
+					forvalues j=1/`=colsof(`R')' {
+						if `R'[`i',`j'] {
+							if `terms++' local constraintLHS`i' `constraintLHS`i''+
+							local constraintLHS`i' `constraintLHS`i'' `=cond(`R'[`i',`j']!=1,"`=`R'[`i',`j']'*","")'`=cond("`coleq'"=="","","[`:word `j' of `coleq'']")'`:word `j' of `colnames''
 						}
 					}
 				}
@@ -506,6 +492,7 @@ program define _boottest, rclass sortpreserve
 
 		if `ML' {
 			local K .
+      local k = colsof(`b')
 
 			if `null' {
 				if "`e(cmdline)'"=="" & `"`cmdline'"'=="" {
@@ -517,13 +504,15 @@ program define _boottest, rclass sortpreserve
 					exit 198
 				}
 
-				mat `CC0' = `C0' \ nullmat(`C') // add null to model constraints
+				mat `R1R' = `R' \ nullmat(`R1') // add null to model constraints
+				mat `r1r' = `r' \ nullmat(`r1')
 
 				* get rid of any remaining o. and b. constraints; r(k_autcns) doesn't capture all
-				mata _boottestC = st_matrixcolstripe("`CC0'")[,2]
-				mata _boottestC = !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))'; _boottestC[cols(_boottestC)] = 0 // don't look at r column
-				mata st_matrix("`CC0'", select(st_matrix("`CC0'"), rowsum(select(st_matrix("`CC0'"), _boottestC) :!= 0)))
-				cap mat `CC0'[1,1] = `CC0'[1,1]
+				mata _boottestC = st_matrixcolstripe("`R1R'")[,2]
+				mata _boottestC = rowsum(select(st_matrix("`R1R'"), !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))') :!= 0)
+				mata st_matrix("`R1R'", select(st_matrix("`R1R'"), _boottestC))
+				mata st_matrix("`r1r'", select(st_matrix("`r1r'"), _boottestC))
+				cap mat `R1R'[1,1] = `R1R'[1,1]
 				if _rc {
 					di as error _n "Null constraint applies only to omitted variables or base levels of factor variables."
 					continue
@@ -541,16 +530,16 @@ program define _boottest, rclass sortpreserve
 				if "`:word 1 of `coleq''"=="_" local coleq
 				local colnames: colnames `b'
 				local _constraints
-				forvalues r=1/`=rowsof(`CC0')' {
+				forvalues i=1/`=rowsof(`R1R')' {
 					local terms 0
 					local _constraint
-					forvalues c=1/`=colsof(`CC0')-1' {
-						if `CC0'[`r',`c'] {
+					forvalues j=1/`=colsof(`R1R')' {
+						if `R1R'[`i',`j'] {
 							if `terms++' local _constraint `_constraint' +
-							local _constraint `_constraint' `=cond(`CC0'[`r',`c']!=1,"`=`CC0'[`r',`c']' * ","")' `=cond("`coleq'"=="","","[`:word `c' of `coleq'']")'`:word `c' of `colnames''
+							local _constraint `_constraint' `=cond(`R1R'[`i',`j']!=1,"`=`R1R'[`i',`j']' * ","")' `=cond("`coleq'"=="","","[`:word `j' of `coleq'']")'`:word `j' of `colnames''
 						}
 					}
-					local _constraint `_constraint' = `=`CC0'[`r',`=colsof(`CC0')']'
+					local _constraint `_constraint' = `=`r1r'[`i',1]'
 					constraint free
 					local _constraints `_constraints' `r(free)'
 					constraint `r(free)' `_constraint'
@@ -620,20 +609,16 @@ program define _boottest, rclass sortpreserve
 			}
 		}
 		else { // not ML
-			cap _estimates drop `hold'
+      if `partial' mat `R'  = `R', J(`df', `:word count `e(partial1)'' + e(partialcons), 0)  // add blanks for partialled-out
+      mata st_matrix("`R'" , st_matrix("`R'" )[,_boottestp])  // put cols in standardized order & drop those for 0-variance vars
+
+ 			cap _estimates drop `hold'
 			_est hold `hold', restore
 
-			mata st_matrix("`C0'", st_matrix("`C0'")[,_boottestp]) // ensure constraint matrix in order cons-other exog-endog
-			mata st_matrix("`C0'", st_matrix("`C0'" )[,(_boottestkeepC,`=colsof(`C0')')]) // drop columns for 0-variance vars
-
 			if `ar' {
-				if !`IV' | `GMM' {
-					di as err "Anderson-Rubin test only available for non-GMM instrumental variables models."
-					exit 198
-				}
 				local kEnd: word count `Xnames_endog'
 				local kEx : word count `Xnames_exog'
-				mata st_numscalar("`p'", rows(st_matrix("`C0'"))!=`kEnd' | (`kEx'? any(st_matrix("`C0'")[|.,.\.,`kEx'|]) : 0))
+				mata st_numscalar("`p'", rows(st_matrix("`R'"))!=`kEnd' | (`kEx'? any(st_matrix("`R'")[|.,.\.,`kEx'|]) : 0))
 				if `p' {
 					di as err "For Anderson-Rubin test, null hypothesis must constrain all the instrumented variables and no others."
 					exit 198
@@ -646,8 +631,8 @@ program define _boottest, rclass sortpreserve
 		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                         `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
-												"`Ynames'", "`b'", "`V'", "`W'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
-												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`C'", "`C0'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
+												"`Ynames'", "`b'", "`V'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
+												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
 		_estimates unhold `hold'
 
@@ -719,7 +704,7 @@ program define _boottest, rclass sortpreserve
 		cap confirm mat `plotmat'
 		if _rc == 0 {
 			tempvar X1 Y _plotmat
-			if rowsof(`C0')==2 tempvar X2
+			if `df'==2 tempvar X2
 			mat `_plotmat' = `plotmat'
 			return matrix plot`_h' = `plotmat'
 			mat `plotmat' = `_plotmat'
@@ -740,7 +725,7 @@ program define _boottest, rclass sortpreserve
 				label var `Y' " " // in case user turns on legend
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
 
-				if rowsof(`C0')==1 {
+				if `df'==1 {
         	cap mata st_local("nonmiss", strofreal(nonmissing(st_matrix("`cimat'"))))
           if 0`nonmiss' > 1 {
             mata _boottestm = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'"))) / 2 / (`nonmiss' + 1)  // margin
@@ -822,7 +807,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 3.1.0 Complete overhaul of WRE for ~100X speed gain
+* 3.1.0 Complete overhaul of WRE for ~200X speed gain. Dropped GMM support. Added support for ivreg2's partial().
 * 3.0.2 Dropped "KK" calculation (last expression in eq 60 in paper) because inefficient when interpolating. Refined plotting to minimize interpolation anchor resets. Refined criterion to use "granular"-optimized code (many small clusters).
 * 3.0.1 Recompiled in Stata 13
 * 3.0.0 Exploit linearity/quadratic form in denominators too. ~10X speed-up over 2018 version for inverting tests after OLS.

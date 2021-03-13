@@ -71,20 +71,20 @@ waldtest collgrad tenure, cluster(industry age) nogr // multi-way-clustered test
 boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2) nogr
 
 qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
-boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph // override estimate's clustering
+boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // override estimate's clustering
 qui reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)
-boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph // should match previous result
+boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // should match previous result
 
 qui probit c_city tenure wage ttl_exp collgrad, cluster(industry)
 boottest tenure, nogr                          // score bootstrap, Rademacher weights, null imposed, 999 replications
 boottest tenure, cluster(industry age) bootcluster(industry) small nogr  // multi-way-clustered, finite-sample-corrected test with score bootstrap
 
-qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit // same probit estimate as previous
+qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit  // same probit estimate as previous
 boottest tenure                                                             // requires Stata 14.0 or later
 boottest tenure, cluster(industry age) bootcluster(industry) small          // requires Stata 14.0 or later
 
 sysuse auto, clear
-ml model lf myprobit (foreign = mpg weight) // define model
+ml model lf myprobit (foreign = mpg weight)  // define model
 qui ml max // estimate
 boottest mpg, cmdline(ml model lf myprobit (foreign = mpg weight)) 
 
@@ -126,5 +126,17 @@ foreach crimevar in Violent Property {
     D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
   boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr
 }
+
+qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust small
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+qui ivreghdfe D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, absorb(state) small
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+qui xtivreg   D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe small
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
+qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust partial(i.year i.state)
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
 
 qui log close
