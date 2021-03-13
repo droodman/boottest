@@ -559,6 +559,8 @@ testing. {it:Stata Journal} 7(4): 465-506.{p_end}
 {it:The Review of Economics and Statistics} 90(3): 414-27.{p_end}
 {p 4 8 2}Cameron, A.C., and D.L. Miller. 2015. A practitioner’s gtuide to cluster-robust
 inference. {it:Journal of Human Resources} 50(2): 317-72.{p_end}
+{p 4 8 2}Chandrupatla, T.R. 1997. A new hybrid quadratic-bisection algorithm for finding the zero of a nonlinear function without using 
+derivatives. {it:Advances in Engineering Software} 28(3): 145-49.{p_end}
 {p 4 8 2}Davidson, R., and E. Flachaire. 2008. The wild bootstrap, tamed at last. {it:Journal of Econometrics} 146: 162-69.{p_end}
 {p 4 8 2}Davidson, R., and J.G. MacKinnon. 1999. The size distortion of bootstrap tests. {it:Econometric Theory} 15: 361-76.{p_end}
 {p 4 8 2}Davidson, R., and J.G. MacKinnon. 2010. Wild bootstrap tests for IV regression. {it:Journal of Business & Economic Statistics} 28(1): 128-44.{p_end}
