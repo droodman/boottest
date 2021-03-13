@@ -2269,9 +2269,3 @@ mata mlib create lboottest, dir("`c(sysdir_plus)'l") replace
 mata mlib add lboottest *(), dir("`c(sysdir_plus)'l")
 mata mlib index
 end
-
-/*cd "C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster"
-use Levitt, clear
-ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust partial(i.year i.state)
-boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
-*/
