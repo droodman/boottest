@@ -119,7 +119,7 @@ from {browse "https://github.com/droodman/boottest/archive/For-Stata-11,-12.zip"
 
 {p 2 4 0}* Version 3.1.0, released in March 2021, also introduced a change that can slightly affect results, specifically the bounds for confidence sets. It switched to a faster algorithm for
 pinpointing these bounds (Chandrupatla 1997). In the bootstrap, the {it:p} value as a function of the trial parameter value is a step function when viewed at high resolution: it can only take 
-values {it:n}/{it:B} where {it:n} is an integer and {it:B} is the number of bootstrap replications. As a result, when searching for the cross-over point for, say, {it:p} = 0.05, a locations in a small range are equally valid. The
+values {it:n}/{it:B} where {it:n} is an integer and {it:B} is the number of bootstrap replications. As a result, when searching for the cross-over point for, say, {it:p} = 0.05, locations in a small range are equally valid. The
 new algorithm happens to settle at slightly different points. The last boottest version before this change is 3.0.2, and is available via 
 {stata "net install boottest, replace from(https://raw.github.com/droodman/boottest/v3.0.2)":net install boottest, replace from(https://raw.github.com/droodman/boottest/v3.0.2)}.
 

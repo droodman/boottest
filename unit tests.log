@@ -6,7 +6,7 @@
 . set seed 0193284710
 
 . 
-. use http://web.archive.org/web/20150802214527/http://faculty.econ.ucdavis.edu/~dlmiller/statafiles/collapsed, clear
+. use collapsed, clear
 
 . 
 . qui regress hasinsurance selfemployed post post_self, cluster(year)
@@ -103,7 +103,7 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
        Sidak-adjusted prob =     0.0000
 
 . 
-. webuse nlsw88
+. use nlsw88
 (NLSW, 1988 extract)
 
 . 

@@ -17,7 +17,7 @@ version 13
 
 set seed 0193284710
 
-use http://web.archive.org/web/20150802214527/http://faculty.econ.ucdavis.edu/~dlmiller/statafiles/collapsed, clear
+use collapsed, clear
 
 qui regress hasinsurance selfemployed post post_self, cluster(year)
 boottest post_self=.04, nogr // wild bootstrap, Rademacher weights, null imposed, 999 replications
@@ -29,7 +29,7 @@ boottest (post_self) (post), reps(9999) weight(webb) nogr // same
 boottest {post_self=.04} {post}, nogr // separate tests, no correction for multiple hypotheses
 boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
 
-webuse nlsw88
+use nlsw88
 
 qui regress wage tenure ttl_exp collgrad, cluster(industry)
 boottest tenure, svmat nogr        // wild bootstrap test of joint null, Rademacher weights, null imposed, saving  simulated distribution
