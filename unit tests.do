@@ -2,6 +2,7 @@ cd "C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster"
 set more off
 set rmsg off
 set trace off
+set linesize 200
 cap set processors 4
 
 cap program drop myprobit
