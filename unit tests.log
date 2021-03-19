@@ -450,7 +450,7 @@ Log likelihood =  -1332.339                     Prob > chi2       =     0.0056
 Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     0.2800
+                           t(11) =     0.2803
                         Prob>|t| =     0.7486
 
 . 
@@ -523,7 +523,7 @@ c_city       |
 Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     0.2800
+                           t(11) =     0.2803
                         Prob>|t| =     0.7402
 
 . 
