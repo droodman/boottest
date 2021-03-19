@@ -1,4 +1,4 @@
-*! boottest 3.1.0 12 March 2021
+*! boottest 3.1.1 18 March 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -354,8 +354,6 @@ program define _boottest, rclass sortpreserve
 		if !`cons' local _cons
 
 		mata _boottestp = J(`cons', 1, `k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))]  // for putting vars in cons-exog-endog order
-*    mata         st_local("Xnames_exog" , invtokens(sort(tokens(st_local("Xnames_exog" ))', 1)'))  // for this standardization, sort regressor lists by name
-*    if `IV' mata st_local("Xnames_endog", invtokens(sort(tokens(st_local("Xnames_endog"))', 1)'))
 		if `cons' mat `keepC' = 1
 		local colnames `_cons' `Xnames_exog' `Xnames_endog'
 
@@ -807,6 +805,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.1.1 Minor bug fixes and speed-ups
 * 3.1.0 Complete overhaul of WRE for ~200X speed gain. Dropped GMM support. Added support for ivreg2's partial().
 * 3.0.2 Dropped "KK" calculation (last expression in eq 60 in paper) because inefficient when interpolating. Refined plotting to minimize interpolation anchor resets. Refined criterion to use "granular"-optimized code (many small clusters).
 * 3.0.1 Recompiled in Stata 13
