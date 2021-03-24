@@ -1,4 +1,4 @@
-*! boottest 3.1.1 18 March 2021
+*! boottest 3.1.2 24 March 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -90,7 +90,7 @@ class boottestARubin extends boottestOLS {
 class boottestIVGMM extends boottestOLS {
 	real matrix ZZ, XY2, XX, H_2SLS, V, ZY2, X2Y2, X1Y2, ZR1ZR1, X2ZR1, ZR1Y2, X1ZR1, ZZR1, X2y1, X1y1, Zy1, ZXinvXXXZ, H_2SLSmZZ
   real colvector ZXinvXXXy1par, t1Y
-  real rowvector y1Y2, y1ZR1
+  real rowvector y1Y2, twoy1ZR1
   real scalar y1y1, y1pary1par
   pointer(real colvector) scalar pX2y1par, pX1y1par, pZy1par
 	pointer(real rowvector) scalar py1parY2
@@ -288,7 +288,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     X2ZR1  = cross(X2   , *parent->pwt, *pZR1)
     X1ZR1  = cross(*pX1 , *parent->pwt, *pZR1)
     ZZR1   = cross(*pZ  , *parent->pwt, *pZR1)
-    y1ZR1  = cross( y1  , *parent->pwt, *pZR1)
+    twoy1ZR1  = cross( y1  , *parent->pwt, *pZR1); twoy1ZR1 = twoy1ZR1 + twoy1ZR1
     ZR1ZR1 = cross(*pZR1, *parent->pwt, *pZR1)
     ZR1Y2  = cross(*pZR1, *parent->pwt, Y2   )
   } else {
@@ -370,7 +370,7 @@ void boottestIVGMM::Estimate(real colvector r1) {
 	pragma unset vec; pragma unset val
 
   if (cols(R1invR1R1)) {
-		y1pary1par = y1y1 - 2 * y1ZR1 * r1 + r1 ' ZR1ZR1 * r1
+		y1pary1par = y1y1 - twoy1ZR1 * r1 + r1 ' ZR1ZR1 * r1
 		py1par   = &(y1 - *pZR1 * r1)
 		py1parY2 = &(y1Y2  - r1 ' ZR1Y2)
 		pX2y1par = &(X2y1 - X2ZR1 * r1)
@@ -662,7 +662,7 @@ real colvector boottest::getdist(| string scalar diststat) {
 		_sort( DistCDR = (*_pnumer)[|2\.|]' :+ *pr , 1)
 	} else if (rows(DistCDR)==0)
 		if (cols(*pDist) > 1)
-			_sort( DistCDR=(*pDist)[|2\.|]' , 1)
+			_sort( DistCDR = multiplier * (*pDist)[|2\.|]' , 1)
 		else
 			DistCDR = J(0,1,0)
 	return(DistCDR)
