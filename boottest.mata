@@ -1,4 +1,4 @@
-*! boottest 3.1.2 24 March 2021
+*! boottest 3.1.3 28 March 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -67,7 +67,7 @@ pointer (real colvector) scalar pvHadw(real matrix v, real matrix w)
 	return(w==1? &v : (v==1? &w : &(v :* w)))
 
 class boottestOLS {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
-	real scalar LIML, uu, Fuller, ARubin, kappa, isDGP, kZ
+	real scalar LIML, Fuller, ARubin, kappa, isDGP, kZ
 	real colvector y1, u1ddot, u1dddot, beta, beta0, PXy1, invXXXy1par
 	real rowvector Yendog
   real matrix invZperpZperp, ZperpinvZperpZperp, XZ, PXZ, YPXY, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparY, RR1invR1R1, dbetadr, YY, AR, XAR, R1invR1R1Y, invXXXZ, U2ddot, XinvXX, Rt1, invXX, Y2, X2, invH
@@ -418,20 +418,11 @@ void boottestIVGMM::Estimate(real colvector r1) {
 }
 
 
-void boottestOLS::MakeResiduals() {
-  real colvector _beta
-
+void boottestOLS::MakeResiduals()
   u1ddot = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta)
 
-  if ((parent->robust | parent->scoreBS | parent->bootstrapt)==0) {
-  	_beta = 1 \ -beta; uu = _beta ' YY * _beta
-    if (parent->hascons == 0)
-      uu = uu - cross(*parent->pwt, u1ddot)^2 / parent->_Nobs  // sum of squares after centering, N * Var
-  }
-}
-
 void boottestIVGMM::MakeResiduals() {
-	real matrix Xu; real colvector negXuinvuu; real colvector _beta
+	real matrix Xu; real colvector negXuinvuu, _beta; real scalar uu
   
   u1ddot = *py1par - *pZ * beta
 
@@ -662,7 +653,7 @@ real colvector boottest::getdist(| string scalar diststat) {
 		_sort( DistCDR = (*_pnumer)[|2\.|]' :+ *pr , 1)
 	} else if (rows(DistCDR)==0)
 		if (cols(*pDist) > 1)
-			_sort( DistCDR = multiplier * (*pDist)[|2\.|]' , 1)
+      _sort( DistCDR = multiplier * (*pDist)[|2\.|]' , 1)
 		else
 			DistCDR = J(0,1,0)
 	return(DistCDR)
