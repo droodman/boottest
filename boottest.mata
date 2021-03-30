@@ -1,4 +1,4 @@
-*! boottest 3.1.3 28 March 2021
+*! boottest 3.1.4 29 March 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -488,7 +488,7 @@ void boottest::new() {
 	confpeak = MaxMatSize = .
 	pY2 = pX1 = pX2 = py1 = pSc = pID = pFEID = pR1 = pR = pwt = &J(0,0,0)
 	pr1 = pr = &J(0,1,0)
-	pIDBootData = &.
+	pIDBootData = pIDBootAll = &.
 }
 
 // important to call this when done: break loops in data structure topology to enable garbage collection
@@ -773,7 +773,6 @@ void boottest::storeWtGrpResults(pointer(real matrix) scalar pdest, real scalar 
   else
     (*pdest)[|., WeightGrpStart[w] \ ., WeightGrpStop[w]|] = content
 
-
 void boottest::Init() {  // for efficiency when varying r repeatedly to make CI, do stuff once that doesn't depend on r
   real colvector sortID, o, _FEID
   pointer (real colvector) scalar pIDAllData, pIDCapData
@@ -970,8 +969,8 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 		pY2 = partialFE(pY2)
 	}
 
-  if (B & robust & granular & purerobust==0 & WREnonARubin==0)
-    if (NFE)
+  if (B & robust & granular & purerobust==0 & bootstrapt & WREnonARubin==0)
+    if (NFE & FEboot==0)
       (void) _panelsetup(*pID   , 1..NBootClustVar, pIDBootData)
     else
       (void) _panelsetup(*pIDAll, 1..NBootClustVar, pIDBootAll )
@@ -987,6 +986,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   } else {
     seed = rseed()
     _B = ceil((B+1) / Nw)
+    Nw = ceil((B+1) / _B)
      WeightGrpStart = (0::Nw-1) * _B :+ 1
     (WeightGrpStop  = (1::Nw  ) * _B     )[Nw] = B+1
   }
@@ -1204,14 +1204,14 @@ void boottest::MakeWildWeights(real scalar _B, real scalar first) {
 		if (enumerate)
 			v = J(Nstar,1,1), count_binary(Nstar, -1-WREnonARubin, 1-WREnonARubin)  // complete Rademacher set
 		else if (weighttype==3)
-			v = rnormal(Nstar, _B+1, -WREnonARubin, 1)  // normal weights
+			v = rnormal(Nstar, _B+first, -WREnonARubin, 1)  // normal weights
 		else if (weighttype==4)
-			v = rgamma(Nstar, _B+1, 4, .5) :- (2 + WREnonARubin)  // Gamma weights
+			v = rgamma(Nstar, _B+first, 4, .5) :- (2 + WREnonARubin)  // Gamma weights
 		else if (weighttype==2)
 			if (WREnonARubin)
-				v = sqrt(2 * ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+1):>=.5):-.5) :- 1  // Webb weights, minus 1 for WRE
+				v = sqrt(2 * ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5) :- 1  // Webb weights, minus 1 for WRE
 			else {
-				v = sqrt(    ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+1):>=.5):-.5)       // Webb weights, divided by sqrt(2)
+				v = sqrt(    ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5)       // Webb weights, divided by sqrt(2)
 				u_sd = 1.6a09e667f3bcdX-001 /*sqrt(.5)*/
 			}
 		else if (weighttype)
@@ -1731,9 +1731,9 @@ void boottest::makeNumerAndJ(real scalar w, | real colvector r) {  // called to 
           ustar = *partialFE(&(*puddot :* v[*pIDBootData,]))
           for (d=df;d;d--)
             (*pJcd)[1,d].M = *_panelsum(ustar, pM->WXAR[d].M, *pinfoCapData)                                              - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
-        } else 
+        } else
           for (d=df;d;d--)
-	          (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[*pIDBootAll,], infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
+            (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* v[*pIDBootAll,], infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
       }
 
 		for (c=NErrClustCombs; c>granular; c--)

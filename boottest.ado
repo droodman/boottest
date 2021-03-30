@@ -1,4 +1,4 @@
-*! boottest 3.1.3 28 March 2021
+*! boottest 3.1.4 29 March 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -805,6 +805,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.1.4 Fixed crashes with matsizegb() and with "granular" (many-clustered) FE estimates with FE & cluster groups coherent
 * 3.1.3 Fixed crash on stat(c) after OLS
 * 3.1.2 Incorporated small-sample factor in r(dist)
 * 3.1.1 Minor bug fixes and speed-ups
