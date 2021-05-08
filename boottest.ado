@@ -1,4 +1,4 @@
-*! boottest 3.1.4 29 March 2021
+*! boottest 3.2.0 7 May 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -96,7 +96,13 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv *]
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins *]
+
+  local margins = "`margins'" != ""
+  if `margins' & `"`h0s'`h0'"' != "" {
+    di as err "Include the {cmd:margins} option or state null hyptheses, but don't do both."
+    exit 198
+  }
 
 	if `matsizegb'==1000000 local matsizegb .
   
@@ -265,7 +271,7 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname
+	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0
 	mat `b' = e(b)
 	if "`e(wtype)'" != "" {
 		tokenize `e(wexp)'
@@ -301,14 +307,32 @@ program define _boottest, rclass sortpreserve
 		}
 		local anythingh0 1
 	}
-	else {
+	else if `margins' {
+  	if strlen("`r(Jacobian)'") {
+    	mata _boottestp = selectindex(rowsum(st_matrix("r(Jacobian)"):!=0))  // skip all-zero rows
+      mata st_local("marginsnames", invtokens(st_matrixrowstripe("r(Jacobian)")[_boottestp,2]'))
+      mata st_matrix("`marginsH0'", st_matrix("r(Jacobian)")[_boottestp,])
+      mata st_local("N_h0s", strofreal(length(_boottestp)))
+      if `N_h0s'==0 {
+        di as err "No valid {cmd:margins} results not found."
+        error 303
+      }
+      scalar `df' = 1  // always when working with margins results, df = 1 and constant term = 0
+      mat `r' = 0
+    }
+    else {
+    	di as err "{cmd:margins} results not found."
+      error 303
+    }
+  }
+  else {
 		local N_h0s 1 // number of nulls
 		if "`h0'" == "" {
 			di as txt _n "({cmd:h0(1)} assumed)"
 			local h0 1
 		}
 		foreach c of numlist `h0' {
-			if `"`: constraint `c''"' == "" di as res "Constraint `c' not found and will be skipped."
+			`quietly' if `"`: constraint `c''"' == "" di as res "Constraint `c' not found and will be skipped."
 		}
 		local h0_1 `h0'
 	}
@@ -419,29 +443,32 @@ program define _boottest, rclass sortpreserve
 	}
 
 	forvalues h=1/`N_h0s' { // loop over multiple independent constraints
-		_estimates hold `hold', restore
-		ereturn post `b'
-		mat `b' = e(b)
+    if `margins' mat `R' = `marginsH0'[`h', 1...]
+    else {
+    	_estimates hold `hold', restore
+      ereturn post `b'
+      mat `b' = e(b)
 
-		// process hypothesis constraints into e(Cns)
-		qui makecns `h0_`h''
+    	// process hypothesis constraints into e(Cns)
+      qui makecns `h0_`h''
 
-		if "`h0_`h''" != "`r(clist)'" {
-			local clist `r(clist)'
-			local clist: list h0_`h' - clist
-			foreach c in `clist' {
-				di as txt `"(note: constraint `=cond(0`anythingh0', `"{res}`:constraint `c''{txt}"', "number `c'")' caused error {search r(111)})"'
-			}
-			exit 111
-		}
-		
-		cap mat `C' = e(Cns)
-		if _rc exit 111
-		_estimates unhold `hold'
-		if r(k_autoCns) mat `C' = `C'[r(k_autoCns)+1...,1...]
-		scalar `df' = rowsof(`C')
-    mat `R' = `C'[1...,1..colsof(`C')-1]
-    mat `r' = `C'[1...,   colsof(`C')  ]
+      if "`h0_`h''" != "`r(clist)'" {
+        local clist `r(clist)'
+        local clist: list h0_`h' - clist
+        foreach c in `clist' {
+          di as txt `"(note: constraint `=cond(0`anythingh0', `"{res}`:constraint `c''{txt}"', "number `c'")' caused error {search r(111)})"'
+        }
+        exit 111
+      }
+      
+      cap mat `C' = e(Cns)
+      if _rc exit 111
+      _estimates unhold `hold'
+      if r(k_autoCns) mat `C' = `C'[r(k_autoCns)+1...,1...]
+      scalar `df' = rowsof(`C')
+      mat `R' = `C'[1...,1..colsof(`C')-1]
+      mat `r' = `C'[1...,   colsof(`C')  ]
+    }
 
 		if `NFE' {
 			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`R'"),st_matrixcolstripe("`R'")[,2]':=="_cons"))))
@@ -464,17 +491,20 @@ program define _boottest, rclass sortpreserve
 
 		if `df'<=2 { // a bit duplicative of code in the if-`ML' block just below...
 			if  "`graph'"=="" {  // construct axis label(s)
-				local coleq: coleq `b'
-				if "`:word 1 of `coleq''"=="_" local coleq
-				local colnames: colnames `b'
-				forvalues i=1/2 {
-					local terms 0
-					local constraintLHS`i'
-					forvalues j=1/`=colsof(`R')' {
-						if `R'[`i',`j'] {
-							if `terms++' local constraintLHS`i' `constraintLHS`i''+
-							local constraintLHS`i' `constraintLHS`i'' `=cond(`R'[`i',`j']!=1,"`=`R'[`i',`j']'*","")'`=cond("`coleq'"=="","","[`:word `j' of `coleq'']")'`:word `j' of `colnames''
-						}
+				if `margins' local constraintLHS1 "Margins of `:word `h' of `marginsnames''"
+        else {
+        	local coleq: coleq `b'
+          if "`:word 1 of `coleq''"=="_" local coleq
+          local colnames: colnames `b'
+          forvalues i=1/`df' {
+            local terms 0
+            local constraintLHS`i'
+            forvalues j=1/`=colsof(`R')' {
+              if `R'[`i',`j'] {
+                if `terms++' local constraintLHS`i' `constraintLHS`i''+
+                local constraintLHS`i' `constraintLHS`i'' `=cond(`R'[`i',`j']!=1,"`=`R'[`i',`j']'*","")'`=cond("`coleq'"=="","","[`:word `j' of `coleq'']")'`:word `j' of `colnames''
+              }
+            }
 					}
 				}
 			}
@@ -664,11 +694,14 @@ program define _boottest, rclass sortpreserve
 		if `reps'	di as txt ", " strproper("`weighttype'") " weights" _c
 		di as txt ":"
 		
-		foreach c in `h0_`h'' {
-			di "  " _c
-			if !0`anythingh0' di as txt %4.0g `c' ": " _c
-			di as res "`:constraint `c''"
-		}
+		if `margins' di `"  `:word `h' of "`marginsnames'""'
+    else {
+    	foreach c in `h0_`h'' {
+        di "  " _c
+        if !0`anythingh0' di as txt %4.0g `c' ": " _c
+        di as res "`:constraint `c''"
+      }
+    }
 
 		if `df'==1 {
 			local line1 = cond(`small', "t(`=`df_r'')", "z")
@@ -805,6 +838,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.2.0 Added margins option
 * 3.1.4 Fixed crashes with matsizegb() and with "granular" (many-clustered) FE estimates with FE & cluster groups coherent
 * 3.1.3 Fixed crash on stat(c) after OLS
 * 3.1.2 Incorporated small-sample factor in r(dist)

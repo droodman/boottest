@@ -1,4 +1,4 @@
-*! boottest 3.1.4 29 March 2021
+*! boottest 3.2.0 7 May 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -66,7 +66,7 @@ pointer(real matrix) scalar pXS(real matrix X, real matrix S)
 pointer (real colvector) scalar pvHadw(real matrix v, real matrix w)
 	return(w==1? &v : (v==1? &w : &(v :* w)))
 
-class boottestOLS {  // class for analyitcal OLS, 2SLS, LIML, GMM estimation--everything but iterative ML
+class boottestOLS {  // class for performing OLS
 	real scalar LIML, Fuller, ARubin, kappa, isDGP, kZ
 	real colvector y1, u1ddot, u1dddot, beta, beta0, PXy1, invXXXy1par
 	real rowvector Yendog
@@ -346,8 +346,8 @@ void boottestOLS::Estimate(real colvector r1)
   beta = beta0 - dbetadr * r1
 
 void boottestARubin::Estimate(real colvector r1) {
+  beta = beta0 - dbetadr * r1
   py1par = &(*parent->py1  - *parent->pY2 * r1)
-  beta = beta0  - dbetadr * r1
 }
 
 void boottestIVGMM::MakeH() {
@@ -2148,7 +2148,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 
 	M._st_view(sc, ., scnames, samplename)
 	M._st_view(Y , ., Ynames , samplename)
-	M._st_view(X2, ., X2names , samplename)
+	M._st_view(X2, ., X2names, samplename)
 	if (FEname != "" ) FEID = st_data(., FEname , samplename)
 	if (IDnames != "") ID   = st_data(., IDnames, samplename)
 	if (wtname  != "") wt   = st_data(., wtname , samplename) // panelsum() doesn't like views as weights

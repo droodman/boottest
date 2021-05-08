@@ -20,9 +20,9 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.0703
+                        Prob>|t| =     0.0742
 
-95% confidence set for null hypothesis expression: [.03815, .07148]
+95% confidence set for null hypothesis expression: [.0384, .07148]
 
 . boottest post_self=.04, weight(webb) noci // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI
 
@@ -69,9 +69,9 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.0703
+                        Prob>|t| =     0.0742
 
-95% confidence set for null hypothesis expression: [.03815, .07148]
+95% confidence set for null hypothesis expression: [.0384, .07148]
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
   post
@@ -79,7 +79,7 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
                             t(7) =    -5.5821
                         Prob>|t| =     0.0000
 
-95% confidence set for null hypothesis expression: [-.02943, -.0129]
+95% confidence set for null hypothesis expression: [-.02955, -.0129]
 
 . boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
 
@@ -223,13 +223,13 @@ Fitting individual models as starting point for full model fit.
 
 Fitting full model.
 
-Mixed-process regression                        Number of obs     =      2,217
-                                                Wald chi2(2)      =    1004.04
-Log likelihood = -13512.755                     Prob > chi2       =     0.0000
+Mixed-process regression                               Number of obs =   2,217
+                                                       Wald chi2(2)  = 1004.04
+Log likelihood = -13512.755                            Prob > chi2   =  0.0000
 
  ( 1)  [wage]tenure = 0
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
 wage         |
       tenure |          0  (omitted)
@@ -399,13 +399,13 @@ Iteration 1:   log likelihood = -1332.3403
 Iteration 2:   log likelihood =  -1332.339  
 Iteration 3:   log likelihood =  -1332.339  
 
-Probit regression                               Number of obs     =      2,217
-                                                Wald chi2(3)      =      12.58
-Log likelihood =  -1332.339                     Prob > chi2       =     0.0056
+Probit regression                                       Number of obs =  2,217
+                                                        Wald chi2(3)  =  12.58
+Log likelihood = -1332.339                              Prob > chi2   = 0.0056
 
  ( 1)  [c_city]tenure = 0
 ------------------------------------------------------------------------------
-      c_city |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+      c_city | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
       tenure |          0  (omitted)
         wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
@@ -432,13 +432,13 @@ Iteration 1:   log likelihood = -1332.3403
 Iteration 2:   log likelihood =  -1332.339  
 Iteration 3:   log likelihood =  -1332.339  
 
-Probit regression                               Number of obs     =      2,217
-                                                Wald chi2(3)      =      12.58
-Log likelihood =  -1332.339                     Prob > chi2       =     0.0056
+Probit regression                                       Number of obs =  2,217
+                                                        Wald chi2(3)  =  12.58
+Log likelihood = -1332.339                              Prob > chi2   = 0.0056
 
  ( 1)  [c_city]tenure = 0
 ------------------------------------------------------------------------------
-      c_city |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+      c_city | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
       tenure |          0  (omitted)
         wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
@@ -466,15 +466,15 @@ Iteration 1:   log likelihood = -1332.3392
 Iteration 2:   log likelihood =  -1332.339  
 Iteration 3:   log likelihood =  -1332.339  
 
-Generalized structural equation model           Number of obs     =      2,217
+Generalized structural equation model                    Number of obs = 2,217
 Response         : c_city
 Family           : Bernoulli
 Link             : probit
-Log likelihood =  -1332.339
+Log likelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
 c_city       |
       tenure |          0  (omitted)
@@ -502,15 +502,15 @@ Iteration 1:   log likelihood = -1332.3392
 Iteration 2:   log likelihood =  -1332.339  
 Iteration 3:   log likelihood =  -1332.339  
 
-Generalized structural equation model           Number of obs     =      2,217
+Generalized structural equation model                    Number of obs = 2,217
 Response         : c_city
 Family           : Bernoulli
 Link             : probit
-Log likelihood =  -1332.339
+Log likelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
 c_city       |
       tenure |          0  (omitted)
@@ -528,7 +528,7 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusteri
 
 . 
 . sysuse auto, clear
-(1978 Automobile Data)
+(1978 automobile data)
 
 . ml model lf myprobit (foreign = mpg weight)  // define model
 
