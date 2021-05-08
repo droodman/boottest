@@ -496,7 +496,7 @@ program define _boottest, rclass sortpreserve
         	local coleq: coleq `b'
           if "`:word 1 of `coleq''"=="_" local coleq
           local colnames: colnames `b'
-          forvalues i=1/`df' {
+          forvalues i=1/`=`df'' {
             local terms 0
             local constraintLHS`i'
             forvalues j=1/`=colsof(`R')' {

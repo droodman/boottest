@@ -39,6 +39,12 @@ constraint 1 ttl_exp = .2
 qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
 boottest tenure, nogr // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 999 replications
 
+regress wage tenure ttl_exp collgrad south#union, cluster(industry)
+margins south
+boottest, margins nogr // bootstrap CI of average predicted wage for south = 0 and 1
+margins, dydx(south)
+boottest, margins graphopt(xtitle(Average effect of south)) nogr // bootstrap CI of average impact in sample of changing south from 0 to 1
+
 qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 boottest tenure, ptype(equaltail) seed(987654321) nogr  // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps
 boottest tenure, ptype(equaltail) seed(987654321) stat(c) nogr // same but bootstrap-c

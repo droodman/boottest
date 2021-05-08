@@ -135,6 +135,92 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 95% confidence set for null hypothesis expression: [.008769, .189]
 
 . 
+. regress wage tenure ttl_exp collgrad south#union, cluster(industry)
+
+Linear regression                               Number of obs     =      1,855
+                                                F(6, 11)          =     466.17
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.2744
+                                                Root MSE          =     3.5578
+
+                              (Std. err. adjusted for 12 clusters in industry)
+------------------------------------------------------------------------------
+             |               Robust
+        wage | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      tenure |   .0371771   .0144888     2.57   0.026     .0052874    .0690668
+     ttl_exp |   .2672039   .0213283    12.53   0.000     .2202605    .3141472
+    collgrad |   3.152462   .3625251     8.70   0.000      2.35455    3.950374
+             |
+ south#union |
+    0#union  |   .4785269   .3349975     1.43   0.181    -.2587976    1.215851
+ 1#nonunion  |  -1.438916   .2353751    -6.11   0.000    -1.956973   -.9208588
+    1#union  |  -.3029596   .6704026    -0.45   0.660    -1.778506    1.172586
+             |
+       _cons |   3.581387    .220271    16.26   0.000     3.096574      4.0662
+------------------------------------------------------------------------------
+
+. margins south
+
+Predictive margins                                       Number of obs = 1,855
+Model VCE: Robust
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       south |
+          0  |   8.164246   .3020966    27.03   0.000     7.499336    8.829156
+          1  |   6.887295   .4175234    16.50   0.000     5.968332    7.806258
+------------------------------------------------------------------------------
+
+. boottest, margins nogr // bootstrap CI of average predicted wage for south = 0 and 1
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  0bn.south 1.south
+
+                           t(11) =    27.0253
+                        Prob>|t| =     0.0040
+
+95% confidence set for null hypothesis expression: [7.553, 9.373]
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  
+
+                           t(11) =    16.4956
+                        Prob>|t| =     0.0010
+
+95% confidence set for null hypothesis expression: [6.206, 8.86]
+
+. margins, dydx(south)
+
+Average marginal effects                                 Number of obs = 1,855
+Model VCE: Robust
+
+Expression: Linear prediction, predict()
+dy/dx wrt:  1.south
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |      dy/dx   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     1.south |  -1.276951   .2201867    -5.80   0.000    -1.761578   -.7923233
+------------------------------------------------------------------------------
+Note: dy/dx for factor levels is the discrete change from the base level.
+
+. boottest, margins graphopt(xtitle(Average effect of south)) nogr // bootstrap CI of average impact in sample of changing south from 0 to 1
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  1.south
+
+                           t(11) =    -5.7994
+                        Prob>|t| =     0.0210
+
+95% confidence set for null hypothesis expression: [-1.885, -.1558]
+
+. 
 . qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
 
 . boottest tenure, ptype(equaltail) seed(987654321) nogr  // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps

@@ -52,6 +52,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt stat:istic(t | c)}}specify statistic type to bootstrap; default is {it:t}{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
+{synopt:{opt marg:ins}}bootstrap current results from {cmd:margins}{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
 {synopt:{opt l:evel(#)}}override default confidence level used for confidence set{p_end}
 {synopt:{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)]}}request the bootstrapped quasi-t/z distribution, or numerators thereof, be saved in return value {cmd:r(dist)}{p_end}
@@ -102,11 +103,15 @@ hypothesis, a confidence set is derived:
 
 {title:Updates}
 
-{p 2 4 0}* Since the publication of Roodman et al. (2019), {cmd:boottest} has gained one significant feature: the option to perform the bootstrap-c,
+{p 2 4 0}* Since the publication of Roodman et al. (2019), {cmd:boottest} has gained two significant features. The first is the option to perform the bootstrap-c,
 which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather t/z/F/chi2 statistics. Standard theory favors the latter, 
 but Young (2019) presents evidence that the bootstrap-c (or "non-studentized" test) is more reliable, at least in instrumental variables estimation. And theory and simulation in
 Wang (2021) favors the non-studentized test when instruments are weak (but strong in at least one cluster). The option 
 {cmdab:stat:istic(c)} invokes the feature.
+
+{p 2 4 0}* The second major new feature is the {cmdab:marg:ins} option, which allows you to bootstrap results from the {cmd:margins} command. To use this feature,
+run {cmd:boottest} immediately after {cmd:margins} and do not include any hypotheses before the comma in the {cmd:boottest} command line. {cmd:boottest} will treat
+each marginal effect separately.
 
 {p 2 4 0}* Version 2.0.6 of {cmd:boottest}, released in May 2018, introduced two changes that can slightly affect results. The default for {opt r:eps(#)}
 is now 999 instead of 1000. And in computing percentiles in the bootstrap distribution, ties are no longer (half-)counted. 
@@ -220,9 +225,6 @@ By default, the null is imposed before bootstrapping (Fisher and Hall 1990; Davi
 estimation, the null is imposed only on the second-stage equation. Thus, after {cmd:ivregress 2sls Y X1 (X2 = Z)}, imposing the null of X1 = 0 results in the equivalent of 
 {cmd:ivregress 2sls Y (X2 = X1 Z)}, not {cmd:ivregress 2sls Y (X2 = Z)}.
 
-{pstd}{cmd:boottest}'s bootstrap-based tests are generally fast, though the WRE runs substantially slower than the others. The code is optimized for clustered standard errors and 
-runs most efficiently in Stata version 13 or later.
-
 {pstd}
 The wild and score bootstraps multiply residuals or scores by weights drawn randomly for each replication. {cmd:boottest} offers five weight distributions:
 
@@ -305,6 +307,10 @@ time. {opt r:eps(0)} requests a Wald test or--if {opt boottype(score)} is also s
 and {cmd:scoretest} facilitate this usage.
 
 {phang}{opt nonul:l} suppresses the imposition of the null before bootstrapping. This is rarely a good idea.
+
+{phang}{opt marg:ins} instructs {cmd:boottest} to beach result from a call to {cmd:margins}, which must just have been generated, as a linear combination of parameters,
+and test the independent hypotheses that each is 0. {cmd:boottest} extracts the coefficients of these linear combinations from the r(Jacobian) return value of
+{cmd:margins}. When using this option, do not include any hypotheses before the comma (or in the deprecated {cmd:h0()} option).
 
 {phang}{opt madj:ust(bonferroni | sidak)} requests the Bonferroni or Sidak adjustment for multiple hypothesis tests. The Bonferroni correction is
 min(1, n*p) where p is the unadjusted probability and n is the number of hypotheses. The Sidak correction is 1 - (1 - p) ^ n.
@@ -500,6 +506,12 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata constraint 1 ttl_exp = .2} {p_end}
 {phang}. {stata cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)}{p_end}
 {phang}. {stata boottest tenure} // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 999 replications{p_end}
+
+{phang}. {stata regress wage tenure ttl_exp collgrad south#union, cluster(industry)} {p_end}
+{phang}. {stata margins south}{p_end}
+{phang}. {stata boottest, margins}  // bootstrap CI of average predicted wage for south = 0 and 1{p_end}
+{phang}. {stata margins, dydx(south)}{p_end}
+{phang}. {stata boottest, margins graphopt(xtitle(Average effect of south))}  // bootstrap CI of average impact in sample of changing south from 0 to 1{p_end}
 
 {phang}. {stata ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, ptype(equaltail) seed(987654321)} // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps{p_end}
