@@ -1,4 +1,4 @@
-*! boottest 3.2.0 7 May 2021
+*! boottest 3.2.1 26 May 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -752,7 +752,8 @@ program define _boottest, rclass sortpreserve
 					mata st_matrix("`_plotmat'", st_matrix("`plotmat'") \ ((st_matrix("`cimat'")[,1] \ st_matrix("`cimat'")[,2]), J(2*`=rowsof(`cimat')', 1, 1-`level'/100)))
 				}
 				mat colnames `_plotmat' = `X1' `X2' `Y'
-				qui svmat `_plotmat', names(col)
+				local _N = _N
+        qui svmat `_plotmat', names(col)
 				label var `Y' " " // in case user turns on legend
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
 
@@ -794,6 +795,7 @@ program define _boottest, rclass sortpreserve
 						name(`graphname'`_h', `replace') crule(linear) scolor(gs5) ecolor(white) ccut(0(.05)1) plotregion(margin(zero)) /// // defaults copied from weakiv
 						`graphopt'
 				}
+        keep if _n <= `_N'
 			}
 		}
 
@@ -838,6 +840,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.2.1 Prevent it from expanding data set when number of points in graph exceed # of rows in data set
 * 3.2.0 Added margins option
 * 3.1.4 Fixed crashes with matsizegb() and with "granular" (many-clustered) FE estimates with FE & cluster groups coherent
 * 3.1.3 Fixed crash on stat(c) after OLS
