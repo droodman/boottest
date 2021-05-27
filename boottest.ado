@@ -1,4 +1,4 @@
-*! boottest 3.2.1 26 May 2021
+*! boottest 3.2.1 27 May 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -795,7 +795,7 @@ program define _boottest, rclass sortpreserve
 						name(`graphname'`_h', `replace') crule(linear) scolor(gs5) ecolor(white) ccut(0(.05)1) plotregion(margin(zero)) /// // defaults copied from weakiv
 						`graphopt'
 				}
-        keep if _n <= `_N'
+        qui keep if _n <= `_N'
 			}
 		}
 
