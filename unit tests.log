@@ -51,7 +51,904 @@ Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clusteri
                    F(2, 7) =    72.4798
                   Prob > F =     0.0026
 
-. 
-end of do-file
+. boottest (post_self) (post), reps(9999) weight(webb) nogr // same
 
-. run "C:\Users\drood\OneDrive\Documents\Macros\boottest\boottest.ado"
+Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clustering by year, Webb weights:
+  post_self
+  post
+
+                   F(2, 7) =    72.4798
+                  Prob > F =     0.0023
+
+. boottest {post_self=.04} {post}, nogr // separate tests, no correction for multiple hypotheses
+
+Warning: with 8 boostrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
+Consider Webb weights instead, using weight(webb).
+
+Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
+  post_self=.04
+
+                            t(7) =     2.0194
+                        Prob>|t| =     0.0742
+
+95% confidence set for null hypothesis expression: [.0384, .07148]
+
+Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
+  post
+
+                            t(7) =    -5.5821
+                        Prob>|t| =     0.0000
+
+95% confidence set for null hypothesis expression: [-.02955, -.0129]
+
+. boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
+
+Warning: with 8 boostrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
+Consider Webb weights instead, using weight(webb).
+
+Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
+  post
+  post_self=.04
+
+                   F(2, 7) =    26.6776
+                  Prob > F =     0.0000
+       Sidak-adjusted prob =     0.0000
+
+Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
+  post
+  post_self=.08
+
+                   F(2, 7) =    16.3553
+                  Prob > F =     0.0000
+       Sidak-adjusted prob =     0.0000
+
+. 
+. use nlsw88
+(NLSW, 1988 extract)
+
+. 
+. qui regress wage tenure ttl_exp collgrad, cluster(industry)
+
+. boottest tenure, svmat nogr        // wild bootstrap test of joint null, Rademacher weights, null imposed, saving  simulated distribution
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                           t(11) =     1.0772
+                        Prob>|t| =     0.2723
+
+95% confidence set for null hypothesis expression: [-.03687, .1307]
+
+. 
+. constraint 1 ttl_exp = .2
+
+. qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
+
+. boottest tenure, nogr // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 999 replications
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                           t(11) =     2.1249
+                        Prob>|t| =     0.0020
+
+95% confidence set for null hypothesis expression: [.008769, .189]
+
+. 
+. regress wage tenure ttl_exp collgrad south#union, cluster(industry)
+
+Linear regression                               Number of obs     =      1,855
+                                                F(6, 11)          =     466.17
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.2744
+                                                Root MSE          =     3.5578
+
+                              (Std. err. adjusted for 12 clusters in industry)
+------------------------------------------------------------------------------
+             |               Robust
+        wage | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      tenure |   .0371771   .0144888     2.57   0.026     .0052874    .0690668
+     ttl_exp |   .2672039   .0213283    12.53   0.000     .2202605    .3141472
+    collgrad |   3.152462   .3625251     8.70   0.000      2.35455    3.950374
+             |
+ south#union |
+    0#union  |   .4785269   .3349975     1.43   0.181    -.2587976    1.215851
+ 1#nonunion  |  -1.438916   .2353751    -6.11   0.000    -1.956973   -.9208588
+    1#union  |  -.3029596   .6704026    -0.45   0.660    -1.778506    1.172586
+             |
+       _cons |   3.581387    .220271    16.26   0.000     3.096574      4.0662
+------------------------------------------------------------------------------
+
+. margins south
+
+Predictive margins                                       Number of obs = 1,855
+Model VCE: Robust
+
+Expression: Linear prediction, predict()
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |     Margin   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+       south |
+          0  |   8.164246   .3020966    27.03   0.000     7.499336    8.829156
+          1  |   6.887295   .4175234    16.50   0.000     5.968332    7.806258
+------------------------------------------------------------------------------
+
+. boottest, margins nogr // bootstrap CI of average predicted wage for south = 0 and 1
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  0bn.south 1.south
+
+                           t(11) =    27.0253
+                        Prob>|t| =     0.0040
+
+95% confidence set for null hypothesis expression: [7.553, 9.373]
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  
+
+                           t(11) =    16.4956
+                        Prob>|t| =     0.0010
+
+95% confidence set for null hypothesis expression: [6.206, 8.86]
+
+. margins, dydx(south)
+
+Average marginal effects                                 Number of obs = 1,855
+Model VCE: Robust
+
+Expression: Linear prediction, predict()
+dy/dx wrt:  1.south
+
+------------------------------------------------------------------------------
+             |            Delta-method
+             |      dy/dx   std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     1.south |  -1.276951   .2201867    -5.80   0.000    -1.761578   -.7923233
+------------------------------------------------------------------------------
+Note: dy/dx for factor levels is the discrete change from the base level.
+
+. boottest, margins graphopt(xtitle(Average effect of south)) nogr // bootstrap CI of average impact in sample of changing south from 0 to 1
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  1.south
+
+                           t(11) =    -5.7994
+                        Prob>|t| =     0.0210
+
+95% confidence set for null hypothesis expression: [-1.885, -.1558]
+
+. 
+. qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
+
+. boottest tenure, ptype(equaltail) seed(987654321) nogr  // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     2.6040
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0601
+
+95% confidence set for null hypothesis expression: [-.1988, 2.294]
+
+. boottest tenure, ptype(equaltail) seed(987654321) stat(c) nogr // same but bootstrap-c
+
+Wild bootstrap-c, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     1.6561
+    2 * min(Prob>|z|, Prob<-|z|) =     0.1361
+
+95% confidence set for null hypothesis expression: [., .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+Note: denominator for z statistic computed from the bootstrap replications of the numerator.
+
+. boottest tenure, ptype(equaltail) seed(987654321) stat(c) gridmin(-2) gridmax(2) nogr // same but limit graphing range
+
+Wild bootstrap-c, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     1.6561
+    2 * min(Prob>|z|, Prob<-|z|) =     0.1361
+
+95% confidence set for null hypothesis expression: [., .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+Note: denominator for z statistic computed from the bootstrap replications of the numerator.
+
+. boottest, ar nogr // same bootstrap, but Anderson-Rubin test (much faster)
+
+Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     2.4454
+                        Prob>|z| =     0.0230
+
+95% confidence set for null hypothesis expression: [.07356, 1.249]
+
+. scoretest tenure, nogr  // Rao/LM test of same
+
+Rao score (Lagrange multiplier) test:
+  tenure
+
+                               z =     2.3279
+                        Prob>|z| =     0.0199
+
+95% confidence set for null hypothesis expression: [.1367, 1.324]
+
+. waldtest tenure, nogr  // Wald test of same
+
+Wald test:
+  tenure
+
+                               z =     2.6040
+                        Prob>|z| =     0.0092
+
+95% confidence set for null hypothesis expression: [.182, 1.29]
+
+. 
+. qui ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
+
+. boottest tenure, noci // WRE bootstrap, Rademacher weights, 999 replications
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     7.5847
+                        Prob>|z| =     0.0070
+
+. qui cmp (wage = tenure) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)
+
+. boottest tenure // reasonable match on test statistic and p value
+
+Re-running regression with null imposed.
+
+
+Fitting individual models as starting point for full model fit.
+
+Fitting full model.
+
+Mixed-process regression                               Number of obs =   2,217
+                                                       Wald chi2(2)  = 1004.04
+Log likelihood = -13512.755                            Prob > chi2   =  0.0000
+
+ ( 1)  [wage]tenure = 0
+------------------------------------------------------------------------------
+             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+wage         |
+      tenure |          0  (omitted)
+       _cons |   7.809235   .1225765    63.71   0.000     7.568989     8.04948
+-------------+----------------------------------------------------------------
+tenure       |
+    collgrad |   .2294204    .233221     0.98   0.325    -.2276843    .6865252
+     ttl_exp |   .6828446   .0216115    31.60   0.000     .6404868    .7252024
+       _cons |  -2.642845   .2911175    -9.08   0.000    -3.213425   -2.072266
+-------------+----------------------------------------------------------------
+    /lnsig_1 |   1.752935   .0150177   116.72   0.000     1.723501    1.782369
+    /lnsig_2 |   1.504619   .0150192   100.18   0.000     1.475182    1.534056
+/atanhrho_12 |   .0271501   .0227031     1.20   0.232    -.0173472    .0716473
+-------------+----------------------------------------------------------------
+       sig_1 |   5.771519   .0866747                      5.604116    5.943923
+       sig_2 |   4.502438   .0676232                      4.371831    4.636947
+      rho_12 |   .0271434   .0226864                     -.0173455     .071525
+------------------------------------------------------------------------------
+
+Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     8.2785
+                        Prob>|z| =     0.0000
+
+. 
+. qui ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
+
+. boottest tenure, nograph // Wald test, WRE bootstrap, Rademacher weights, 999 replications
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     4.0267
+                        Prob>|z| =     0.0260
+
+95% confidence set for null hypothesis expression: [-.9149, -.602] U [.3026, 1.331]
+
+. boottest, nograph ar // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid)
+
+Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                   chi2(2) =    18.4337
+               Prob > chi2 =     0.0000
+
+95% confidence set for null hypothesis expression: [.1677, 4.839]
+
+. 
+. qui ivregress liml wage (collgrad tenure = ttl_exp union), cluster(industry)
+
+. boottest, ar nogr // Anderson-Rubin test, with contour plot of p value surface
+
+Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
+  collgrad tenure
+
+                   chi2(2) =   477.2687
+               Prob > chi2 =     0.0000
+
+. boottest collgrad tenure, gridpoints(10 10) nogr // WRE boostrap also with contour plot
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  collgrad tenure
+
+                   chi2(2) =    65.9990
+               Prob > chi2 =     0.0030
+
+. 
+. qui regress wage tenure ttl_exp collgrad, robust  // no clustering
+
+. boottest tenure, nogr
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
+  tenure
+
+                         t(2227) =     1.2941
+                        Prob>|t| =     0.1852
+
+95% confidence set for null hypothesis expression: [-.01538, .07959]
+
+. 
+. qui ivregress liml wage (collgrad tenure = ttl_exp union), robust  // no clustering
+
+. boottest, ar nogr
+
+Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, Rademacher weights:
+  collgrad tenure
+
+                   chi2(2) =   428.6568
+               Prob > chi2 =     0.0000
+
+. boottest collgrad tenure, gridpoints(10 10) nogr
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
+  collgrad tenure
+
+                   chi2(2) =   261.5326
+               Prob > chi2 =     0.0000
+
+. 
+. qui regress wage ttl_exp collgrad tenure, cluster(industry)
+
+. waldtest collgrad tenure, cluster(industry age) nogr // multi-way-clustered tests after estimation command not offering such
+
+Overriding estimator's cluster/robust settings with cluster(industry age)
+
+Note: The bootstrap usually performs best when the confidence level (here, 95%)
+      times the number of replications plus 1 (0+1=1) is an integer.
+
+Wald test, clustering by industry age:
+  collgrad tenure
+
+                  F(2, 11) =    40.5984
+                  Prob > F =     0.0000
+
+. boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2) nogr
+
+Overriding estimator's cluster/robust settings with cluster(industry age)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by industry age, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                           t(11) =     1.0951
+                        Prob>|t| =     0.2603
+
+95% confidence set for null hypothesis expression: [-.04167, .1327]
+
+. 
+. qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
+
+. boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // override estimate's clustering
+
+Overriding estimator's cluster/robust settings with cluster(age occupation)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
+  tenure
+
+                           t(12) =     0.4874
+                        Prob>|t| =     0.6266
+
+95% confidence set for null hypothesis expression: [-.04579, .1122]
+
+. qui reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)
+
+. boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // should match previous result
+
+Overriding estimator's cluster/robust settings with cluster(age occupation)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
+  tenure
+
+                           t(12) =     0.4874
+                        Prob>|t| =     0.6266
+
+95% confidence set for null hypothesis expression: [-.04579, .1122]
+
+. 
+. qui probit c_city tenure wage ttl_exp collgrad, cluster(industry)
+
+. boottest tenure, nogr                          // score bootstrap, Rademacher weights, null imposed, 999 replications
+
+Re-running regression with null imposed.
+
+
+Iteration 0:   log likelihood = -1338.5964  
+Iteration 1:   log likelihood = -1332.3403  
+Iteration 2:   log likelihood =  -1332.339  
+Iteration 3:   log likelihood =  -1332.339  
+
+Probit regression                                       Number of obs =  2,217
+                                                        Wald chi2(3)  =  12.58
+Log likelihood = -1332.339                              Prob > chi2   = 0.0056
+
+ ( 1)  [c_city]tenure = 0
+------------------------------------------------------------------------------
+      c_city | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      tenure |          0  (omitted)
+        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
+     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
+    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
+       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+------------------------------------------------------------------------------
+
+Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     0.2980
+                        Prob>|z| =     0.7708
+
+. boottest tenure, cluster(industry age) bootcluster(industry) small nogr  // multi-way-clustered, finite-sample-corrected test with score bootstrap
+
+Overriding estimator's cluster/robust settings with cluster(industry age)
+
+Re-running regression with null imposed.
+
+
+Iteration 0:   log likelihood = -1338.5964  
+Iteration 1:   log likelihood = -1332.3403  
+Iteration 2:   log likelihood =  -1332.339  
+Iteration 3:   log likelihood =  -1332.339  
+
+Probit regression                                       Number of obs =  2,217
+                                                        Wald chi2(3)  =  12.58
+Log likelihood = -1332.339                              Prob > chi2   = 0.0056
+
+ ( 1)  [c_city]tenure = 0
+------------------------------------------------------------------------------
+      c_city | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+      tenure |          0  (omitted)
+        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
+     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
+    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
+       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+------------------------------------------------------------------------------
+
+Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                           t(11) =     0.2803
+                        Prob>|t| =     0.7486
+
+. 
+. qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit  // same probit estimate as previous
+
+. boottest tenure                                                             // requires Stata 14.0 or later
+
+Re-running regression with null imposed.
+
+
+Iteration 0:   log likelihood = -1334.9102  
+Iteration 1:   log likelihood = -1332.3392  
+Iteration 2:   log likelihood =  -1332.339  
+Iteration 3:   log likelihood =  -1332.339  
+
+Generalized structural equation model                    Number of obs = 2,217
+Response         : c_city
+Family           : Bernoulli
+Link             : probit
+Log likelihood = -1332.339
+
+ ( 1)  [c_city]tenure = 0
+------------------------------------------------------------------------------
+             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+c_city       |
+      tenure |          0  (omitted)
+        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
+     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
+    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
+       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+------------------------------------------------------------------------------
+
+Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     0.2980
+                        Prob>|z| =     0.7808
+
+. boottest tenure, cluster(industry age) bootcluster(industry) small          // requires Stata 14.0 or later
+
+Overriding estimator's cluster/robust settings with cluster(industry age)
+
+Re-running regression with null imposed.
+
+
+Iteration 0:   log likelihood = -1334.9102  
+Iteration 1:   log likelihood = -1332.3392  
+Iteration 2:   log likelihood =  -1332.339  
+Iteration 3:   log likelihood =  -1332.339  
+
+Generalized structural equation model                    Number of obs = 2,217
+Response         : c_city
+Family           : Bernoulli
+Link             : probit
+Log likelihood = -1332.339
+
+ ( 1)  [c_city]tenure = 0
+------------------------------------------------------------------------------
+             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+c_city       |
+      tenure |          0  (omitted)
+        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
+     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
+    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
+       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+------------------------------------------------------------------------------
+
+Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                           t(11) =     0.2803
+                        Prob>|t| =     0.7402
+
+. 
+. sysuse auto, clear
+(1978 automobile data)
+
+. ml model lf myprobit (foreign = mpg weight)  // define model
+
+. qui ml max // estimate
+
+. boottest mpg, cmdline(ml model lf myprobit (foreign = mpg weight)) 
+
+Re-running regression with null imposed.
+
+
+initial:       log likelihood = -51.292891
+alternative:   log likelihood = -45.055272
+rescale:       log likelihood = -45.055272
+Iteration 0:   log likelihood = -45.055272  
+Iteration 1:   log likelihood =  -29.50801  
+Iteration 2:   log likelihood =  -28.91221  
+Iteration 3:   log likelihood = -28.908406  
+Iteration 4:   log likelihood = -28.908406  
+
+Score bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
+  mpg
+
+                               z =    -1.0204
+                        Prob>|z| =     0.0350
+
+. 
+. use pixel-level-baseline-final, clear
+
+. global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
+
+. global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
+
+. global poly capdistance1 seadist1 borderdist1
+
+. encode pixwbcode, gen(ccode)  // make numerical country identifier
+
+. 
+. qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
+
+. waldtest centr_tribe, nogr cluster(ccode pixcluster)
+
+Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
+
+Note: The bootstrap usually performs best when the confidence level (here, 95%)
+      times the number of replications plus 1 (0+1=1) is an integer.
+
+Wald test, clustering by ccode pixcluster:
+  centr_tribe
+
+                           t(48) =     3.5211
+                        Prob>|t| =     0.0010
+
+95% confidence set for null hypothesis expression: [.06693, .2449]
+
+. set seed 2309487  // for exact reproducibility of results
+
+. boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
+
+Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
+
+Wild bootstrap-t, null imposed, 9999 replications, Wald test, clustering by ccode pixcluster, bootstrap clustering by ccode, Rademacher weights:
+  centr_tribe
+
+                           t(48) =     3.5211
+                        Prob>|t| =     0.0025
+
+95% confidence set for null hypothesis expression: [.05587, .2502]
+
+. boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
+
+Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
+
+Wild bootstrap-t, null imposed, 9999 replications, Wald test, clustering by ccode pixcluster, bootstrap clustering by pixcluster, Rademacher weights:
+  centr_tribe
+
+                           t(48) =     3.5211
+                        Prob>|t| =     0.0042
+
+95% confidence set for null hypothesis expression: [.04574, .2633]
+
+. boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
+
+Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
+
+Wild bootstrap-t, null imposed, 9999 replications, Wald test, clustering by ccode pixcluster, bootstrap clustering by ccode pixcluster, Rademacher weights:
+  centr_tribe
+
+                           t(48) =     3.5211
+                        Prob>|t| =     0.0030
+
+95% confidence set for null hypothesis expression: [.05518, .2477]
+
+. 
+. infile coll merit male black asian year state chst using regm.raw, clear
+(42,161 observations read)
+
+. set seed 3541641
+
+. qui regress coll merit male black asian i.year i.state, cluster(state)  
+
+. generate individual = _n  // unique ID for each observation
+
+. boottest merit, nogr reps(999) gridpoints(10)  // defaults to bootcluster(state)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by state, Rademacher weights:
+  merit
+
+                           t(50) =     2.6646
+                        Prob>|t| =     0.0200
+
+95% confidence set for null hypothesis expression: [.007081, .06722]
+
+. boottest merit, nogr reps(999) gridpoints(10) nonull
+
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by state, Rademacher weights:
+  merit
+
+                           t(50) =     2.6646
+                        Prob>|t| =     0.0230
+
+95% confidence set for null hypothesis expression: [.005527, .06197]
+
+. boottest merit, nogr reps(999) gridpoints(10) bootcluster(state year)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by state year, Rademacher weights:
+  merit
+
+                           t(50) =     2.6646
+                        Prob>|t| =     0.0340
+
+95% confidence set for null hypothesis expression: [.00311, .06843]
+
+. boottest merit, nogr reps(999) gridpoints(10) nonull bootcluster(state year)
+
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by state year, Rademacher weights:
+  merit
+
+                           t(50) =     2.6646
+                        Prob>|t| =     0.0320
+
+95% confidence set for null hypothesis expression: [.003018, .06447]
+
+. boottest merit, nogr reps(999) gridpoints(10) bootcluster(individual)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by individual, Rademacher weights:
+  merit
+
+                           t(50) =     2.6646
+                        Prob>|t| =     0.0200
+
+95% confidence set for null hypothesis expression: [.004765, .06305]
+
+. boottest merit, nogr reps(999) gridpoints(10) nonull bootcluster(individual)
+
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by individual, Rademacher weights:
+  merit
+
+                           t(50) =     2.6646
+                        Prob>|t| =     0.0250
+
+95% confidence set for null hypothesis expression: [.004762, .06273]
+
+. 
+. qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)
+
+. foreach bootcluster in state "state year" individual {
+  2.   foreach nonull in "" nonull {
+  3.     boottest merit, reps(999) gridpoints(10) bootcl(`bootcluster') `nonull' nogr
+  4.   }
+  5. }
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by state, Rademacher weights:
+  merit
+
+                           t(41) =     6.7127
+                        Prob>|t| =     0.4925
+
+95% confidence set for null hypothesis expression: [-2.771, 1.226]
+
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by state, Rademacher weights:
+  merit
+
+                           t(41) =     6.7127
+                        Prob>|t| =     0.0000
+
+95% confidence set for null hypothesis expression: [.04938, .09495]
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by state year, Rademacher weights:
+  merit
+
+                           t(41) =     6.7127
+                        Prob>|t| =     0.2953
+
+95% confidence set for null hypothesis expression: [-5.303, 3.802]
+
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by state year, Rademacher weights:
+  merit
+
+                           t(41) =     6.7127
+                        Prob>|t| =     0.0991
+
+95% confidence set for null hypothesis expression: [-.01481, .1591]
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by individual, Rademacher weights:
+  merit
+
+                           t(41) =     6.7127
+                        Prob>|t| =     0.3804
+
+95% confidence set for null hypothesis expression: [-.09162, .2392]
+
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by individual, Rademacher weights:
+  merit
+
+                           t(41) =     6.7127
+                        Prob>|t| =     0.3994
+
+95% confidence set for null hypothesis expression: [-.1058, .2501]
+
+. 
+. use Levitt, clear
+
+. set seed 8723419
+
+. foreach crimevar in Violent Property {
+  2.   qui ivregress 2sls D.l`crimevar'pop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage)  ///
+>     D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
+  3.   boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr
+  4. }
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop
+
+                               z =    -2.1018
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0881
+
+95% confidence set for null hypothesis expression: [., .25] U [.4167, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop
+
+                               z =    -2.8178
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0962
+
+95% confidence set for null hypothesis expression: [., -1.042] U [-.9491, .06533] U [.5087, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. 
+. qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust small
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                           t(20) =     0.9661
+    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+
+95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. qui ivreghdfe D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, absorb(state) small
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                           t(20) =     0.9661
+    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+
+95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. qui xtivreg   D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe small
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                           t(20) =     0.9661
+    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+
+95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+
+. 
+. qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                               z =     1.3178
+    2 * min(Prob>|z|, Prob<-|z|) =     0.4747
+
+. qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust partial(i.year i.state)
+
+. boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)
+
+Overriding estimator's cluster/robust settings with cluster(state year)
+
+Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
+Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
+  DL.lpris_totpop=-1/3
+
+                               z =     1.3178
+    2 * min(Prob>|z|, Prob<-|z|) =     0.4747
+
+. 
+. qui log close
