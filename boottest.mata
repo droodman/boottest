@@ -1,4 +1,4 @@
-*! boottest 3.2.0 7 May 2021
+*! boottest 3.2.2 31 May 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -101,7 +101,7 @@ class boottestIVGMM extends boottestOLS {
 
 class boottest {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, Nobs, _Nobs, kZ, kY2, kX1, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
-		sqrt, hascons, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, BootClust, ///
+		sqrt, hascons, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, BootClust, FEdfadj, ///
 		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
 	real matrix AR, v, ustar, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDCap, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw
 	real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles, invFEwt
@@ -482,7 +482,7 @@ pointer(real matrix) scalar boottest::partialFE(pointer(real matrix) scalar pIn)
 
 void boottest::new() {
 	ARubin = LIML = Fuller = WRE = small = scoreBS = weighttype = ML = initialized = quietly = sqrt = hascons = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = B = BFeas = interpolating = 0
-	twotailed = null = dirty = willplot = u_sd = bootstrapt = notplotted = 1
+	twotailed = null = dirty = willplot = u_sd = bootstrapt = notplotted = FEdfadj = 1
 	level = 95
   ptol = 1e-6
 	confpeak = MaxMatSize = .
@@ -605,8 +605,8 @@ void boottest::setID      (real matrix ID, | real scalar NBootClustVar, real sca
 	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,1); setdirty(1)
 	if (cols(ID)) this.robust = 1
 }
-void boottest::setFEID(real matrix ID, real scalar NFE) {
-	this.pFEID = &ID; this.NFE = NFE; setdirty(1)
+void boottest::setFEID(real matrix ID, real scalar NFE, real scalar FEdfadj) {
+	this.pFEID = &ID; this.NFE = NFE; this.FEdfadj = FEdfadj; setdirty(1)
 }
 void boottest::setlevel(real scalar level)
 	this.level = level
@@ -1097,7 +1097,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   if (df==1) setsqrt(1)  // work with t/z stats instead of F/chi2
 
   if (small)
-    multiplier = (smallsample = (_Nobs - kZ - NFE) / (_Nobs - robust)) / df  // divide by # of constraints because F stat is so defined
+    multiplier = (smallsample = (_Nobs - kZ - FEdfadj * NFE) / (_Nobs - robust)) / df  // divide by # of constraints because F stat is so defined
   else
     multiplier = smallsample = 1
 
@@ -2129,7 +2129,7 @@ real matrix boottest::combs(real scalar d) {
 
 // Like Mata's order() but does a stable sort
 real colvector boottest::stableorder(real matrix X, real rowvector idx)
-	return (order((X, (1::rows(X))), (idx,cols(X)+1)))
+  return (order((X, (1::rows(X))), (idx,cols(X)+1)))
 	
 // Stata interface
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
@@ -2137,7 +2137,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	real scalar kappa, real scalar ARubin, real scalar null, real scalar scoreBS, string scalar weighttype, string scalar ptype, string scalar statistic, string scalar madjtype, real scalar NumH0s,
 	string scalar X1names, string scalar Y2names, real scalar hascons, string scalar Ynames, string scalar bname, string scalar Aname, 
 	string scalar X2names, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
-	string scalar FEname, real scalar NFE, string scalar wtname, string scalar wttype, string scalar R1name, string scalar r1name, string scalar Rname, string scalar rname, real scalar B, string scalar repsname, string scalar repsFeasname, 
+	string scalar FEname, real scalar NFE, real scalar FEdfadj, string scalar wtname, string scalar wttype, string scalar R1name, string scalar r1name, string scalar Rname, string scalar rname, real scalar B, string scalar repsname, string scalar repsFeasname, 
 	real scalar small, string scalar diststat, string scalar distname, string scalar gridmin, string scalar gridmax, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly,
 	string scalar b0name, string scalar V0name, string scalar vname, string scalar NBootClustname) {
 	real matrix X2, ID, FEID, sc, Y2, X1
@@ -2160,8 +2160,8 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	M.setX2(X2)
 	M.setwt (wt)
 	M.setID(ID, NBootClustVar, NErrClust)
-	M.setFEID(FEID, NFE)
-	M.setR1(st_matrix(R1name), st_matrix(r1name))
+	M.setFEID(FEID, NFE, FEdfadj)
+  M.setR1(st_matrix(R1name), st_matrix(r1name))
 	M.setR (st_matrix(Rname ), st_matrix(rname ))
 	M.setnull(null)
 	M.setsmall(small)

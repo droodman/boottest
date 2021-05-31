@@ -1,4 +1,4 @@
-*! boottest 3.2.1 27 May 2021
+*! boottest 3.2.2 31 May 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -228,6 +228,10 @@ program define _boottest, rclass sortpreserve
 	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
   local partial = 0`e(partial_ct)' & "`e(cmd)'"=="ivreg2"
 
+  local DID = inlist("`cmd'", "didregress", "xtdidregress")
+  local treatment `e(treatment)'
+  local DDD = `:word count `e(groupvars)'' == 2
+
 	local fuller `e(fuller)'  // "" if missing
 	local K = e(kclass)  // "." if missing
 
@@ -258,16 +262,31 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-	local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond("`cmd'"=="areg", 1+e(df_a), /*reghdfe*/ max(0`e(K1)',0`e(df_a_initial)')))
-	local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", "`e(absvar)'`e(extended_absvars)'")
-	if `"`_FEname'"' != "" {
-		cap confirm numeric var `_FEname'
-		if _rc {
-			tempvar FEname
-			qui egen long `FEname' = group(`_FEname') if e(sample)
-		}
-		else local FEname `_FEname'
-	}
+  if `DDD' {
+    tempname FEname
+    qui egen long `FEname' = group(`e(groupvars)') if e(sample)
+    sum `FEname', meanonly
+    local NFE = r(max)
+  }
+  else {
+    local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond(`DID', 0`e(N_clust)', cond("`cmd'"=="areg", 1+e(df_a), /*reghdfe*/ max(0`e(K1)',0`e(df_a_initial)'))))
+    local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(groupvars)'", "`e(absvar)'`e(extended_absvars)'"))
+    if `"`_FEname'"' != "" {
+      cap confirm numeric var `_FEname'
+      if _rc {
+        tempvar FEname
+        qui egen long `FEname' = group(`_FEname') if e(sample)
+      }
+      else local FEname `_FEname'
+    }
+  }
+
+  local FEdfadj = !inlist("`cmd'","xtreg","xtivreg","xtivreg2","xtdidregress")  // these commands don't count time FE in DOF adjustment
+  if "`cmd'" == "xtreg" {  // exception: xtreg, fe. dfadj. https://stata.com/statalist/archive/2013-01/msg00540.html
+    local 0 `e(cmdline)'
+    syntax [anything], [dfadj *]
+    local FEdfadj = "`dfadj'" != ""
+  }
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -370,6 +389,7 @@ program define _boottest, rclass sortpreserve
 		}
 		else {
 			local Xnames_exog: colnames e(b)
+      if `DID' local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
 			local cons = "`:list Xnames_exog & _cons'" != ""
       local Xnames_exog: list Xnames_exog - _cons
 		}
@@ -456,7 +476,8 @@ program define _boottest, rclass sortpreserve
         local clist `r(clist)'
         local clist: list h0_`h' - clist
         foreach c in `clist' {
-          di as txt `"(note: constraint `=cond(0`anythingh0', `"{res}`:constraint `c''{txt}"', "number `c'")' caused error {search r(111)})"'
+          di as txt `"note: constraint `=cond(0`anythingh0', `"{res}`:constraint `c''{txt}"', "number `c'")' caused error {search r(111)}"'
+          if `DID' di `"If your test relates to the treatment effect, you may need to reference "{cmd:r1vs0.`treatment'}" instead of "{cmd:`treatment'}"."' _n
         }
         exit 111
       }
@@ -660,7 +681,7 @@ program define _boottest, rclass sortpreserve
                         `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
 												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
 												"`Ynames'", "`b'", "`V'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
-												"`FEname'", 0`NFE', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
+												"`FEname'", 0`NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
 		_estimates unhold `hold'
 
@@ -795,7 +816,7 @@ program define _boottest, rclass sortpreserve
 						name(`graphname'`_h', `replace') crule(linear) scolor(gs5) ecolor(white) ccut(0(.05)1) plotregion(margin(zero)) /// // defaults copied from weakiv
 						`graphopt'
 				}
-        qui keep if _n <= `_N'
+        qui keep in 1/`_N'
 			}
 		}
 
@@ -828,7 +849,9 @@ program define _boottest, rclass sortpreserve
 		if `hasrobust' return local robust robust
 		if "`svmat'"!="" return matrix dist`_h' = `dist'
     if "`svv'" != "" return matrix v`_h' = `svv'
-	}
+	}  // loop over independent H0s
+
+  cap mat_put_rr `C'  // can fail in boottest, margins
 	return scalar level = `level'
 	return scalar ptol = `ptolerance'
 	return local statistic `statistic'
@@ -840,6 +863,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.2.2 Add didregress, xtdidregress support. After xtXXX estimation, emulate those commands by in counting FE in dof adjustment, unless "xtreg, dfadj"
 * 3.2.1 Prevent it from expanding data set when number of points in graph exceed # of rows in data set
 * 3.2.0 Added margins option
 * 3.1.4 Fixed crashes with matsizegb() and with "granular" (many-clustered) FE estimates with FE & cluster groups coherent

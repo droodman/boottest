@@ -915,7 +915,7 @@ Warning: 2 replications returned an infeasible test statistic and were deleted f
 Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
   DL.lpris_totpop=-1/3
 
-                           t(20) =     0.9661
+                           t(20) =     0.9908
     2 * min(Prob>|t|, Prob<-|t|) =     0.5878
 
 95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]

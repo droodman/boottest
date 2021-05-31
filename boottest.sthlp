@@ -189,7 +189,8 @@ after estimation commands that do not support those adjustments.
 The tests are available after OLS, constrained OLS, 2SLS, and LIML estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
 {stata ssc describe cmp:ivreg2}. The
 program works with Fuller LIML and {it:k}-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
-effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; or {help reghdfe:reghdfe}. And it works after most Stata 
+effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; {help reghdfe:reghdfe}; {help didregress}; 
+or {help xtdidregress}. ({help didregress} and {help xtdidregress} themselves can run the wild bootstrap, but much more slowly.) And {cmd:boottest} works after most Stata 
 ML-based estimation commands, including {help probit}, {help glm}, {stata ssc describe cmp:cmp}, and, in Stata 14.0 or later, 
 {help sem} and {help gsem} (score bootstrap only). (To work with {cmd:boottest}, an iterative optimization command must accept
 the {opt const:raints()}, {opt iter:ate()}, {opt from()}, and {opt sc:ore} options.)
@@ -550,6 +551,10 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit} // same probit estimate as previous{p_end}
 {phang}. {stata boottest tenure}{space 60} // requires Stata 14.0 or later {p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 9} // requires Stata 14.0 or later{p_end}
+
+{phang}. {stata webuse smallg}{p_end}
+{phang}. {stata didregress (outcome x i.b) (treated), group(county) time(year) wildbootstrap(rseed(123) errorweight(webb))}{p_end}
+{phang}. {stata boottest r1vs0.treated, seed(123) weight(webb) nogr reps(1000)} // same test, ~200 times faster{p_end}
 
 {phang}. {stata sysuse auto}{p_end}
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
