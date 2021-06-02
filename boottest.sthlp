@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.1.0 13 March 2021}{...}
+{* *! version 3.2.3 1 June 2021}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -203,8 +203,12 @@ one or more {help estimation options##constraints():constraints}, which are then
 jointly. In the second, modern syntax, one places the constraint expressions directly in the {cmd:boottest} command line before the comma. Each expression must conform to the syntax
 of {help constraint:constraint define}, meaning a list of parameters (all of which are implicitly hypothesized to equal zero) or an equation in the form 
 {it:{help exp}} {cmd:=} {it:{help exp}}. To jointly test several such expressions, list them all, placing each in parentheses. To independently test several such hypotheses, or joint groups
-of hypotheses, list them all, placing each in braces. Omitting both syntaxes implies {cmd:h0(1)}, unless {opt ar} is specified, in which case {cmd:boottest}
-tests the hypothesis that all coefficients on instrumented variables are zero.
+of hypotheses, list them all, placing each in braces.
+
+{pstd}
+Omitting both syntaxes implies {cmd:h0(1)}, except in three cases in which no hyptheses need be explicitly stated: 1. {opt ar} is specified, in which case {cmd:boottest}
+performs the Anderson-Rubin test that all coefficients on instrumented variables are zero; 2. {opt margins} is specified (see below); or 3. {cmd:boottest} is
+run after {help didregress} or {help xtdidregress}, in which case the test defaults to the treatment effect being 0.
 
 {pstd}
 When testing multiple independent hypotheses, the {opt madj:ust()} option requests the Bonferroni or Sidak correction for multiple hypothesis testing.
@@ -309,7 +313,7 @@ and {cmd:scoretest} facilitate this usage.
 
 {phang}{opt nonul:l} suppresses the imposition of the null before bootstrapping. This is rarely a good idea.
 
-{phang}{opt marg:ins} instructs {cmd:boottest} to beach result from a call to {cmd:margins}, which must just have been generated, as a linear combination of parameters,
+{phang}{opt marg:ins} instructs {cmd:boottest} to treat results from a call to {cmd:margins}, which must just have been generated, as a linear combination of parameters,
 and test the independent hypotheses that each is 0. {cmd:boottest} extracts the coefficients of these linear combinations from the r(Jacobian) return value of
 {cmd:margins}. When using this option, do not include any hypotheses before the comma (or in the deprecated {cmd:h0()} option).
 
@@ -554,7 +558,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {phang}. {stata webuse smallg}{p_end}
 {phang}. {stata didregress (outcome x i.b) (treated), group(county) time(year) wildbootstrap(rseed(123) errorweight(webb))}{p_end}
-{phang}. {stata boottest r1vs0.treated, seed(123) weight(webb) nogr reps(1000)} // same test, ~200 times faster{p_end}
+{phang}. {stata boottest, seed(123) weight(webb) nogr reps(1000)} // same test, ~200 times faster{p_end}
 
 {phang}. {stata sysuse auto}{p_end}
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
