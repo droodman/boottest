@@ -1,4 +1,4 @@
-*! boottest 3.2.4 3 June 2021
+*! boottest 3.2.3 3 June 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -869,8 +869,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 3.2.4 Fixed bug in pXB(). Properly handle nointeract, nogteffects, aggmethod options of (xt)didregress
-* 3.2.3 After didregress, xtdidregress, default to testing treatment effect.
+* 3.2.3 After didregress, xtdidregress, default to testing treatment effect; Fixed bug in pXB(). Properly handle nointeract, nogteffects, aggmethod options of (xt)didregress.
 * 3.2.2 Add didregress, xtdidregress support. After xtXXX estimation, emulate those commands in not counting FE in dof adjustment, unless "xtreg, dfadj"
 * 3.2.1 Prevent it from expanding data set when number of points in graph exceed # of rows in data set
 * 3.2.0 Added margins option
