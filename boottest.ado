@@ -1,4 +1,4 @@
-*! boottest 3.2.3 1 June 2021
+*! boottest 3.2.4 3 June 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -104,7 +104,7 @@ program define _boottest, rclass sortpreserve
     exit 198
   }
 
-  if inlist("`e(cmd)'", "didregress", "xtdidregrss") & `"`h0s'`h0'"' == "" local h0s r1vs0.`e(treatment)'
+  if inlist("`e(cmd)'", "didregress", "xtdidregress") & `"`h0s'`h0'"' == "" local h0s r1vs0.`e(treatment)'
 
 	if `matsizegb'==1000000 local matsizegb .
   
@@ -192,7 +192,7 @@ program define _boottest, rclass sortpreserve
 	if `ar' & `"`h0s'`h0'"' == "" local h0s `e(instd)'
 
 	if `:word count `weighttype'' > 1 {
-		di as err "The {cmd:weight:type} option must be {cmdab:rad:emacher}, {cmdab:mam:men}, {cmdab:nor:mal}, or {cmdab:web:b}."
+		di as err "The {cmd:weight:type} option must be {cmdab:rad:emacher}, {cmdab:mam:men}, {cmdab:nor:mal}, {cmdab:web:b}, or {cmdab:gam:ma}."
 		exit 198
 	}
 	if "`weighttype'"'=="" local weighttype rademacher
@@ -229,13 +229,20 @@ program define _boottest, rclass sortpreserve
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
   local partial = 0`e(partial_ct)' & "`e(cmd)'"=="ivreg2"
-
-  local DID = inlist("`cmd'", "didregress", "xtdidregress")
-  local treatment `e(treatment)'
-  local DDD = `:word count `e(groupvars)'' == 2
-
 	local fuller `e(fuller)'  // "" if missing
 	local K = e(kclass)  // "." if missing
+
+  local DID = inlist("`cmd'", "didregress", "xtdidregress")
+  if `DID' {
+    if "`e(aggmethod)'" != "" {
+      di as err "Doesn't work after {cmd:`e(cmd)'} with aggregation."
+      exit 198
+    }
+    local treatment `e(treatment)'
+  	local 0 `e(cmdline)'
+    syntax [anything], [NOGTEFFECTS *]
+    local DID = "`nogteffects'" == ""
+  }
 
 	local tz = cond(`small', "t", "z")
 	local symmetric Prob>|`tz'|
@@ -264,27 +271,23 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-  if `DDD' {
-    tempname FEname
-    qui egen long `FEname' = group(`e(groupvars)') if e(sample)
-    sum `FEname', meanonly
-    local NFE = r(max)
-  }
-  else {
-    local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"),   e(N_g)   , cond(`DID', 0`e(N_clust)', cond("`cmd'"=="areg", 1+e(df_a), /*reghdfe*/ max(0`e(K1)',0`e(df_a_initial)'))))
-    local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(groupvars)'", "`e(absvar)'`e(extended_absvars)'"))
-    if `"`_FEname'"' != "" {
-      cap confirm numeric var `_FEname'
-      if _rc {
-        tempvar FEname
-        qui egen long `FEname' = group(`_FEname') if e(sample)
-      }
-      else local FEname `_FEname'
+  local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), e(N_g),  ///
+                  cond(`DID', 0`e(N_clust)',                                  ///
+                  cond("`cmd'"=="areg", 1+e(df_a),                            ///
+                       max(0`e(K1)', 0`e(df_a_initial)'))))  // reghdfe
+
+  local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`e(extended_absvars)'"))
+  if `"`_FEname'"' != "" {
+    cap confirm numeric var `_FEname'
+    if _rc {
+      tempvar FEname
+      qui egen long `FEname' = group(`_FEname') if e(sample)
     }
+    else local FEname `_FEname'
   }
 
   local FEdfadj = !inlist("`cmd'","xtreg","xtivreg","xtivreg2","xtdidregress")  // these commands don't count time FE in DOF adjustment
-  if "`cmd'" == "xtreg" {  // exception: xtreg, fe. dfadj. https://stata.com/statalist/archive/2013-01/msg00540.html
+  if "`cmd'" == "xtreg" {  // exception: xtreg, fe dfadj. https://stata.com/statalist/archive/2013-01/msg00540.html
     local 0 `e(cmdline)'
     syntax [anything], [dfadj *]
     local FEdfadj = "`dfadj'" != ""
@@ -391,7 +394,8 @@ program define _boottest, rclass sortpreserve
 		}
 		else {
 			local Xnames_exog: colnames e(b)
-      if `DID' local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
+      if inlist("`e(cmd)'", "didregress", "xtdidregress") local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
+      local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
 			local cons = "`:list Xnames_exog & _cons'" != ""
       local Xnames_exog: list Xnames_exog - _cons
 		}
@@ -493,7 +497,7 @@ program define _boottest, rclass sortpreserve
       mat `r' = `C'[1...,   colsof(`C')  ]
     }
 
-		if `NFE' {
+		if 0`NFE' {
 			mata st_local("rc", strofreal(any(0:!=select(st_matrix("`R'"),st_matrixcolstripe("`R'")[,2]':=="_cons"))))
 
 			if `rc' {
@@ -777,7 +781,7 @@ program define _boottest, rclass sortpreserve
 				mat colnames `_plotmat' = `X1' `X2' `Y'
 				local _N = _N
         qui svmat `_plotmat', names(col)
-				label var `Y' " " // in case user turns on legend
+				label var `Y' " "  // in case user turns on legend
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
 
 				if `df'==1 {
@@ -807,7 +811,7 @@ program define _boottest, rclass sortpreserve
 					foreach var in Y X1 X2 {
 						if "``var''" != "" {
 							cap drop _boottest``var''
-              ren ``var'' _boottest``var'' // work-around for weird bug in twoway contour, rejecting temp vars
+              ren ``var'' _boottest``var'' // work-around for bug in twoway contour, rejecting temp vars
 							local `var' _boottest``var''
 						}
 					}
@@ -865,6 +869,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.2.4 Fixed bug in pXB(). Properly handle nointeract, nogteffects, aggmethod options of (xt)didregress
 * 3.2.3 After didregress, xtdidregress, default to testing treatment effect.
 * 3.2.2 Add didregress, xtdidregress support. After xtXXX estimation, emulate those commands in not counting FE in dof adjustment, unless "xtreg, dfadj"
 * 3.2.1 Prevent it from expanding data set when number of points in graph exceed # of rows in data set

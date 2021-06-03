@@ -1,4 +1,4 @@
-*! boottest 3.2.2 31 May 2021
+*! boottest 3.2.4 3 June 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -45,8 +45,8 @@ pointer (real matrix) pcol(real matrix A, real vector p)
 pointer (real matrix) scalar pXB(real matrix X, real matrix M) {
 	scalar r
   r = rows(M)
-	return (all(colsum(M) :== 1) & all(colsum(!M) :== r-1)?  // is M 0's but for one 1 in each col, so it's just copying/reording cols?
-             (all(diagonal(M))?  // is M just the identity matrix?
+	return (all(colsum(M) :== 1) & all(colsum(!M) :== r-1)?  // is M 0's but for one 1 in each col, so it's just copying/reordering cols?
+             (all(diagonal(M)) & rows(M)==cols(M)?  // is M just the identity matrix?
                 &X            :
                 &X[,colsum(M:*(1::r))]) :  // reorder X
              &(X * M))
@@ -54,7 +54,7 @@ pointer (real matrix) scalar pXB(real matrix X, real matrix M) {
 
 // return [X1 X2]B where X1 or X2 may have 0 cols
 pointer(real matrix) scalar pX12B(real matrix X1, real matrix X2, real matrix B)
-	return(cols(B)? (cols(X1)? (cols(X2)? &(*pXB(X1, B[|.,.\cols(X1),.|]) + *pXB(X2, B[|cols(X1)+1,.\.,.|])) : pXB(X1, B)) : pXB(X2, B)) : &J(rows(X1),0,0))
+  return(cols(B)? (cols(X1)? (cols(X2)? &(*pXB(X1, B[|.,.\cols(X1),.|]) + *pXB(X2, B[|cols(X1)+1,.\.,.|])) : pXB(X1, B)) : pXB(X2, B)) : &J(rows(X1),0,0))
 
 // return &X[|S|] with appropiate behavior if cols(X)=0 or S requests no rows (S[2,1]=0), presuming that in degenerate cases S does not specify columns
 // if retval = X, doesn't duplicate data
