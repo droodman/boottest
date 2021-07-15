@@ -60,7 +60,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt sm:all}}request finite-sample corrections, overriding estimation setting {p_end}
 {synopt:{opt r:obust}}request tests robust to heteroskedasticity only, overriding estimation setting{p_end}
 {synopt:{opt cl:uster(varlist)}}request tests robust to (multi-way) clustering, overriding estimation setting{p_end}
-{synopt:{opt bootcl:uster(varname)}}sets cluster variable(s) to boostrap on; default is all {cmdab:cl:uster()} variables{p_end}
+{synopt:{opt bootcl:uster(varlist)}}sets cluster variable(s) to boostrap on; default is all {cmdab:cl:uster()} variables{p_end}
 {synopt:{opt ar}}request Anderson-Rubin test{p_end}
 {synopt:{opt seed(#)}}initialize random number seed to {it:#}{p_end}
 {synopt:{cmdab:matsize:gb(#)}}set maximum size of wild weight matrix, in gigabytes{p_end}
@@ -197,7 +197,7 @@ the {opt const:raints()}, {opt iter:ate()}, {opt from()}, and {opt sc:ore} optio
 
 {pstd}
 {cmd:boottest} is designed in partial analogy with {help test}. Like {help test}, {cmd:boottest} can jointly or separately test multiple hypotheses expressed as linear constraints on 
-parameters. {cmd:boottest} deviates in syntax from {help test} in the specification of the null hypothesis. In fact, it offers two syntaxes for specifying hypotheses. In the first syntax, 
+parameters. {cmd:boottest} deviates in syntax from {help test} in the specification of the null hypothesis. In fact, it offers two syntaxes. In the first, 
 now deprecated, one first expresses the null in 
 one or more {help estimation options##constraints():constraints}, which are then listed by number in {cmd:boottest}'s {opt h0()} option. All constraints are tested 
 jointly. In the second, modern syntax, one places the constraint expressions directly in the {cmd:boottest} command line before the comma. Each expression must conform to the syntax
@@ -207,15 +207,19 @@ of hypotheses, list them all, placing each in braces.
 
 {pstd}
 Omitting both syntaxes implies {cmd:h0(1)}, except in three cases in which no hyptheses need be explicitly stated: 1. {opt ar} is specified, in which case {cmd:boottest}
-performs the Anderson-Rubin test that all coefficients on instrumented variables are zero; 2. {opt margins} is specified (see below); or 3. {cmd:boottest} is
-run after {help didregress} or {help xtdidregress}, in which case the test defaults to the treatment effect being 0.
+performs the Anderson-Rubin test that all coefficients on instrumented variables are zero; 2. {opt margins} is specified, in which case the hypothesis that effects
+just computed with {cmd:margins} are jointly 0; or 3. {cmd:boottest} is
+run after {help didregress} or {help xtdidregress}, in which case the hypothesis defaults to the treatment effect being 0.
 
 {pstd}
 When testing multiple independent hypotheses, the {opt madj:ust()} option requests the Bonferroni or Sidak correction for multiple hypothesis testing.
 
 {pstd}
 {cmd:boottest} supports multi-way error clustering (Cameron, Gelbach, and Miller 2006). Using this feature forces a choice of which clustering variable(s) to {it:bootstrap}
-on. When multiway clustering is combined with {cmd:small}, 
+on, a choice expressed with the {opt bootcl:uster()} option.
+
+{pstd}
+When multiway clustering is combined with {cmd:small}, 
 the finite-sample correction multiplier is a component-specific (G/(G-1)*(N-1)/(N-k), as described in Cameron, Gelbach, and Miller (2006, pp. 8-9) and simulated therein. In
 contrast, {stata ssc describe ivreg2:ivreg2} uses one multiplier for all components, based on the clustering variable with the lowest G. Thus after estimation with
 {cmd:ivreg2} with multi-way clustering, {cmd:waldtest} produces slightly different results from {cmd:test}, which relies purely on {cmd:ivreg2}'s computed covariance matrix.
@@ -223,7 +227,7 @@ contrast, {stata ssc describe ivreg2:ivreg2} uses one multiplier for all compone
 {pstd}
 Because {cmd:boottest} has its own {opt r:obust}, {opt cl:uster()}, and {opt sm:all} options, you can override the choices made in running the 
 original estimate. In particular, you can perform inference with multi-way clustered errors after all the estimation commands that are compatible with
-{cmd:boottest}, even though few can themselves multi-way cluster. Those include many ML-based estimators, after which {cmd:boottest} uses the score bootstrap.
+{cmd:boottest}, even though few can themselves multi-way cluster. Those include many ML-based estimators, after which {cmd:boottest} performs the score bootstrap.
 
 {pstd}
 By default, the null is imposed before bootstrapping (Fisher and Hall 1990; Davidson and MacKinnon 1999; Cameron, Gelbach, and Miller 2008). The {opt nonul:l} option overrides this behavior. With IV
@@ -241,8 +245,8 @@ Rademacher weights have mean 0 and variance 1, multiplying E by them preserves t
 
 {p 4 6 0}
 * Mammen (1993)
-weights improve theoretically on Rademacher weights by having a third moment of 1, thus preserving skewness. They are--letting phi=(1+sqrt(5))/2, the 
-golden ratio--1-phi with probability phi/sqrt(5) and phi otherwise.
+weights improve theoretically on Rademacher weights by having a third moment of 1, thus preserving skewness. Letting phi=(1+sqrt(5))/2, the 
+golden ratio--the Mammen weights are 1-phi with probability phi/sqrt(5) and phi otherwise.
 
 {p 4 6 0}
 * A disadvantage of the Rademacher and Mammen distributions is that 
@@ -269,7 +273,7 @@ involves drawing pseudorandom numbers, the exact results depend on the starting 
 
 {pstd}
 When testing a one-dimensional hypothesis after linear estimation (OLS, 2SLS, etc.), {cmd:boottest} by default derives and plots a confidence curve and a confidence set for the 
-right-hand-side of the hypothesis. (This adds greatly to run time and can be prevented with the {opt noci} option.) For example,
+right-hand-side of the hypothesis. (This adds run time and can be prevented with the {opt noci} option.) For example,
 if the hypothesis is "X + Y = 1", meaning that the coefficients on X and Y sum to 1, then {cmd:boottest} will estimate the set of all potential values for this sum that cannot be rejected
 at, say, p = 0.05. This set might consist of disjoint pieces. The standard {opt l:evel(#)} option controls the coverage of the confidence set. By default, p value 
 computation is symmetric; {opt ptype(equaltail)} overrides. For instance, if the level is 95, then the symmetric p value is less than 0.05 if the square (or 
@@ -281,13 +285,13 @@ distributed, equal-tail p values are more reliable.
 To find the confidence set, {cmd:boottest} starts by choosing lower and upper bounds for the search range, which can be overriden by the {opt gridmin(#)} and {opt gridmax(#)} 
 options. Then it tests potential values at equally spaced intervals within this range--by default 25, but this too is subject to override, via
 {opt gridpoints(#)}. If it discovers that, for example X + Y = 2 is rejected at 0.04 and X + Y = 3 is rejected at 0.06, it then seeks to zero in on the value in between
-that is rejected at 0.05, in order to bound the confidence set. The confidence curve is then plotted, at all the grid points as well as the detected crossover points and the
+that is rejected at 0.05, in order to bound the confidence set. The confidence curve is then plotted at all the grid points as well as the detected crossover points and the
 original point estimate. The graph may look coarse with only 25 grid points, but the confidence set bounds will nevertheless be computed precisely. Specifying 
 {cmd:level(100)} suppresses this entire search process while still requesting a plot of the confidence curve.
 
 {pstd}
 Similarly, when testing a two-dimensional hypothesis after linear estimation, {cmd:boottest} automatically renders the p value surface with a {help twoway contour:contour plot}. In
-this case, it does not attempt to numerically describe the boundary of the, say, 95% confidence set. But by default, the contour plot has shading breaks at 0.05, 0.1, ...,, 0.95, making the 
+this case, it does not attempt to numerically describe the boundary of the confidence set. But by default, the contour plot has shading breaks at 0.05, 0.1, ...,, 0.95, making the 
 boundary easy to perceive. The {opt gridmin()}, {opt gridmax()}, and {opt gridpoints()} options, if included, now should provide two numbers each, for the first and second
 dimensions of the hypothesis. But any entry may be missing (".") to accept {cmd:boottest}'s best guess at a good boundary (for {opt gridmin()} and {opt gridmax()}) or fixed default
 (25, for {opt gridpoints()}). To override the default formatting of the contour plot, include {help twoway contour} options inside a {cmd:boottest} {opt graphopt()} option.
@@ -371,7 +375,7 @@ value, such as N/(N-1), so that the place of the test statistic in the simulated
 {phang}{opt r:obust} and {opt cl:uster(varlist)} have the traditional meanings, but serve a nontraditional function, which is to override the settings
 used in the estimation.
 
-{phang}{opt bootcl:uster(varname)} specifies which clustering variable or variables to boostrap on. If the option 
+{phang}{opt bootcl:uster(varlist)} specifies which clustering variable or variables to boostrap on. If the option 
 includes more than one variable, then for the bootstrap observations are grouped by intersections of all the variables in the option. The default is to cluster the bootstrap on all
 the {cmdab:cl:uster()} variables. Simulations in MacKinnon, Nielsen, and Webb (2017) tend to favor clustering the bootstrap just on the one variable with the smallest
 number of clusters. However, MacKinnon and Webb (2018) show that in the extreme case of a treatment model with very few (un)treated clusters, it can be better to 

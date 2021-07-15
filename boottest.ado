@@ -1,4 +1,4 @@
-*! boottest 3.2.3 3 June 2021
+*! boottest 3.2.3 15 July 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -247,8 +247,8 @@ program define _boottest, rclass sortpreserve
 	local tz = cond(`small', "t", "z")
 	local symmetric Prob>|`tz'|
 	local equaltail 2 * min(Prob>|`tz'|, Prob<-|`tz'|)
-	local lower     Prob<`tz'
-	local upper     Prob>`tz'
+	local lower             Prob<`tz'
+	local upper             Prob>`tz'
 
 	if `ar' & !`IV' {
 		di as err "Anderson-Rubin test is only for IV models."
@@ -261,7 +261,7 @@ program define _boottest, rclass sortpreserve
 		syntax, [Wild SCore]
 		local boottype `score'`wild'
 		if "`boottype'" == "wild" & `ML' {
-			di as err "{cmd:boottype(wild)} not accepted after GMM or Maximum Likelihood-based estimation."
+			di as err "{cmd:boottype(wild)} not accepted after Maximum Likelihood-based estimation."
 			exit 198
 		}
 		if "`boottype'"=="score" & "`fuller'`K'" != "." {
@@ -314,7 +314,7 @@ program define _boottest, rclass sortpreserve
 		}
 		local multiple = strpos(`"`h0s'"', "{")
 		if !`multiple' local h0s {`h0s'}
-		local N_h0s 0 // number of nulls
+		local N_h0s 0  // number of nulls
 		while `"`h0s'"' != "" {
 			gettoken h0 h0s: h0s, parse("{}")
 			if !inlist(`"`h0'"', "{", "}") {
@@ -685,7 +685,7 @@ program define _boottest, rclass sortpreserve
 
 		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                         `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
-												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", 0`cons', ///
+												"`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
 												"`Ynames'", "`b'", "`V'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `:word count `bootcluster'', `Nclustvars', ///
 												"`FEname'", 0`NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
 												"`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
@@ -869,7 +869,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 3.2.3 After didregress, xtdidregress, default to testing treatment effect; Fixed bug in pXB(). Properly handle nointeract, nogteffects, aggmethod options of (xt)didregress.
+* 3.2.3 After (xt)didregress, default to testing treatment effect; Fixed bug in pXB(). Properly handle nointeract, nogteffects, aggmethod options of (xt)didregress.
 * 3.2.2 Add didregress, xtdidregress support. After xtXXX estimation, emulate those commands in not counting FE in dof adjustment, unless "xtreg, dfadj"
 * 3.2.1 Prevent it from expanding data set when number of points in graph exceed # of rows in data set
 * 3.2.0 Added margins option

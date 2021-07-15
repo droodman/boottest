@@ -1,4 +1,4 @@
-*! boottest 3.2.3 3 June 2021
+*! boottest 3.2.3 15 July 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -101,7 +101,7 @@ class boottestIVGMM extends boottestOLS {
 
 class boottest {
 	real scalar scoreBS, B, small, weighttype, null, dirty, initialized, ML, Nobs, _Nobs, kZ, kY2, kX1, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
-		sqrt, hascons, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, BootClust, FEdfadj, ///
+		sqrt, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, confpeak, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClust, BootClust, FEdfadj, ///
 		NFE, granular, purerobust, subcluster, Nstar, BFeas, u_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
 	real matrix AR, v, ustar, CI, CT_WE, infoBootData, infoBootAll, infoErrAll, JNcapNstar, statDenom, uXAR, SuwtXA, numer0, betadev, IDCap, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw
 	real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, gridmin, gridmax, gridpoints, numersum, uddot0, anchor, poles, invFEwt
@@ -225,7 +225,6 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // Rperp is fo
 		XAR = *parent->pX1 * AR
 }
 
-// stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   pragma unused pRperp
 	real matrix H, X2X1; pointer(real matrix) scalar pR1AR1
@@ -455,7 +454,7 @@ void boottestOLS::InitTestDenoms() {
       }
 
       if (parent->NFE & parent->robust & (parent->FEboot | parent->scoreBS)==0 & parent->granular < parent->NErrClustCombs) {  // make first factor of second term of (64) for c=∩ (c=1)
-        if (pWXAR==NULL)
+        if (pWXAR == NULL)
           pWXAR = pvHadw(XAR, *parent->pwt)
         CT_XAR = smatrix(parent->df)
         for (d=parent->df;d;d--)
@@ -481,8 +480,8 @@ pointer(real matrix) scalar boottest::partialFE(pointer(real matrix) scalar pIn)
 }
 
 void boottest::new() {
-	ARubin = LIML = Fuller = WRE = small = scoreBS = weighttype = ML = initialized = quietly = sqrt = hascons = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = B = BFeas = interpolating = 0
-	twotailed = null = dirty = willplot = u_sd = bootstrapt = notplotted = FEdfadj = 1
+	ARubin = LIML = Fuller = WRE = small = scoreBS = weighttype = ML = initialized = quietly = sqrt = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = B = BFeas = interpolating = 0
+	twotailed = null = dirty = willplot = u_sd = bootstrapt = notplotted = FEdfadj = bootstrapt = 1
 	level = 95
   ptol = 1e-6
 	confpeak = MaxMatSize = .
@@ -577,9 +576,6 @@ void boottest::setA(real matrix V) {
 void boottest::setsmall(real scalar small) {
 	this.small = small; setdirty(1)
 }
-void boottest::sethascons(real scalar hascons) {
-	this.hascons = hascons; setdirty(1)
-}
 void boottest::setscoreBS (real scalar scoreBS) {
 	this.scoreBS = scoreBS; setdirty(1)
 }
@@ -602,11 +598,11 @@ void boottest::setwttype  (string scalar wttype) {
 	this.wttype = wttype; setdirty(1)
 }
 void boottest::setID      (real matrix ID, | real scalar NBootClustVar, real scalar NErrClust) {
-	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,1); setdirty(1)
+	this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClust=editmissing(NErrClust,editmissing(NBootClustVar,1)); setdirty(1)
 	if (cols(ID)) this.robust = 1
 }
-void boottest::setFEID(real matrix ID, real scalar NFE, real scalar FEdfadj) {
-	this.pFEID = &ID; this.NFE = NFE; this.FEdfadj = FEdfadj; setdirty(1)
+void boottest::setFEID(real matrix ID, real scalar NFE, | real scalar FEdfadj) {
+	this.pFEID = &ID; this.NFE = NFE; this.FEdfadj = editmissing(FEdfadj,1); setdirty(1)
 }
 void boottest::setlevel(real scalar level)
 	this.level = level
@@ -1113,6 +1109,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   if (WREnonARubin==0)
     if (interpolable = bootstrapt & B & null & Nw==1 & (kappa==0 | ARubin)) {    
       dnumerdr = smatrix(q)
+      poles = anchor = J(0,0,0)
       if (interpolate_u = (robust | ML)==0) dudr = dnumerdr
       if (robust) {
         ddenomdr = dJcddr = ssmatrix(q)
@@ -1471,6 +1468,7 @@ void boottest::MakeWREStats(real scalar w) {
       storeWtGrpResults(pDist, w, sqrt? numerw:/sqrt(denom.M) : numerw :* numerw :/ denom.M)
 			denom.M = Repl.RRpar * Repl.RRpar * denom.M[1]
 		}
+
 	} else {  // WRE bootstrap for more than 1 coefficeint in bootstrap regression
 
 		betas = J(Repl.kZ, cols(v), 0)
@@ -1613,7 +1611,7 @@ void boottest::MakeInterpolables() {
       if (q==1)
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
-              denom[d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
+            denom[d1,d2].M = denom0[d1,d2].M + ddenomdr.M[d1,d2].M * Delta + ddenomdr2.M[d1,d2].M * (Delta * Delta)
       else  // q==2
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
@@ -2135,7 +2133,7 @@ real colvector boottest::stableorder(real matrix X, real rowvector idx)
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
 	string scalar plotname, string scalar peakname, real scalar level, real scalar ptol, real scalar ML, real scalar LIML, real scalar Fuller, 
 	real scalar kappa, real scalar ARubin, real scalar null, real scalar scoreBS, string scalar weighttype, string scalar ptype, string scalar statistic, string scalar madjtype, real scalar NumH0s,
-	string scalar X1names, string scalar Y2names, real scalar hascons, string scalar Ynames, string scalar bname, string scalar Aname, 
+	string scalar X1names, string scalar Y2names, string scalar Ynames, string scalar bname, string scalar Aname, 
 	string scalar X2names, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClust, 
 	string scalar FEname, real scalar NFE, real scalar FEdfadj, string scalar wtname, string scalar wttype, string scalar R1name, string scalar r1name, string scalar Rname, string scalar rname, real scalar B, string scalar repsname, string scalar repsFeasname, 
 	real scalar small, string scalar diststat, string scalar distname, string scalar gridmin, string scalar gridmax, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly,
@@ -2153,7 +2151,6 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
 	if (IDnames != "") ID   = st_data(., IDnames, samplename)
 	if (wtname  != "") wt   = st_data(., wtname , samplename) // panelsum() doesn't like views as weights
 	M.setMaxMatSize(MaxMatSize)
-	M.sethascons(hascons)
 	M.setsc(sc)
 	M.setML(ML)
 	M.setY (Y)
