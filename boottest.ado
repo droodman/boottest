@@ -1,4 +1,4 @@
-*! boottest 3.2.3 15 July 2021
+*! boottest 3.2.4 19 October 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -54,6 +54,10 @@ program define _boottest, rclass sortpreserve
 	}
 	if inlist("`cmd'", "mvreg", "sureg") {
 		di as err "Doesn't work after {cmd:`e(cmd)'}."
+		exit 198
+	}
+	if "`e(cmd)'" == "margins" {
+		di as err "Doesn't work after {cmd:margins ..., post}."
 		exit 198
 	}
 	if inlist("`cmd'", "xtreg", "xtivreg") & "`e(model)'"!="fe" {
@@ -271,10 +275,10 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-  local  NFE    = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), e(N_g),  ///
-                  cond(`DID', 0`e(N_clust)',                                  ///
-                  cond("`cmd'"=="areg", 1+e(df_a),                            ///
-                       max(0`e(K1)', 0`e(df_a_initial)'))))  // reghdfe
+  local NFE = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), e(N_g),  ///
+              cond(`DID', 0`e(N_clust)',                                  ///
+              cond("`cmd'"=="areg", 1+e(df_a),                            ///
+                   max(0`e(K1)', 0`e(df_a_initial)'))))  // reghdfe
 
   local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`e(extended_absvars)'"))
   if `"`_FEname'"' != "" {
@@ -289,7 +293,7 @@ program define _boottest, rclass sortpreserve
   local FEdfadj = !inlist("`cmd'","xtreg","xtivreg","xtivreg2","xtdidregress")  // these commands don't count time FE in DOF adjustment
   if "`cmd'" == "xtreg" {  // exception: xtreg, fe dfadj. https://stata.com/statalist/archive/2013-01/msg00540.html
     local 0 `e(cmdline)'
-    syntax [anything], [dfadj *]
+    syntax [anything] [if] [in] [fw aw pw iw], [dfadj *]
     local FEdfadj = "`dfadj'" != ""
   }
 
@@ -475,9 +479,12 @@ program define _boottest, rclass sortpreserve
       ereturn post `b'
       mat `b' = e(b)
 
-    	// process hypothesis constraints into e(Cns)
-      qui makecns `h0_`h''
+      local h0text
+      foreach c in `h0_`h'' {
+        local h0text = `"`h0text'"' + `" "`: constraint `c''""'
+      }
 
+      qui makecns `h0_`h''  // process hypothesis constraints into e(Cns)
       if "`h0_`h''" != "`r(clist)'" {
         local clist `r(clist)'
         local clist: list h0_`h' - clist
@@ -692,7 +699,7 @@ program define _boottest, rclass sortpreserve
 		_estimates unhold `hold'
 
     `quietly' if 2^`NBootClustname' < `reps' & inlist("`weighttype'", "rademacher", "mammen") {
-      di _n "Warning: with " `NBootClustname' " boostrap clusters, the number of replications, `reps', exceeds the universe of " strproper("`weighttype'") " draws, 2^"`NBootClustname' " = " 2^`NBootClustname' ". " _c
+      di _n "Warning: with " `NBootClustname' " bootstrap clusters, the number of replications, `reps', exceeds the universe of " strproper("`weighttype'") " draws, 2^"`NBootClustname' " = " 2^`NBootClustname' ". " _c
       if "`weighttype'"=="rademacher" di "Sampling each once." _c
       di _n "Consider Webb weights instead, using {cmd:weight(webb)}."
     }
@@ -756,7 +763,10 @@ program define _boottest, rclass sortpreserve
 			cap mat `t' = syminv(`V0')
 			cap noi if diag0cnt(`t') di _n "Test statistic could not be computed. The multiway-clustered variance estimate " cond(`df'==1, "", "matrix ") "is not positive" cond(`df'==1, "", "-definite") "."
 		}
-		cap return matrix b`_h' = `b0'
+		cap mat colnames `b0' = `h0text'
+		cap mat colnames `V0' = `h0text'
+		cap mat rownames `V0' = `h0text'
+    cap return matrix b`_h' = `b0'
 		cap return matrix V`_h' = `V0'
 
 		cap confirm mat `plotmat'
@@ -841,6 +851,7 @@ program define _boottest, rclass sortpreserve
 				if `t' di "(A confidence interval could not be bounded. Try widening the search range with the {cmd:gridmin()} and {cmd:gridmax()} options.)"
 			}
 			mat colnames `cimat' = lo hi
+      cap mat rownames `cimat' = `h0text'
 			return matrix CI`_h' = `cimat'
 		}
 		
@@ -866,9 +877,15 @@ program define _boottest, rclass sortpreserve
 	return local clustvars `clustvars'
 	return scalar null = `null'
 	return scalar reps = `repsname'
+  return scalar NH0s = `N_h0s'
 end
 
 * Version history
+* 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.
+*       Fixed crash in WRE for hypotheses involving exogenous vars
+*       Prevented crash after margins, post.
+*       Label result matrices with hypothesis text. Return r(NH0s).
+*       Fixed 3.2.2 crash after xtreg with if, in, or weights clause
 * 3.2.3 After (xt)didregress, default to testing treatment effect; Fixed bug in pXB(). Properly handle nointeract, nogteffects, aggmethod options of (xt)didregress.
 * 3.2.2 Add didregress, xtdidregress support. After xtXXX estimation, emulate those commands in not counting FE in dof adjustment, unless "xtreg, dfadj"
 * 3.2.1 Prevent it from expanding data set when number of points in graph exceed # of rows in data set

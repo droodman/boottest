@@ -13,7 +13,7 @@
 
 . boottest post_self=.04, nogr // wild bootstrap, Rademacher weights, null imposed, 999 replications
 
-Warning: with 8 boostrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
+Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
@@ -62,7 +62,7 @@ Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clusteri
 
 . boottest {post_self=.04} {post}, nogr // separate tests, no correction for multiple hypotheses
 
-Warning: with 8 boostrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
+Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
@@ -83,7 +83,7 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
 
 . boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
 
-Warning: with 8 boostrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
+Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:

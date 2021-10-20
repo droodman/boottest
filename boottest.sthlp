@@ -431,7 +431,8 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 {synopt:{cmd:r(padj)}}p value adjusted for multiple hypothesis testing, if requested{p_end}
 {synopt:{cmd:r(null)}}indicates whether null imposed{p_end}
 {synopt:{cmd:r(level)}}statistical signficance level for confidence interval, if any{p_end}
-{synopt:{cmd:r(ptol)}}preciseion tolerance for identification of confidence set bounds{p_end}
+{synopt:{cmd:r(ptol)}}precision tolerance for identification of confidence set bounds{p_end}
+{synopt:{cmd:r(NH0s)}}number of independent null hypotheses tested{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(seed)}}value of {opt seed(#)} option, if any, or else c(seed) at command invocation{p_end}
@@ -450,7 +451,7 @@ the null. The argument is a {help numlist}, so it can look like "1 4" or "2/5 6 
 
 {pstd}
 If more than one independent hypotheses is tested, many return values listed above will be supplied
-separately for each hypothesis, using suffixes 1, 2, ....
+separately for each hypothesis, using suffixes _1, _2, ....
 
 
 {title:Author}

@@ -1,4 +1,4 @@
-cd "C:\Users\drood\OneDrive\Documents\Work\Econometrics\Wild cluster"
+cd "D:\OneDrive\Documents\Work\Econometrics\Wild cluster"
 set more off
 set rmsg off
 set trace off
@@ -12,7 +12,7 @@ program myprobit // custom likelihood evaluator
 end
 
 cap log close
-qui log using "C:\Users\drood\OneDrive\Documents\Macros\boottest\unit tests.log", replace
+qui log using "D:\OneDrive\Documents\Macros\boottest\unit tests.log", replace
 
 version 13
 
