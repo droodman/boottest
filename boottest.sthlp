@@ -58,6 +58,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)]}}request the bootstrapped quasi-t/z distribution, or numerators thereof, be saved in return value {cmd:r(dist)}{p_end}
 {synopt:{cmd:svv}}request that the matrix of wild weights be saved in return value {cmd:r(v)}{p_end}
 {synopt:{opt sm:all}}request finite-sample corrections, overriding estimation setting {p_end}
+{synopt:{opt nosm:all}}prevent finite-sample corrections, overriding estimation setting {p_end}
 {synopt:{opt r:obust}}request tests robust to heteroskedasticity only, overriding estimation setting{p_end}
 {synopt:{opt cl:uster(varlist)}}request tests robust to (multi-way) clustering, overriding estimation setting{p_end}
 {synopt:{opt bootcl:uster(varlist)}}sets cluster variable(s) to boostrap on; default is all {cmdab:cl:uster()} variables{p_end}
@@ -219,13 +220,13 @@ When testing multiple independent hypotheses, the {opt madj:ust()} option reques
 on, a choice expressed with the {opt bootcl:uster()} option.
 
 {pstd}
-When multiway clustering is combined with {cmd:small}, 
+When multiway clustering is combined with {cmdab:sm:all}, 
 the finite-sample correction multiplier is a component-specific (G/(G-1)*(N-1)/(N-k), as described in Cameron, Gelbach, and Miller (2006, pp. 8-9) and simulated therein. In
 contrast, {stata ssc describe ivreg2:ivreg2} uses one multiplier for all components, based on the clustering variable with the lowest G. Thus after estimation with
 {cmd:ivreg2} with multi-way clustering, {cmd:waldtest} produces slightly different results from {cmd:test}, which relies purely on {cmd:ivreg2}'s computed covariance matrix.
 
 {pstd}
-Because {cmd:boottest} has its own {opt r:obust}, {opt cl:uster()}, and {opt sm:all} options, you can override the choices made in running the 
+Because {cmd:boottest} has its own {opt r:obust}, {opt cl:uster()}, {opt sm:all}, and {opt nosm:all} options, you can override the choices made in running the 
 original estimate. In particular, you can perform inference with multi-way clustered errors after all the estimation commands that are compatible with
 {cmd:boottest}, even though few can themselves multi-way cluster. Those include many ML-based estimators, after which {cmd:boottest} performs the score bootstrap.
 
@@ -368,9 +369,11 @@ are the estiamtes of that coefficient in all the bootstrap replications.
 circumstances: it has one row for each bootstrapping cluster and one column for each bootstrap replication. If it is large, then this option may bring Stata to its knees. If
 the {opt matsize:gb(#)} option is also invoked (see below), then only the last chunk of the wild weight matrix will be returned.
 
-{phang}{opt sm:all} requests finite-sample corrections even after estimates that did not make them, which includes essentially all ML-based Stata 
+{phang}{opt sm:all} requests finite-sample corrections even after estimates that do not make them, which includes essentially all ML-based Stata 
 commands. Its impact on bootstrap-based tests is merely cosmetic because it scales the test statistic and all the replicated test statistics by the same
 value, such as N/(N-1), so that the place of the test statistic in the simulated distribution does not change. It substantively affects Rao and Wald tests.
+
+{phang}{opt nosm:all} prevents finite-sample corrections even after estimates that make them, such as {cmd:regress}. This is rarely useful.
 
 {phang}{opt r:obust} and {opt cl:uster(varlist)} have the traditional meanings, but serve a nontraditional function, which is to override the settings
 used in the estimation.
@@ -468,7 +471,7 @@ Please cite: {p_end}
 4-60. DOI: 10.1177/1536867X19830877.{p_end}
 
 {title:Errata}
-{p 4}Appendix A of Roodman et al. (2019) contains these small errors:
+{p 4}Appendix A of Roodman et al. (2019) contains these errors:
 
 {p 4 6 0}
 * The right side of (57) is missing a {bf:T}_1 on the far left and a {bf:T}_1' on the far right.

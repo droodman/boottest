@@ -1,4 +1,4 @@
-*! scoretest 3.2.0 7 May 2021
+*! scoretest 3.2.5 6 November 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ program define scoretest
 	}
 	local 0 `*'
 
-	syntax, [h0(passthru) BOOTCLuster(passthru)  CLuster(passthru) Robust NONULl QUIetly NOCI NOGRaph SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) MARGins]	
-	boottest `h0s', reps(0) boottype(score) `h0' `nonull' `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `nograph' `graphopt' `graphname'
+	syntax, [h0(passthru) BOOTCLuster(passthru)  CLuster(passthru) Robust NONULl QUIetly NOCI NOGRaph NOSMall SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) MARGins]	
+	boottest `h0s', reps(0) boottype(score) `h0' `nonull' `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nosmall' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `nograph' `graphopt' `graphname'
 end
 

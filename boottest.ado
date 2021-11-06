@@ -1,4 +1,4 @@
-*! boottest 3.2.4 19 October 2021
+*! boottest 3.2.5 6 November 2021
 *! Copyright (C) 2015-21 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -99,8 +99,13 @@ program define _boottest, rclass sortpreserve
 		macro shift
 	}
 	local 0 `*'
-	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') SMall SVMat ///
+	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins *]
+
+  if "`small'" != "" & "`nosmall'" != "" {
+    di as err "{cmd:small} and {cmd:nosmall} options conflict."
+    exit 198
+  }
 
   local margins = "`margins'" != ""
   if `margins' & `"`h0s'`h0'"' != "" {
@@ -231,7 +236,7 @@ program define _boottest, rclass sortpreserve
 	local IV = "`e(instd)'`e(endogvars)'" != ""
 	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| (inlist("`cmd'","reghdfe","ivreghdfe") & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
-	local small = e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg"
+	local small = (e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg") & "`nosmall'"==""
   local partial = 0`e(partial_ct)' & "`e(cmd)'"=="ivreg2"
 	local fuller `e(fuller)'  // "" if missing
 	local K = e(kclass)  // "." if missing
@@ -881,6 +886,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.2.5 Added nosmall option
 * 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.
 *       Fixed crash in WRE for hypotheses involving exogenous vars
 *       Prevented crash after margins, post.

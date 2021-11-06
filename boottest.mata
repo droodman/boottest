@@ -1651,7 +1651,6 @@ void boottest::_MakeInterpolables(real colvector r) {
           Kd[d].M = *_panelsum2(*pX1, *pX2, *pvHadw(*pcol(DGP.XAR,d), *pwt), *pinfoCapData) * SuwtXA  // final term in (64), for c=intersection of all error clusters
       if (NFE & FEboot==0)
         CT_WE = crosstabFE(*pwt :* *puddot, infoBootData)
-
       for (d=df;d;d--) {  // subtract crosstab of u:*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
         crosstabCapstarMinus(Kd[d].M, *pcol(*pustarXAR,d))
         if (NFE & FEboot==0)
