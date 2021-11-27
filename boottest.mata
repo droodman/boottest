@@ -68,9 +68,9 @@ pointer (real colvector) scalar pvHadw(real matrix v, real matrix w)
 
 class boottestOLS {  // class for performing OLS
   real scalar LIML, Fuller, kappa, isDGP, kZ
-  real colvector y1, u1ddot, u1dddot, beta, beta0, PXy1, invXXXy1par
+  real colvector y1, u1ddot, u1dddot, beta, beta0, invXXXy1par
   real rowvector Yendog
-  real matrix invZperpZperp, ZperpinvZperpZperp, XZ, PXZ, YPXY, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparY, RR1invR1R1, dbetadr, YY, AR, XAR, R1invR1R1Y, invXXXZ, U2ddot, XinvXX, Rt1, invXX, Y2, X2, invH
+  real matrix invZperpZperp, XZ, PXZ, YPXY, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparY, RR1invR1R1, dbetadr, YY, AR, XAR, R1invR1R1Y, invXXXZ, U2ddot, XinvXX, Rt1, invXX, Y2, X2, invH
   pointer(real colvector) scalar py1par, pXy1par
   pointer(real matrix) scalar pA, pZ, pZperp, pX1
   pointer (class boottest scalar) scalar parent
@@ -239,19 +239,19 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   this.pRperp = pRperp
 
   pZperp = pXB(*parent->pX1, RperpX)
-  ZperpinvZperpZperp = *pZperp * (invZperpZperp = invsym(cross(*pZperp, *parent->pwt, *pZperp)))
+  invZperpZperp = invsym(cross(*pZperp, *parent->pwt, *pZperp))
 
-  pX1 = pXB(*parent->pX1, perp(RperpX)); pX1 = &(*pX1 - ZperpinvZperpZperp * cross(*pZperp, *parent->pwt, *pX1))  // FWL-process X1
-  X2 = *parent->pX2 - ZperpinvZperpZperp * cross(*pZperp, *parent->pwt, *parent->pX2)                // FWL-process X2
+  pX1 = pXB(*parent->pX1, perp(RperpX)); pX1 = &(*pX1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *pX1)))  // FWL-process X1
+  X2 = *parent->pX2 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->pX2))                // FWL-process X2
   X2X1 = cross(X2, *parent->pwt, *pX1)
   invXX = invsym((XX = cross(*pX1, *parent->pwt, *pX1), X2X1' \ X2X1, cross(X2, *parent->pwt, X2)))
   pZ   = pX12B(*parent->pX1, *parent->pY2, Rpar     )  // Zpar
   pZR1 = pX12B(*parent->pX1, *parent->pY2, R1invR1R1)  // Z*R1
 
-  pZ   =    &(*pZ   - ZperpinvZperpZperp * cross(*pZperp, *parent->pwt,        *pZ  ))  // partialling out
-  pZR1 =    &(*pZR1 - ZperpinvZperpZperp * cross(*pZperp, *parent->pwt,        *pZR1))
-  Y2 = *parent->pY2 - ZperpinvZperpZperp * cross(*pZperp, *parent->pwt, *parent->pY2)
-  y1 = *parent->py1 - ZperpinvZperpZperp * cross(*pZperp, *parent->pwt, *parent->py1)
+  pZ   =    &(*pZ   - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt,        *pZ  )))  // partialling out
+  pZR1 =    &(*pZR1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt,        *pZR1)))
+  Y2 = *parent->pY2 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->pY2))
+  y1 = *parent->py1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->py1))
 
   X1Y2 = cross(*pX1, *parent->pwt, Y2)
   X2Y2 = cross(X2  , *parent->pwt, Y2)
@@ -294,32 +294,28 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
       MakeH()
   } else {
     kZ = cols(Rpar)
-    ScapYX = ScapPXYZperp = smatrix(kZ+1)
-    XinvXX = *pX12B(*pX1, X2, invXX)
-
     Yendog = 1, colsum(RparY :!= 0)  // columns of Y = [y1par Zpar] that are endogenous (normally all)
 
-    if (parent->robust) {  // for WRE replication regression, prepare for CRVE
+    if (parent->robust & parent->bootstrapt) {  // for WRE replication regression, prepare for CRVE
+      ScapYX = ScapPXYZperp = smatrix(kZ+1)
+      XinvXX = *pX12B(*pX1, X2, invXX)
+      PXZ = *pX12B(*pX1, X2, invXXXZ)
 
-      if (parent->bootstrapt) {
-        PXZ = *pX12B(*pX1, X2, invXXXZ)
-
-        FillingT0 = smatrix(kZ+1, kZ+1)  // fixed component of groupwise term in sandwich filling
+      FillingT0 = smatrix(kZ+1, kZ+1)  // fixed component of groupwise term in sandwich filling
+      if (parent->NFE)
+        CT_FEcapPY = smatrix(kZ+1)
+      for (i=kZ; i; i--) {
+        puwt = pvHadw(*pcol(PXZ,i), *parent->pwt)
         if (parent->NFE)
-          CT_FEcapPY = smatrix(kZ+1)
-        for (i=kZ; i; i--) {
-          puwt = pvHadw(*pcol(PXZ,i), *parent->pwt)
-          if (parent->NFE)
-            CT_FEcapPY[i+1].M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
-          for (j=kZ; j; j--)
-            FillingT0[i+1,j+1].M = *_panelsum(*pcol(*pZ,j), *puwt, *parent->pinfoCapData)
-        }
+          CT_FEcapPY[i+1].M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
+        for (j=kZ; j; j--)
+          FillingT0[i+1,j+1].M = *_panelsum(*pcol(*pZ,j), *puwt, *parent->pinfoCapData)
+      }
 
-        for (i=kZ; i; i--) {  // precompute various clusterwise sums
-          ScapPXYZperp[i+1].M = *_panelsum(*pZperp, *pvHadw(*pcol(PXZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(P_(MZperpX) * Z :* Zperp)
-          if (parent->granular==0)
-            ScapYX[i+1].M = *_panelsum2(*pX1, X2, *pvHadw(*pcol(*pZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
-        }
+      for (i=kZ; i; i--) {  // precompute various clusterwise sums
+        ScapPXYZperp[i+1].M = *_panelsum(*pZperp, *pvHadw(*pcol(PXZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(P_(MZperpX) * Z :* Zperp)
+        if (parent->granular==0)
+          ScapYX[i+1].M = *_panelsum2(*pX1, X2, *pvHadw(*pcol(*pZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
       }
     }
   }
@@ -383,20 +379,20 @@ void boottestIVGMM::Estimate(real colvector r1) {
     Rt1 = RR1invR1R1 * r1
     
     if (parent->robust & parent->bootstrapt) {  // prepare WRE replication regressions
-      PXy1 = *pX12B(*pX1, X2, invXXXy1par)
+//       PXy1 = *pX12B(*pX1, X2, invXXXy1par)
 
-      puwt = pvHadw(PXy1, *parent->pwt)
-      for (i=kZ; i; i--)
-        FillingT0[1,i+1].M = *_panelsum(*pcol(*pZ,i), *puwt, *parent->pinfoCapData)
-      ScapPXYZperp.M = *_panelsum(*pZperp, *puwt, *parent->pinfoCapData)  // S_cap(P_(MZperpX) * y1 :* Zperp)
+//       puwt = pvHadw(PXy1, *parent->pwt)
+//       for (i=kZ; i; i--)
+//         FillingT0[1,i+1].M = *_panelsum(*pcol(*pZ,i), *puwt, *parent->pinfoCapData)
+//       ScapPXYZperp.M = *_panelsum(*pZperp, *puwt, *parent->pinfoCapData)  // S_cap(P_(MZperpX) * y1 :* Zperp)
 
-      if (parent->NFE)
-        CT_FEcapPY.M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
+//       if (parent->NFE)
+//         CT_FEcapPY.M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
 
       puwt = pvHadw(*py1par, *parent->pwt)
       for (i=kZ; i; i--)
         FillingT0[i+1,1].M = *_panelsum (*pcol(PXZ,i), *puwt, *parent->pinfoCapData)
-      FillingT0.M          = *_panelsum (PXy1        , *puwt, *parent->pinfoCapData)
+//       FillingT0.M          = *_panelsum (PXy1        , *puwt, *parent->pinfoCapData)
       if (parent->granular==0)
         ScapYX.M           = *_panelsum2(*pX1, X2    , *puwt, *parent->pinfoCapData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
     }
@@ -801,10 +797,14 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       NErrClustCombs = length(Clust)
       subcluster = NClustVar - NErrClustVar
 
-      if (NClustVar > NBootClustVar)  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
+      if (NClustVar > NBootClustVar) {  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
         pinfoAllData = WREnonARubin & granular==0? &_panelsetup(*pID, 1..NClustVar, pIDAllData) : 
                                                    &_panelsetup(*pID, 1..NClustVar            )
-      else {
+        if (subcluster & rows(infoBootData) != rows(*pinfoAllData)) {
+          errprintf("\nboottest can only perform the subcluster bootstrap when the bootstrap clusters are nested within the (intersections of the) error clusters.\n")
+          _error(499)
+        }
+      } else {
         pinfoAllData = &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
         if (WREnonARubin & granular==0)
           pIDAllData = pIDBootData
@@ -1253,7 +1253,7 @@ real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, 
 
 
 // Workhorse for WRE CRVE sandwich filling
-// With reference to notional Y = [y1 Z], given 0-based columns index within it, ind1, and a matrix betas of all the bootstrap estimates, return all bootstrap realizations of P_X * Y[,ind1]_g ' u\hat_1g^*
+// Given column index ind1 and a matrix betas of all the bootstrap estimates, return all bootstrap realizations of P_X * Z[,ind1]_g ' u\hat_1g^*
 // for all groups in the intersection of all error clusterings
 // return value has one row per cap cluster, one col per bootstrap replication
 pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix betas) {
@@ -1262,7 +1262,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
   if (granular) {
     if (Nw == 1) {  // create or avoid NxB matrix?
-      pPXYstar = ind1? pcol(Repl.PXZ, ind1) : &Repl.PXy1
+      pPXYstar = pcol(Repl.PXZ, ind1)
       if (Repl.Yendog[ind1+1])
         pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M * v)
 
@@ -1281,7 +1281,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
         if (purerobust) {
           for (i=Clust.N;i;i--) {
-            pPXYstar = ind1? &Repl.PXZ[i,ind1] : &Repl.PXy1[i]
+            pPXYstar = pcol(Repl.PXZ, ind1)
             if (Repl.Yendog[ind1+1])
               pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M[i,] * v)
 
@@ -1294,7 +1294,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
         } else {
           for (i=Clust.N;i;i--) {
             S = (*pinfoCapData)[i,]'
-            pPXYstar = ind1? &Repl.PXZ[|S,(ind1\ind1)|] : &Repl.PXy1[|S|]
+            pPXYstar = &Repl.PXZ[|S,(ind1\ind1)|]
             if (Repl.Yendog[ind1+1])
               pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M[|S,(.\.)|] * v)
 
@@ -1317,14 +1317,14 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       if (Repl.Yendog[ind2+1]) {  // add CT_(∩,*) (P_(X_∥ ) Y_(∥i):*U ̈_(∥j) )
         if (NClustVar == NBootClustVar & !subcluster)  // simple case of one clustering: full crosstab is diagonal
           if (cols(T1))
-            _diag(T1, diagonal(T1) + SstarUXinvXX[ind2+1].M ' (ind1? *pcol(Repl.XZ,ind1) : *Repl.pXy1par))
+            _diag(T1, diagonal(T1) + SstarUXinvXX[ind2+1].M ' (*pcol(Repl.XZ,ind1)))
           else
-            T1 =                     SstarUXinvXX[ind2+1].M ' (ind1? *pcol(Repl.XZ,ind1) : *Repl.pXy1par)  // keep T1 as vector if it's just going to be a diagonal matrix
+            T1 =                     SstarUXinvXX[ind2+1].M ' (*pcol(Repl.XZ,ind1))  // keep T1 as vector if it's just going to be a diagonal matrix
         else {
           if (Repl.Yendog[ind1+1]==0)
             T1 = JNcapNstar
           for (i=Nstar;i;i--)
-            T1[IDCTCapstar[i].M, i] = T1[IDCTCapstar[i].M, i] + SCTcapuXinvXX[ind2+1,i].M * *(ind1? pcol(Repl.XZ,ind1) : Repl.pXy1par)
+            T1[IDCTCapstar[i].M, i] = T1[IDCTCapstar[i].M, i] + SCTcapuXinvXX[ind2+1,i].M * *pcol(Repl.XZ,ind1)
         }
         if (cols(*Repl.pZperp))  // subtract S_∩ (P_(X_∥ ) Y_(∥i):*Z_⊥ ) (Z_⊥^' Z_⊥ )^(-1) [S_* (U ̈_(∥j):*Z_⊥ )]^'
           T1 = T1 :- Repl.ScapPXYZperp[ind1+1].M * SstarUZperpinvZperpZperp[ind2+1].M
@@ -1383,13 +1383,18 @@ void boottest::PrepWRE() {
         for (g=Nstar;g;g--)
           SCTcapuXinvXX[i+1,g].M = *_panelsum(Repl.XinvXX, *puwt, infoCTCapstar[g].M)
       
-      SstarUPX    [i+1].M =  Repl.XinvXX * SstarUX                 [i+1].M
+      if (i) SstarUPX[i+1].M =  Repl.XinvXX * SstarUX[i+1].M
       SstarUMZperp[i+1].M = *Repl.pZperp * SstarUZperpinvZperpZperp[i+1].M
       if (Nobs == Nstar)  // subtract "crosstab" of observation by cap-group of u
         _diag(SstarUMZperp[i+1].M, diagonal(SstarUMZperp[i+1].M) - (i? (*pU2parddot)[,i] : DGP.u1dddot))  // case: bootstrapping by observation
       else
-        for (g=Nobs;g;g--)
-          SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] = SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] - (i? (*pU2parddot)[g,i] : DGP.u1dddot[g])
+        if (i)
+          for (g=Nobs;g;g--)
+            SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] = SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] - (*pU2parddot)[g,i]
+        else
+          for (g=Nobs;g;g--)
+            SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] = SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] - DGP.u1dddot[g]
+
       if (NFE)
         SstarUMZperp[i+1].M = SstarUMZperp[i+1].M + (invFEwt :* CTFEU[i+1].M)[*pFEID,]  // CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
     }
@@ -1651,6 +1656,7 @@ void boottest::_MakeInterpolables(real colvector r) {
           Kd[d].M = *_panelsum2(*pX1, *pX2, *pvHadw(*pcol(DGP.XAR,d), *pwt), *pinfoCapData) * SuwtXA  // final term in (64), for c=intersection of all error clusters
       if (NFE & FEboot==0)
         CT_WE = crosstabFE(*pwt :* *puddot, infoBootData)
+
       for (d=df;d;d--) {  // subtract crosstab of u:*XAR wrt bootstrapping cluster combo and all-cluster-var intersections
         crosstabCapstarMinus(Kd[d].M, *pcol(*pustarXAR,d))
         if (NFE & FEboot==0)
@@ -1699,6 +1705,7 @@ void boottest::MakeNumerAndJ(real scalar w, | real colvector r) {  // called to 
     if      ( ARubin) numerw[,1] = v_sd * DGP.Rpar * DGP.beta[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
     else if (null==0) numerw[,1] = v_sd * (*pR * (ML? beta : pM->Rpar * pM->beta) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
   }
+
   storeWtGrpResults(pnumer, w, numerw)
 
   if (B & robust & bootstrapt) {
