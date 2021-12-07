@@ -517,7 +517,7 @@ program define _boottest, rclass sortpreserve
 				exit 111
 			}
 		}
-		
+
 		local plotmat
 		local peakmat
 		local cimat
@@ -694,6 +694,12 @@ program define _boottest, rclass sortpreserve
 		}
 
 		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
+
+    cap confirm var `hold'
+    if _rc {
+      di as err "Sample marker for the regression not found. Perhaps the data set was cleared and reconstructed."
+      exit _rc
+    }
 
 		mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                         `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
@@ -886,7 +892,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 3.2.5 Added nosmall option
+* 3.2.5 Added nosmall option and check for missing sample marker
 * 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.
 *       Fixed crash in WRE for hypotheses involving exogenous vars
 *       Prevented crash after margins, post.
