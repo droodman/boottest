@@ -299,13 +299,13 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     if (parent->robust & parent->bootstrapt) {  // for WRE replication regression, prepare for CRVE
       ScapYX = ScapPXYZperp = smatrix(kZ+1)
       XinvXX = *pX12B(*pX1, X2, invXX)
-      PXZ = *pX12B(*pX1, X2, invXXXZ)
+      PXZ = *pX12B(*pX1, X2, invXXXZ); if (parent->haswt) PXZ = PXZ :* *parent->pwt
 
       FillingT0 = smatrix(kZ+1, kZ+1)  // fixed component of groupwise term in sandwich filling
       if (parent->NFE)
         CT_FEcapPY = smatrix(kZ+1)
       for (i=kZ; i; i--) {
-        puwt = pvHadw(*pcol(PXZ,i), *parent->pwt)
+        puwt = pcol(PXZ,i)
         if (parent->NFE)
           CT_FEcapPY[i+1].M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
         for (j=kZ; j; j--)
@@ -313,7 +313,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
       }
 
       for (i=kZ; i; i--) {  // precompute various clusterwise sums
-        ScapPXYZperp[i+1].M = *_panelsum(*pZperp, *pvHadw(*pcol(PXZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(P_(MZperpX) * Z :* Zperp)
+        ScapPXYZperp[i+1].M = *_panelsum(*pZperp, *pcol(PXZ,i), *parent->pinfoCapData)  // S_cap(P_(MZperpX) * Z :* Zperp)
         if (parent->granular==0)
           ScapYX[i+1].M = *_panelsum2(*pX1, X2, *pvHadw(*pcol(*pZ,i), *parent->pwt), *parent->pinfoCapData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
       }
@@ -379,22 +379,10 @@ void boottestIVGMM::Estimate(real colvector r1) {
     Rt1 = RR1invR1R1 * r1
     
     if (parent->robust & parent->bootstrapt) {  // prepare WRE replication regressions
-//       PXy1 = *pX12B(*pX1, X2, invXXXy1par)
-
-//       puwt = pvHadw(PXy1, *parent->pwt)
-//       for (i=kZ; i; i--)
-//         FillingT0[1,i+1].M = *_panelsum(*pcol(*pZ,i), *puwt, *parent->pinfoCapData)
-//       ScapPXYZperp.M = *_panelsum(*pZperp, *puwt, *parent->pinfoCapData)  // S_cap(P_(MZperpX) * y1 :* Zperp)
-
-//       if (parent->NFE)
-//         CT_FEcapPY.M = parent->crosstabFE(*puwt, *parent->pinfoCapData) :* parent->invFEwt
-
-      puwt = pvHadw(*py1par, *parent->pwt)
       for (i=kZ; i; i--)
-        FillingT0[i+1,1].M = *_panelsum (*pcol(PXZ,i), *puwt, *parent->pinfoCapData)
-//       FillingT0.M          = *_panelsum (PXy1        , *puwt, *parent->pinfoCapData)
+        FillingT0[i+1,1].M = *_panelsum (*pcol(PXZ,i), *py1par, *parent->pinfoCapData)
       if (parent->granular==0)
-        ScapYX.M           = *_panelsum2(*pX1, X2    , *puwt, *parent->pinfoCapData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
+        ScapYX.M           = *_panelsum2(*pX1, X2    , *pvHadw(*py1par, *parent->pwt), *parent->pinfoCapData)  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
     }
   }
 }
@@ -1266,12 +1254,12 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       if (Repl.Yendog[ind1+1])
         pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M * v)
 
-      retval = *_panelsum(*pPXYstar :* (Repl.y1 :- SstarUMZperp.M * v), *pwt, *pinfoCapData)
+      retval = *_panelsum(*pPXYstar :* (Repl.y1 :- SstarUMZperp.M * v), *pinfoCapData)
 
       for (ind2=Repl.kZ;ind2;ind2--) {
         _beta = betas[ind2,]
         retval = retval - *_panelsum(*pPXYstar :* (Repl.Yendog[ind2+1]? *pcol(*Repl.pZ,ind2) * _beta :- SstarUMZperp[ind2+1].M * (v :* _beta) :
-                                                                        *pcol(*Repl.pZ,ind2) * _beta                                           ), *pwt, *pinfoCapData)
+                                                                        *pcol(*Repl.pZ,ind2) * _beta                                           ), *pinfoCapData)
       }
     } else { // create pieces of each N x B matrix one at a time rather than whole thing at once
       retval = J(Clust.N, cols(v), 0)
@@ -1286,10 +1274,10 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
               pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M[i,] * v)
 
             if (ind2)
-              retval[i,] = retval[i,] - cross(*pwt, *pPXYstar :* (Repl.Yendog[ind2+1]? (*Repl.pZ)[i,ind2] * _beta :- SstarUMZperp[ind2+1].M[i,] * *pbetav :
+              retval[i,] = retval[i,] - colsum(*pPXYstar :* (Repl.Yendog[ind2+1]? (*Repl.pZ)[i,ind2] * _beta :- SstarUMZperp[ind2+1].M[i,] * *pbetav :
                                                                                        (*Repl.pZ)[i,ind2] * _beta                                           ))
             else
-              retval[i,] =              cross(*pwt, *pPXYstar :* (Repl.y1[i] :- SstarUMZperp.M[i,] * v))
+              retval[i,] =              colsum(*pPXYstar :* (Repl.y1[i] :- SstarUMZperp.M[i,] * v))
           }
         } else {
           for (i=Clust.N;i;i--) {
@@ -1299,10 +1287,10 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
               pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M[|S,(.\.)|] * v)
 
             if (ind2)
-              retval[i,] = retval[i,] - cross(*pwt, *pPXYstar :* (Repl.Yendog[ind2+1]? (*Repl.pZ)[|S,(ind2\ind2)|] * _beta :- SstarUMZperp[ind2+1].M[|S,(.\.)|] * *pbetav :
+              retval[i,] = retval[i,] - colsum(*pPXYstar :* (Repl.Yendog[ind2+1]? (*Repl.pZ)[|S,(ind2\ind2)|] * _beta :- SstarUMZperp[ind2+1].M[|S,(.\.)|] * *pbetav :
                                                                                        (*Repl.pZ)[|S,(ind2\ind2)|] * _beta                                                 ))
             else
-              retval[i,] =              cross(*pwt, *pPXYstar :* (Repl.y1[|S|] :- SstarUMZperp.M[|S,(.\.)|] * v))
+              retval[i,] =              colsum(*pPXYstar :* (Repl.y1[|S|] :- SstarUMZperp.M[|S,(.\.)|] * v))
           }
         }
       }
@@ -1342,7 +1330,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
         for (i=Clust.N;i;i--) {
           S = (*pinfoCapData)[i,]', (.\.)
-          retval[i,] = retval[i,] - colsum(v :* cross(SstarUPX[ind1+1].M[|S|], haswt? (*pwt)[|S|] : 1, SstarUMZperp[ind2+1].M[|S|]) * *pbetav)
+          retval[i,] = retval[i,] - colsum(v :* cross(SstarUPX[ind1+1].M[|S|], SstarUMZperp[ind2+1].M[|S|]) * *pbetav)
         }    
     }
   }
@@ -1383,7 +1371,10 @@ void boottest::PrepWRE() {
         for (g=Nstar;g;g--)
           SCTcapuXinvXX[i+1,g].M = *_panelsum(Repl.XinvXX, *puwt, infoCTCapstar[g].M)
       
-      if (i) SstarUPX[i+1].M =  Repl.XinvXX * SstarUX[i+1].M
+      if (i) {
+        SstarUPX[i+1].M = Repl.XinvXX * SstarUX[i+1].M
+        if (haswt) SstarUPX[i+1].M = SstarUPX[i+1].M :* *pwt  // XXX instead multiply this against Repl.XinvXX?
+      }
       SstarUMZperp[i+1].M = *Repl.pZperp * SstarUZperpinvZperpZperp[i+1].M
       if (Nobs == Nstar)  // subtract "crosstab" of observation by cap-group of u
         _diag(SstarUMZperp[i+1].M, diagonal(SstarUMZperp[i+1].M) - (i? (*pU2parddot)[,i] : DGP.u1dddot))  // case: bootstrapping by observation
@@ -1768,7 +1759,7 @@ void boottest::MakeNonWREStats(real scalar w) {
         (*pDist)[k+WeightGrpStart[w]-1] = numer_l ' invsym(tmp) * numer_l  // in degenerate cases, cross() would turn cross(.,.) into 0
       }
       if (w==1)
-        statDenom = tmp  // original-sample denominator
+        statDenom = makesymmetric(tmp')  // original-sample denominator
     }
 
   } else { // non-robust

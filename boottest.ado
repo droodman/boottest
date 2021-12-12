@@ -892,6 +892,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights
 * 3.2.5 Added nosmall option and check for missing sample marker
 * 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.
 *       Fixed crash in WRE for hypotheses involving exogenous vars
