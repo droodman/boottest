@@ -147,7 +147,7 @@ void boottestIVGMM::new() {
 }
 
 
-// do select() but handle case that both cases are scalar and second is 0 by interpreting second arg as rowvector and returning J(1,0,0)
+// do select() but handle case that both args are scalar and second is 0 by interpreting second arg as rowvector and returning J(1,0,0)
 // if v = 0 (so can't tell if row or col vector), returns J(1, 0, 0) 
 real matrix boottestOLS::_select(real matrix X, real rowvector v)
   return (rows(X)==1 & cols(X)==1 & v==0? J(1,0,0) : select(X,v))
@@ -190,7 +190,7 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
       RperpX = R1perp * RperpX
     }
     RRpar = R * Rpar
-
+if (isDGP & parent->WREnonARubin) RperpX = parent->Repl.RperpX
     RperpX = *pXS(RperpX, .\parent->kX1)  // Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
 
     S = parent->kX1+1\.
@@ -853,7 +853,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
         ClustShare = haswt? *pwt/sumwt : 1/_Nobs
     }
 
-    purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error-cluster *and* bootstrap-cluster by individual?
+    purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
                                NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
 
@@ -880,7 +880,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   } else
     minN = rows(infoBootData)
 
-  if (NFE) {
+  if (NFE) {  // identify FE groups
     sortID = (*pFEID)[o = stableorder(*pFEID, 1)]
     i_FE = 1; FEboot = B>0 & WREnonARubin==0 & NClustVar; j = Nobs; _FEID = J(Nobs, 1, 1)
     invFEwt = J(NFE,1,0)
@@ -986,6 +986,14 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
     } else if (WREnonARubin) {
 
+      Repl = boottestIVGMM()
+      Repl.parent = &this
+      Repl.isDGP = 0
+      Repl.LIML = this.LIML; Repl.Fuller = this.Fuller; Repl.kappa = this.kappa
+      Repl.SetR(*pR1, *pR)
+      Repl.InitVars()
+      Repl.Estimate(*pr1)
+
       DGP = boottestIVGMM(); DGP.parent = &this
       DGP.LIML = kX2!=kY2
       DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))  // DGP constraints: model constraints + null if imposed
@@ -994,14 +1002,6 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
         DGP.Estimate(*pr1)
         DGP.MakeResiduals()
       }
-
-      Repl = boottestIVGMM()
-      Repl.parent = &this
-      Repl.isDGP = 0
-      Repl.LIML = this.LIML; Repl.Fuller = this.Fuller; Repl.kappa = this.kappa
-      Repl.SetR(*pR1, *pR)
-      Repl.InitVars()
-      Repl.Estimate(*pr1)
 
       if (LIML & Repl.kZ==1 & Nw==1) As = betas = J(1, B+1, 0)
       SstarUZperpinvZperpZperp = SstarUZperp = SstaruY = SstarUXinvXX = SstarUX = smatrix(Repl.kZ+1)
@@ -1023,16 +1023,16 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
     } else {  // the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R1, one with FWL, one not
 
-      DGP = boottestIVGMM(); DGP.parent = &this
-      DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
-      DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))  // DGP constraints: model constraints + null if imposed
-      DGP.InitVars()
       Repl = boottestIVGMM(); Repl.parent = &this
       Repl.LIML = this.LIML; Repl.Fuller = this.Fuller; Repl.kappa = this.kappa
       Repl.SetR(*pR1, I(kZ))  // process replication restraints = model constraints only
       Repl.InitVars(&Repl.R1perp)
       Repl.Estimate(*pr1)  // bit inefficient to estimate in both objects, but maintains the conformity
       Repl.InitTestDenoms()
+      DGP = boottestIVGMM(); DGP.parent = &this
+      DGP.LIML = this.LIML; DGP.Fuller = this.Fuller; DGP.kappa = this.kappa
+      DGP.SetR(null? *pR1 \ *pR : *pR1, J(0,kZ,0))  // DGP constraints: model constraints + null if imposed
+      DGP.InitVars()
       pM = &Repl  // estimator object from which to get A, AR, XAR; DGP follows WRE convention of using FWL, Repl follows OLS convention of not; scoreBS for IV/GMM mixes the two
       if (null==0) {  // if not imposing null, then DGP constraints, kappa, Hessian, etc. do not vary with r and can be set now
         DGP.Estimate(*pr1)
@@ -1366,7 +1366,7 @@ void boottest::PrepWRE() {
     }
 
     if (robust & bootstrapt) {
-      if (granular==0)  // Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
+      if (granular==0 & Repl.Yendog[i+1] & !(NClustVar == NBootClustVar & !subcluster))  // Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
         for (g=Nstar;g;g--)
           SCTcapuXinvXX[i+1,g].M = *_panelsum(Repl.XinvXX, *pu, infoCTCapstar[g].M)
       
@@ -1418,7 +1418,7 @@ void boottest::MakeWREStats(real scalar w) {
     if (null)
        numerw = betas :+ (Repl.Rt1 - *pr) / Repl.RRpar
     else {
-      numerw = betas :- DGP.beta0
+      numerw = betas :- DGP.beta
       if (w==1)
         numerw[1] = betas[1] + (Repl.Rt1 - *pr) / Repl.RRpar
     }
@@ -1512,7 +1512,7 @@ void boottest::MakeWREStats(real scalar w) {
 }
 
 
-// Construct stuff that depends linearly or quadratically on r, possibly by interpolation
+// For non-WRE, construct stuff that depends linearly or quadratically on r, possibly by interpolation
 void boottest::MakeInterpolables() {
   real scalar h1, h2, d1, d2, c; real matrix tmp; real colvector Delta, newPole
 
@@ -1725,7 +1725,7 @@ void boottest::MakeNonWREStats(real scalar w) {
   if (bootstrapt == 0) return
 
   if (robust) {
-    if (interpolating==0) {  // these quadratic computation needed to *prepare* for interpolation but are superseded by interpolation once it is going
+    if (interpolating==0) {  // these quadratic computations needed to *prepare* for interpolation but are superseded by interpolation once it is going
       if (purerobust)
         ustar2 = ustar :* ustar
       for (i=df;i;i--)
@@ -1894,7 +1894,7 @@ void boottest::crosstabCapstarMinus(real matrix M, real colvector v) {
     }
 }
 
-// given a pre-configured boottest linear model with one-degree null imposed, compute distance from target p value of bootstrapped one associated with given value of r
+// given a pre-configured boottest linear model with one-degree null imposed, compute p value for given value of r
 // used with optimize() to construct confidence intervals
 // performs no error checking
 real scalar boottest::r_to_p(real colvector r) {
@@ -1905,7 +1905,7 @@ real scalar boottest::r_to_p(real colvector r) {
 
 
 // Chandrupatla 1997, "A new hybrid quadratic-bisection algorithm for finding the zero of a nonlinear function without using derivatives"
-// x1, x2 must bracket the true value, with f1=f(x1) and f2=f(x2)
+// x1, x2 must bracket the true value, with f1=f(x1) and f2=f(x2). alpha is target p value.
 real scalar boottest::search(real scalar alpha, real scalar f1, real scalar x1, real scalar f2, real scalar x2) {
   real scalar x, t, fx, phi1, phi1_2, xi1, x3, f3
   
@@ -1940,7 +1940,8 @@ real scalar boottest::search(real scalar alpha, real scalar f1, real scalar x1, 
   } while (1)
 }
 
-// derive wild bootstrap-based CI, for case of linear model with one-degree null imposed.
+// derive wild bootstrap-based CI, for case of linear model with one-degree null imposed
+// also prepare data to plot confidence curve or surface
 void boottest::plot() {
   real scalar tmp, alpha, _quietly, c, d, i, j, halfwidth, p_lo, p_hi, p_confpeak; real colvector lo, hi; pointer (real colvector) scalar _pr
 
