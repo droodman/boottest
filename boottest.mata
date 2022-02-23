@@ -285,7 +285,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     py1par = &y1
   }
 
-  V =  invXX * XZ // in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy1). Also used in kZ-class and LIML robust VCV by Stata convention
+  V =  invXX * XZ  // in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy1). Also used in kZ-class and LIML robust VCV by Stata convention
   H_2SLS = V ' XZ  // Hessian
   if (kappa != 1 | LIML) H_2SLSmZZ = H_2SLS - ZZ
 

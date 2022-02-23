@@ -947,8 +947,8 @@ Warning: 1 replications returned an infeasible test statistic and were deleted f
 Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
   DL.lpris_totpop=-1/3
 
-                               z =     1.3178
-    2 * min(Prob>|z|, Prob<-|z|) =     0.4747
+                               z =     0.8309
+    2 * min(Prob>|z|, Prob<-|z|) =     0.6364
 
 . 
 . qui log close

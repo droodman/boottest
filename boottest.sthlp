@@ -106,7 +106,7 @@ hypothesis, a confidence set is derived:
 
 {p 2 4 0}* Since the publication of Roodman et al. (2019), {cmd:boottest} has gained two significant features. The first is the option to perform the bootstrap-c,
 which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather t/z/F/chi2 statistics. Standard theory favors the latter, 
-but Young (2019) presents evidence that the bootstrap-c (or "non-studentized" test) is more reliable, at least in instrumental variables estimation. And theory and simulation in
+but Young (2022) presents evidence that the bootstrap-c (or "non-studentized" test) is at least as reliable in instrumental variables estimation. And theory and simulation in
 Wang (2021) favors the non-studentized test when instruments are weak (but strong in at least one cluster). The option 
 {cmdab:stat:istic(c)} invokes the feature.
 
@@ -167,7 +167,7 @@ combinations thereof. From the bootstrap numerators, the bootstrap-c algorithm t
 dividing the test statistic numerator and its bootstrap replications by this universal denominator has no substantive effect; but it is needed for higher-dimensional hypothesis in order
 to norm the numerators, which are vectors. Under standard asumptions, the
 bootstrap-t, unlike the bootstrap-c, offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) and Wang (2021) provide evidence
-that in instrumental variables estimation, the bootstrap-c is more reliable, at least, perhaps, when instruments are weak. {cmd:boottest} offers both through the {cmdab:stat:istic()} option, {cmd:stat(t)} being the default.
+that in instrumental variables estimation, the bootstrap-c is at least as reliable. {cmd:boottest} offers both through the {cmdab:stat:istic()} option, {cmd:stat(t)} being the default.
 
 {p 4 6 0}
 If one instructs {cmd:boottest} to generate zero bootstrap replications ({cmd:reps(0)}), then, depending on the bootstrap chosen and whether {cmd:ar} is specified, it will default to:
@@ -610,4 +610,4 @@ large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
 {p 4 8 2}Wu, C.F.J. 1986. Jackknife, bootstrap and other resampling methods in regression analysis (with discussions). {it:Annals of Statistics}
 14: 1261-1350.{p_end}
-{p 4 8 2}Young, A. 2019. Consistency without inference: instrumental variables in practical applications. https://personal.lse.ac.uk/YoungA/ConsistencyWithoutInference.pdf.{p_end}
+{p 4 8 2}Young, A. 2022. Leverage, heteroskedasticity and instrumental variances in practical application. https://personal.lse.ac.uk/YoungA/Leverage&IV.pdf.{p_end}

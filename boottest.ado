@@ -417,13 +417,14 @@ program define _boottest, rclass sortpreserve
 		local colnames `_cons' `Xnames_exog' `Xnames_endog'
 
 		foreach varlist in Xnames_exog Ynames Xnames_endog ZExclnames {
+      fvrevar ``varlist'' if e(sample)
+      local revarlist `r(varlist)'
 			local _revarlist
 			forvalues i=1/`:word count ``varlist''' {
 				local var: word `i' of ``varlist''
-				_ms_parse_parts `var'
+        _ms_parse_parts `var'
 				if !r(omit) {
-        	fvrevar `:word `i' of ``varlist''' if e(sample)
-					local _revarlist `_revarlist' `r(varlist)'
+					local _revarlist `_revarlist' `: word `i' of `revarlist''
 					if inlist("`varlist'", "Xnames_exog", "Xnames_endog") {
 						local pos: list posof "`var'" in colnames
 						if `pos' mat `keepC' = nullmat(`keepC'), `pos'
@@ -721,7 +722,7 @@ program define _boottest, rclass sortpreserve
 
 		if !`ML' & `reps' & `Nclustvars'>1 & `teststat'<. {
 			return scalar repsFeas = `repsFeasname'
-			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replications returned an infeasible test statistic and were deleted from the bootstrap distribution."
+			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replication(s) returned an infeasible test statistic and were deleted from the bootstrap distribution."
 		}
 		
 		if `N_h0s'>1 local _h _`h'
