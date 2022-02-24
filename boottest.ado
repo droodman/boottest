@@ -1,5 +1,5 @@
-*! boottest 3.2.5 6 November 2021
-*! Copyright (C) 2015-21 David Roodman
+*! boottest 3.2.6 24 Feburary 2022
+*! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -69,15 +69,16 @@ program define _boottest, rclass sortpreserve
 		exit 198
 	}
 	if inlist("`cmd'","reghdfe","ivreghdfe") {
-		if `:word count `e(extended_absvars)''>1 {
+    fvunab absvars: `e(extended_absvars)'
+		if `:word count `absvars''>1 {
 			di as err "Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms."
 			exit 198
 		}
-		cap _fv_check_depvar `e(extended_absvars)'
-		if _rc {
-			di as err "Doesn't work after {cmd:`cmd'} with absorbed interaction terms."
+		if strpos("`absvars'", "c.") {
+			di as err "Doesn't work after {cmd:`cmd'} with absorbed interaction terms containing slopes."
 			exit 198
 		}
+    else local absvars = subinstr(subinstr("`absvars'", "#", " ", .), "i.", "", .)
 	}
 	if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
 		di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
@@ -285,10 +286,10 @@ program define _boottest, rclass sortpreserve
               cond("`cmd'"=="areg", 1+e(df_a),                            ///
                    max(0`e(K1)', 0`e(df_a_initial)'))))  // reghdfe
 
-  local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`e(extended_absvars)'"))
+  local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`absvars'"))
   if `"`_FEname'"' != "" {
     cap confirm numeric var `_FEname'
-    if _rc {
+    if _rc | `:word count `_FEname' > 1' {
       tempvar FEname
       qui egen long `FEname' = group(`_FEname') if e(sample)
     }
@@ -722,7 +723,7 @@ program define _boottest, rclass sortpreserve
 
 		if !`ML' & `reps' & `Nclustvars'>1 & `teststat'<. {
 			return scalar repsFeas = `repsFeasname'
-			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replication(s) returned an infeasible test statistic and were deleted from the bootstrap distribution."
+			if `repsFeasname' < `reps' di _n "Warning: " `reps' - `repsFeasname' " replications returned an infeasible test statistic and were deleted from the bootstrap distribution."
 		}
 		
 		if `N_h0s'>1 local _h _`h'
@@ -893,7 +894,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights
+* 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights; added support for one-way FEs based on interactions in reghdfe
 * 3.2.5 Added nosmall option and check for missing sample marker
 * 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.
 *       Fixed crash in WRE for hypotheses involving exogenous vars
