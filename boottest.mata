@@ -190,7 +190,7 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
       RperpX = R1perp * RperpX
     }
     RRpar = R * Rpar
-if (isDGP & parent->WREnonARubin) RperpX = parent->Repl.RperpX
+    if (isDGP & parent->WREnonARubin) RperpX = parent->Repl.RperpX
     RperpX = *pXS(RperpX, .\parent->kX1)  // Zperp=Z*RperpX; though formally a multiplier on Z, it will only extract exogenous components, in X1, since all endogenous ones will be retained
 
     S = parent->kX1+1\.
@@ -240,7 +240,6 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
 
   pZperp = pXB(*parent->pX1, RperpX)
   invZperpZperp = invsym(cross(*pZperp, *parent->pwt, *pZperp))
-
   pX1 = pXB(*parent->pX1, perp(RperpX)); pX1 = &(*pX1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *pX1)))  // FWL-process X1
   X2 = *parent->pX2 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->pX2))                // FWL-process X2
   X2X1 = cross(X2, *parent->pwt, *pX1)
@@ -1217,7 +1216,6 @@ real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, 
     pT1R = ind2? pcol(Repl.invXXXZ,ind2) : &Repl.invXXXy1par
     if (Repl.Yendog[ind2+1])
       pT1R = &(*pT1R :+ SstarUXinvXX[ind2+1].M * v)  // right-side linear term
-
     retval = colsum(*pT1L :* *pT1R)  // multiply in the left-side linear term
   }
 
@@ -1323,13 +1321,13 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
         if (cols(T1))
           retval = retval + (cols(T1)==1? T1 :* *pbetav : T1 * *pbetav)  // - x*beta components
       } else
-        retval =          Repl.FillingT0[ind1+1,     1].M :+ (cols(T1)==1? T1 :* *pbetav : T1 *      v)  // y component
+        retval = Repl.FillingT0[ind1+1,1].M :+ (cols(T1)==1? T1 :* *pbetav : T1 * v)  // y component
 
       if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
         for (i=Clust.N;i;i--) {
           S = (*pinfoCapData)[i,]', (.\.)
           retval[i,] = retval[i,] - colsum(v :* cross(SstarUPX[ind1+1].M[|S|], SstarUMZperp[ind2+1].M[|S|]) * *pbetav)
-        }    
+        }
     }
   }
   return(&retval)
@@ -1416,7 +1414,7 @@ void boottest::MakeWREStats(real scalar w) {
       betas = HessianFixedkappa(1, 0, kappa) :/ (As = HessianFixedkappa(1, 1, kappa))
 
     if (null)
-       numerw = betas :+ (Repl.Rt1 - *pr) / Repl.RRpar
+      numerw = betas :+ (Repl.Rt1 - *pr) / Repl.RRpar
     else {
       numerw = betas :- DGP.beta
       if (w==1)
