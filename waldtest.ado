@@ -25,6 +25,6 @@ program define waldtest
 	}
 	local 0 `*'
 
-	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NOGRaph NOSMall SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) MARGins]
-	boottest `h0s', nonull reps(0) boottype(score) `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nograph' `nosmall' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphopt' `graphname'
+	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NOGRaph NOSMall SMall MADJust(passthru) Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) MARGins julia turbo issorted]
+	boottest `h0s', nonull reps(0) boottype(score) `h0' `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nograph' `nosmall' `small' `madjust' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphopt' `graphname' `julia' `turbo' `issorted'
 end

@@ -25,6 +25,6 @@ program define artest
 	}
 	local 0 `*'
 	
-	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NONULl NOGRaph NOSMall SMall Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) ar MARGins]
-	boottest `h0s', `h0' reps(0) ar `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nonull' `nograph' `nosmall' `small' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphname'
+	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NONULl NOGRaph NOSMall SMall Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) ar MARGins julia turbo issorted]
+	boottest `h0s', `h0' reps(0) ar `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nonull' `nograph' `nosmall' `small' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphname' `julia' `turbo' `issorted'
 end

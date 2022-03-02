@@ -103,7 +103,7 @@ program define _boottest, rclass sortpreserve
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins ///
             issorted julia turbo *]
-
+// local julia julia
   if "`small'" != "" & "`nosmall'" != "" {
     di as err "{cmd:small} and {cmd:nosmall} options conflict."
     exit 198
@@ -628,6 +628,7 @@ program define _boottest, rclass sortpreserve
 					mat `b0' = e(b)
 					cap `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if e(sample), `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `options' `max'
 					local rc = _rc
+          mat drop `b0'
 				}
 				if `rc' {
 					di as err "Error imposing null. Perhaps {cmd:`cmd'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
@@ -720,12 +721,16 @@ program define _boottest, rclass sortpreserve
 // python:Main.eval('pushfirst!(LOAD_PATH,"d:/onedrive/documents/macros/WildBootTests.jl")')
       python: from julia import WildBootTests as wbt
 
-      foreach X in R R1 Aname {
+      foreach X in R R1 V {
         cap python: `X' = np.asarray(Matrix.get('``X'''))
         if _rc python: `X' = np.empty([0,0])
       }
-      foreach X in r r1 bname gridminvec gridmaxvec gridpointsvec {
+      foreach X in gridminvec gridmaxvec gridpointsvec {
         cap python: `X' = np.asarray([np.nan if x==Missing.getValue() else x for x in Matrix.get('``X''')[0]])
+        if _rc python: `X' = np.empty([`df',0])
+      }
+      foreach X in r r1 b {
+        cap python: `X' = np.asarray(Matrix.get('``X'''))
         if _rc python: `X' = np.empty([0])
       }
       foreach X in Ynames Xnames_exog Xnames_endog ZExclnames scnames wtname {
@@ -734,7 +739,10 @@ program define _boottest, rclass sortpreserve
       foreach X in FEname allclustvars {
         python: `X' = np.asarray(Data.get('``X''', selectvar="`hold'"), dtype=np.int64)
       }
-
+// foreach X in Ynames Xnames_exog Xnames_endog ZExclnames scnames wtname gridminvec gridmaxvec gridpointsvec R R1 V r r1 b FEname allclustvars {
+//   python:Main.`X' = `X'
+// }
+// python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
       python: test = wbt.wildboottest(Main.Float64, R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1=R1, r1=r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
@@ -742,22 +750,21 @@ program define _boottest, rclass sortpreserve
                                 hetrobust=bool(`hasrobust'), ///
                                 fedfadj=bool(`FEdfadj'), ///
                                 fweights = "`wtype'"=="fweight", ///
-                                maxmatsize=0`matsizegb', ///
+                                maxmatsize=`=0`matsizegb'', ///
                                 ptype="`ptype'", ///
                                 bootstrapc = "`statistic'"=="c", ///
-                                LIML=bool(`LIML'), Fuller=0`fuller', kappa=0`K', ARubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
+                                LIML=bool(`LIML'), Fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ARubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
                                 reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
                                 auxwttype="`weighttype'", ///
                                 rtol=`ptolerance', ///
                                 madjtype="nomadj" if "`madjust'"=="" else "`madjust'", NH0=`N_h0s', ///
-                                ML=bool(`ML'), beta=bname, A=Aname, ///
+                                ML=bool(`ML'), beta=b.transpose(), A=V, ///
                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
                                 diststat = "nodist" if "`svmat'"=="" else "`svmat'", ///
                                 getCI = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
                                 turbo = "`turbo'"!="")
-//                                   rng::AbstractRNG,  offer stable RNG
-
+//                                    rng::AbstractRNG,  offer stable RNG
       python: Main.test = test
       if "`plotmat'"!="" {
         python: Matrix.store("`plotmat'", Main.eval("[test.plot[:X][1] test.plot[:p]]"))  # still need to handle 2-D case
@@ -1092,8 +1099,3 @@ end
 * 1.1.1 Added support for single-equation linear GMM with ivreg2 and ivregress.
 * 1.1.0 Fixed 1.0.1 bug in observation weight handling. Added multiway clustering, robust, cluster(), and bootcluster() options. Added waldtest wrapper.
 * 1.0.1 Added check for empty constraints. Fixed crash on use of weights after clustered estimation in Stata >13.
-
-
-use "D:\OneDrive\Documents\Macros\nlsw88.dta"
-regress wage tenure ttl_exp collgrad, cluster(industry)
-boottest tenure, julia
