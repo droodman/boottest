@@ -1,3 +1,5 @@
+// python: from julia import Main
+// python:Main.eval('pushfirst!(LOAD_PATH,"d:/onedrive/documents/macros/WildBootTests.jl")')
 *! boottest 3.2.6 24 Feburary 2022
 *! Copyright (C) 2015-22 David Roodman
 
@@ -103,7 +105,7 @@ program define _boottest, rclass sortpreserve
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins ///
             issorted julia turbo *]
-// local julia julia
+local julia julia
   if "`small'" != "" & "`nosmall'" != "" {
     di as err "{cmd:small} and {cmd:nosmall} options conflict."
     exit 198
@@ -304,7 +306,7 @@ program define _boottest, rclass sortpreserve
     local FEdfadj = "`dfadj'" != ""
   }
 
-	if `"`seed'"'!="" set seed `seed'
+	if `"`seed'"'!="" && "`julia'"=="" set seed `seed'
 
 	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0
 	mat `b' = e(b)
@@ -698,8 +700,6 @@ program define _boottest, rclass sortpreserve
 			}
 		}
 
-		return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
-
     cap confirm var `hold'
     if _rc {
       di as err "Sample marker for the regression not found. Perhaps the data set was cleared and reconstructed."
@@ -707,6 +707,8 @@ program define _boottest, rclass sortpreserve
     }
 
     if "`julia'"=="" {
+      return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
+
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
@@ -715,10 +717,12 @@ program define _boottest, rclass sortpreserve
                           "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
     }
     else {
+      return local seed = cond("`seed'"!="", "`seed'", "")
+
       python: from julia import Main
+      if "`seed'" != "" python: from julia import StableRNGs
       python: import numpy as np
       python: from sfi import Data, Matrix, Missing, Scalar
-// python:Main.eval('pushfirst!(LOAD_PATH,"d:/onedrive/documents/macros/WildBootTests.jl")')
       python: from julia import WildBootTests as wbt
 
       foreach X in R R1 V {
@@ -763,26 +767,33 @@ program define _boottest, rclass sortpreserve
                                 diststat = "nodist" if "`svmat'"=="" else "`svmat'", ///
                                 getCI = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
-                                turbo = "`turbo'"!="")
-//                                    rng::AbstractRNG,  offer stable RNG
+                                turbo = "`turbo'"!="" ///
+                                `=cond("`seed'"!="", ", rng=StableRNGs.StableRNG(`seed')", "")')
+
       python: Main.test = test
       if "`plotmat'"!="" {
-        python: Matrix.store("`plotmat'", Main.eval("[test.plot[:X][1] test.plot[:p]]"))  # still need to handle 2-D case
-        python: Matrix.store("`peakmat'", Main.eval("[test.peak[:X] test.peak[:p]]"))
+        if `df'==1 {
+            python: Matrix.store("`plotmat'", Main.eval("[test.plot[:X][1] test.plot[:p]]"))
+            python: Matrix.store("`peakmat'", Main.eval("test.peak[:X]"))
+        }
+        else {
+          python: Y, X = np.meshgrid(Main.eval("test.plot[:X][2]"), Main.eval("test.plot[:X][1]"))
+          python: Matrix.store("`plotmat'", np.vstack((np.reshape(X,-1), np.reshape(Y,-1), Main.eval("test.plot[:p]"))).transpose())
+        }
       }
-      if `level'<100 & "`cimat'" != "" python: Matrix.store("`cimat'", Main.eval("test.CI"))
-      python: Scalar.setValue("`teststat'", Main.eval("test.stat"))
-      python: Scalar.setValue("`df'", Main.eval("test.dof"))
-      python: Scalar.setValue("`df_r'", Main.eval("test.dof_r"))
-      python: Scalar.setValue("`p'", Main.eval("test.p"))
-      python: Scalar.setValue("`padj'", Main.eval("test.padj"))
-      python: Scalar.setValue("`repsname'", Main.eval("test.reps"))
-      python: Scalar.setValue("`repsFeasname'", Main.eval("test.repsfeas"))
-      python: Scalar.setValue("`NBootClustname'", Main.eval("test.nbootclust"))
-      python: Matrix.store("`b0'", Main.eval("test.b'"))
-      python: Matrix.store("`V0'", Main.eval("test.V"))
-      if "`dist'"!="" python: Matrix.store("`dist'", Main.eval("test.dist"))
-      if "`svv'"!="" python: Matrix.store("`svv'", Main.eval("test.auxweights"))
+      if `level'<100 & "`cimat'" != "" python: Matrix.store("`cimat'", test.CI)
+      python: Scalar.setValue("`teststat'", test.stat)
+      python: Scalar.setValue("`df'", test.dof)
+      python: Scalar.setValue("`df_r'", test.dof_r)
+      python: Scalar.setValue("`p'", test.p)
+      python: Scalar.setValue("`padj'", test.padj)
+      python: Scalar.setValue("`repsname'", test.reps)
+      python: Scalar.setValue("`repsFeasname'", test.repsfeas)
+      python: Scalar.setValue("`NBootClustname'", test.nbootclust)
+      python: Matrix.store("`b0'", test.b)
+      python: Matrix.store("`V0'", test.V)
+      if "`dist'"!="" python: Matrix.store("`dist'", test.dist)
+      if "`svv'"!="" python: Matrix.store("`svv'", test.auxweights)
     }
 
 		_estimates unhold `hold'
