@@ -1,4 +1,4 @@
-*! boottest 3.3.0 24 Feburary 2022
+*! boottest 4.0.0 18 March 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -103,57 +103,57 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins ///
-            issorted julia *]
+            issorted julia float(integer 64) *]
 
   if "`julia'" != "" & !0$boottest_julia_loaded {
-		if c(stata_version) < 16 {
-			di as err "The {cmd:julia} option requires Stata 16 or higher."
-			exit 198
-		}
+    if c(stata_version) < 16 {
+      di as err "The {cmd:julia} option requires Stata 16 or higher."
+      exit 198
+    }
 
-		if `"`c(python_exec)'"' == "" {
-			di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
-			di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
-			exit 198
-		}
+    if `"`c(python_exec)'"' == "" {
+      di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
+      di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
+      exit 198
+    }
 
-		qui python query
-		local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
-		python: from sfi import Data, Matrix, Missing, Scalar, Macro
+    qui python query
+    local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
+    python: from sfi import Data, Matrix, Missing, Scalar, Macro
 
-		cap python: import julia
-		if _rc {
-			`pipline' julia
-			cap python: import julia
-			if _rc {
-				di as err "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
-				di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
-				exit 198
-			}
-		}
+    cap python: import julia
+    if _rc {
+      `pipline' julia
+      cap python: import julia
+      if _rc {
+        di as err "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
+        di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
+        exit 198
+      }
+    }
 
-		cap python: import numpy as np
-		if _rc {
-			`pipline' numpy
-			cap python: import numpy as np
-			if _rc {
-				di as err "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically."
-				di as err `"You can install it {browse "https://numpy.org/install":manually}."'
-				exit 198
-			}
-		}
+    cap python: import numpy as np
+    if _rc {
+      `pipline' numpy
+      cap python: import numpy as np
+      if _rc {
+        di as err "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically."
+        di as err `"You can install it {browse "https://numpy.org/install":manually}."'
+        exit 198
+      }
+    }
 
-		cap python: from julia import Main, Random
+    cap python: from julia import Main, Random
     if !_rc qui python: Scalar.setValue("rc", Main.eval('VERSION < v"1.7.0"')) 
-		if _rc | rc {
-			di as err "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible through the system path."
-			di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
-			exit 198
-		}
+    if _rc | rc {
+      di as err "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible through the system path."
+      di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
+      exit 198
+    }
 
-		qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="WildBootTests"]')
+    qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="WildBootTests"]')
     python: Macro.setLocal("rc", str(Main.eval('length(p)')))
-		if `rc'==0 {
+    if `rc'==0 {
       cap python: Main.eval('Pkg.add("WildBootTests")')
       if _rc {
         di as err "Failed to automatically install the Julia package WildBootTests.jl."
@@ -170,17 +170,17 @@ program define _boottest, rclass sortpreserve
       }
     }
 
-		cap python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
+    cap python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
     if _rc {
       di as err "Failed to automatically install the Julia package StableRNGs."
       di as err `"This should be installable from within Julia by typing {cmd:using Pkg; Pkg.add("StableRNGs")}."'
       exit 198
     }
-
-		python: from julia import WildBootTests, StableRNGs
+// python:Main.eval('pushfirst!(LOAD_PATH,raw"D:\OneDrive\Documents\Macros\WildBootTests.jl")')
+    python: from julia import WildBootTests, StableRNGs
     python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
-		global boottest_julia_loaded 1
-	}
+    global boottest_julia_loaded 1
+  }
 
   if "`small'" != "" & "`nosmall'" != "" {
     di as err "{cmd:small} and {cmd:nosmall} options conflict."
@@ -822,7 +822,7 @@ program define _boottest, rclass sortpreserve
 // }
 // python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
       qui python: Random.seed_b(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
-      python: test = WildBootTests.wildboottest(Main.Float64, R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+      python: test = WildBootTests.wildboottest(Main.Float`float', R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1=R1, r1=r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
                                 issorted=True, ///
@@ -1059,7 +1059,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 3.3.0 Added Julia support. Fixed plotting bug in artest with >1 instrument.
+* 4.0.0 Added Julia support. Fixed plotting bug in artest with >1 instrument. Added sensitivity to (iv)reghdfe's e(df_a) return value.
 * 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights; added support for one-way FEs based on interactions in reghdfe
 * 3.2.5 Added nosmall option and check for missing sample marker
 * 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.

@@ -1,5 +1,5 @@
-*! boottest 3.2.4 19 October 2021
-*! Copyright (C) 2015-21 David Roodman
+*! boottest 4.0.0 18 March 2022
+*! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by

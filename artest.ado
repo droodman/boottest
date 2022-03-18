@@ -1,5 +1,5 @@
-*! artest 3.2.5 6 November 2021
-*! Copyright (C) 2015-21 David Roodman
+*! artest 4.0.0 18 March 2022
+*! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,6 @@ program define artest
 	}
 	local 0 `*'
 	
-	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NONULl NOGRaph NOSMall SMall Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) ar MARGins julia turbo issorted]
-	boottest `h0s', `h0' reps(0) ar `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nonull' `nograph' `nosmall' `small' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphname' `julia' `turbo' `issorted'
+	syntax, [h0(passthru) BOOTCLuster(passthru) CLuster(passthru) Robust QUIetly NOCI NONULl NOGRaph NOSMall SMall Ptype(passthru) gridmin(passthru) gridmax(passthru) gridpoints(passthru) graphopt(passthru) graphname(passthru) Level(passthru) PTOLerance(passthru) ar MARGins julia float(passthru) issorted]
+	boottest `h0s', `h0' reps(0) ar `bootcluster' `cluster' `robust' `quietly' `noci' `ptolerance' `nonull' `nograph' `nosmall' `small' `ptype' `gridmin' `gridmax' `gridpoints' `graphopt' `graphname' `julia' `float' `issorted'
 end
