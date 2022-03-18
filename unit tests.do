@@ -1,4 +1,6 @@
-cd "D:\OneDrive\Documents\Work\Econometrics\Wild cluster"
+cap cd "D:\OneDrive\Documents\Work\Econometrics\Wild cluster"
+cap cd "/mnt/d/OneDrive/Documents/Work/Econometrics/Wild cluster"
+
 set more off
 set rmsg off
 set trace off

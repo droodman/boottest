@@ -456,7 +456,7 @@ connection by way of Python. The requirements list may therefore look intimidati
 
 {p 4 6 0}
 * Packages {browse "https://numpy.org/install":NumPy} and
-{browse "https://pyjulia.readthedocs.io/en/stable/installation.html":PyJula} for Python and {browse "https://github.com/JuliaRandom/StableRNGs.jl":StableRNGs} 
+{browse "https://pyjulia.readthedocs.io/en/stable/installation.html":PyJulia} for Python and {browse "https://github.com/JuliaRandom/StableRNGs.jl":StableRNGs} 
 and {browse "https://github.com/droodman/WildBootTests.jl":WildBootTests} for Julia (all free). {cmd:boottest} should automatically install these when needed.
 
 {pstd}The creators of Julia {browse "https://docs.julialang.org/en/v1.7/stdlib/Random/":do not guarantee} that the built-in algorithms for generating random numbers will

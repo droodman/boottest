@@ -1,4 +1,4 @@
-*! boottest 4.0.1 18 March 2022
+*! boottest 4.0.2 18 March 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -125,12 +125,12 @@ program define _boottest, rclass sortpreserve
     if _rc {
       di "Installing PyJulia..."
       `pipline' julia
-      cap python: import julia
-      if _rc {
-        di as err "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
-        di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
-        exit 198
-      }
+      cap python: import julia; julia.install(color=False)
+    }
+    if _rc {
+      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
+      di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
+      exit 198
     }
 
     cap python: import numpy as np
@@ -139,16 +139,24 @@ program define _boottest, rclass sortpreserve
       `pipline' numpy
       cap python: import numpy as np
       if _rc {
-        di as err "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically."
+        di as err _n "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically."
         di as err `"You can install it {browse "https://numpy.org/install":manually}."'
         exit 198
       }
     }
 
-    cap python: from julia import Main, Random
-    if !_rc qui python: Scalar.setValue("rc", Main.eval('VERSION < v"1.7.0"')) 
-    if _rc | rc {
-      di as err "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible through the system path."
+    cap python: from julia import Main, Random, Pkg
+    if _rc {
+      cap python: julia.install(color=False); from julia import Main, Random, Pkg
+      if _rc {
+        di as err _n "Could not automatically initialize the PyJulia package."
+        di as err `"Perhaps {browse "https://pyjulia.readthedocs.io/en/latest/installation.html#install-pyjulia":these instructions} will help."'
+        exit 198
+      }
+    }
+    qui python: Scalar.setValue("rc", Main.eval('VERSION < v"1.7.0"')) 
+    if 0`rc' {
+      di as err _n "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible by default through the system path."
       di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
       exit 198
     }
@@ -157,28 +165,36 @@ program define _boottest, rclass sortpreserve
     python: Macro.setLocal("rc", str(Main.eval('length(p)')))
     if `rc'==0 {
       di "Installing WildBootTests.jl..."
-      cap python: Main.eval('Pkg.add("WildBootTests")')
+      cap python: Pkg.add("WildBootTests")
       if _rc {
-        di as err "Failed to automatically install the Julia package WildBootTests.jl."
+        di as err _n "Failed to automatically install the Julia package WildBootTests.jl."
         di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("WildBootTests")}."'
         exit 198
       }
     }
     else {
-      di "Upgrading WildBootTests.jl..."
-      cap python: Main.eval('p[1].version<v"0.7.8" && Pkg.update("WildBootTests")')  // hard-coded version requirement
-      if _rc {
-        di as err "Failed to automatically update the Julia package WildBootTests.jl."
-        di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
-        exit 198
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.8"')))
+      if "`rc'" == "True" {
+        di "Upgrading WildBootTests.jl..."
+        cap python: Pkg.update("WildBootTests")  // hard-coded version requirement
+        if _rc {
+          di as err _n "Failed to automatically update the Julia package WildBootTests.jl."
+          di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
+          exit 198
+        }
       }
     }
 
-    cap python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
-    if _rc {
-      di as err "Failed to automatically install the Julia package StableRNGs."
-      di as err `"This should be installable from within Julia by typing {cmd:using Pkg; Pkg.add("StableRNGs")}."'
-      exit 198
+    qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="StableRNGs"]')
+    python: Macro.setLocal("rc", str(Main.eval('length(p)')))
+    if `rc'==0 {
+      di "Installing StableRNGs.jl..."
+      cap python: Pkg.add("StableRNGs")
+      if _rc {
+        di as err _n "Failed to automatically install the Julia package StableRNGs."
+        di as err `"This should be installable from within Julia by typing {cmd:using Pkg; Pkg.add("StableRNGs")}."'
+        exit 198
+      }
     }
 // python:Main.eval('pushfirst!(LOAD_PATH,raw"D:\OneDrive\Documents\Macros\WildBootTests.jl")')
     python: from julia import WildBootTests, StableRNGs
@@ -1063,6 +1079,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 4.0.2 Fixed bugs in Julia installation.
 * 4.0.1 Bumped WildBootTests version to 0.7.8. Added messages about installation process.
 * 4.0.0 Added Julia support. Fixed plotting bug in artest with >1 instrument. Added sensitivity to (iv)reghdfe's e(df_a) return value.
 * 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights; added support for one-way FEs based on interactions in reghdfe
