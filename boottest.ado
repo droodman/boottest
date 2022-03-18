@@ -1,6 +1,4 @@
-// python: from julia import Main
-// python:Main.eval('pushfirst!(LOAD_PATH,"d:/onedrive/documents/macros/WildBootTests.jl")')
-*! boottest 3.2.6 24 Feburary 2022
+*! boottest 3.3.0 24 Feburary 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -17,6 +15,7 @@
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 *! Version history at bottom
+
 
 cap program drop boottest
 program define boottest
@@ -43,7 +42,7 @@ cap program drop _boottest
 program define _boottest, rclass sortpreserve
 	version 11
 
-	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2", "ivreg2", "`e(cmd)'")
+	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2" | ("`e(cmd)'"=="ivreghdfe" & "`e(extended_absvars)'"==""), "ivreg2", "`e(cmd)'")
 	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
 
 	if "`e(cmd)'" == "" {
@@ -98,14 +97,66 @@ program define _boottest, rclass sortpreserve
 
 	tokenize `"`0'"', parse(",")
 	if `"`1'"' != "," {
-		local h0s `h0s' `1'
+		local h0s `1'
 		macro shift
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins ///
-            issorted julia turbo *]
-local julia julia
+            issorted julia *]
+
+  if "`julia'" != "" & !0$boottest_julia_loaded {
+		if c(stata_version) < 16 {
+			di as err "The {cmd:julia} option requires Stata 16 or higher."
+			exit 198
+		}
+
+		if `"`c(python_exec)'"' == "" {
+			di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
+			di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
+			exit 198
+		}
+
+		qui python query
+		local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"
+
+		cap python: import julia
+		if _rc {
+			`pipline' julia
+			cap python: import julia
+			if _rc {
+				di as err "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
+				di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
+				exit 198
+			}
+		}
+
+		cap python: import numpy as np
+		if _rc {
+			`pipline' numpy
+			cap python: import numpy as np
+			if _rc {
+				di as err "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically."
+				di as err `"You can install it {browse "https://numpy.org/install":manually}."'
+				exit 198
+			}
+		}
+
+		cap python: from julia import Main, Random
+		if _rc {
+			di as err "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible through the system path."
+			di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
+			exit 198
+		}
+
+		python: Main.eval('using Pkg; all([v.name!="WildBootTests" for v in values(Pkg.dependencies())]) && Pkg.add("WildBootTests"); nothing')
+		python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
+		python: from julia import WildBootTests, StableRNGs
+    python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
+		python: from sfi import Data, Matrix, Missing, Scalar, Macro
+		global boottest_julia_loaded 1
+	}
+
   if "`small'" != "" & "`nosmall'" != "" {
     di as err "{cmd:small} and {cmd:nosmall} options conflict."
     exit 198
@@ -241,7 +292,7 @@ local julia julia
 	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| (inlist("`cmd'","reghdfe","ivreghdfe") & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = (e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg") & "`nosmall'"==""
-  local partial = 0`e(partial_ct)' & "`e(cmd)'"=="ivreg2"
+  local partial = `:word count `e(partial1)'' & inlist("`e(cmd)'", "ivreg2", "ivreghdfe")
 	local fuller `e(fuller)'  // "" if missing
 	local K = e(kclass)  // "." if missing
 
@@ -299,14 +350,16 @@ local julia julia
     else local FEname `_FEname'
   }
 
-  local FEdfadj = !inlist("`cmd'","xtreg","xtivreg","xtivreg2","xtdidregress")  // these commands don't count time FE in DOF adjustment
-  if "`cmd'" == "xtreg" {  // exception: xtreg, fe dfadj. https://stata.com/statalist/archive/2013-01/msg00540.html
+  if "`cmd'" == "xtreg" {
     local 0 `e(cmdline)'
     syntax [anything] [if] [in] [fw aw pw iw], [dfadj *]
-    local FEdfadj = "`dfadj'" != ""
+    local FEdfadj = ("`dfadj'" != "") * `NFE'
   }
+  else if inlist("`cmd'","xtivreg","xtivreg2","xtdidregress") local FEdfadj 0
+  else if inlist("`cmd'", "reghdfe", "ivreghdfe") local FEdfadj = 1 + e(df_a)
+  else local FEdfadj `NFE'
 
-	if `"`seed'"'!="" && "`julia'"=="" set seed `seed'
+	if `"`seed'"'!="" set seed `seed'
 
 	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0
 	mat `b' = e(b)
@@ -401,9 +454,12 @@ local julia julia
 		if `IV' {
 			local Xnames_endog `e(instd)'
 			local Xnames_exog: list colnames - Xnames_endog
-			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress") | e(partialcons)
-			local ZExclnames `e(insts)'
-			local ZExclnames: list ZExclnames - Xnames_exog
+			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress") | e(partialcons)==1
+			if "`cmd'"=="ivreg2" | "`e(cmd)'"=="ivreghdfe" local ZExclnames `e(exexog1)'
+      else {
+        local ZExclnames `e(insts)'
+        local ZExclnames: list ZExclnames - Xnames_exog
+      }
 		}
 		else {
 			local Xnames_exog: colnames e(b)
@@ -706,25 +762,18 @@ local julia julia
       exit _rc
     }
 
+    return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
+
     if "`julia'"=="" {
-      return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
                           "`Ynames'", "`b'", "`V'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `NBootClustVar', `NErrClustVar', ///
-                          "`FEname'", 0`NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
+                          "`FEname'", `NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
                           "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
     }
     else {
-      return local seed = cond("`seed'"!="", "`seed'", "")
-
-      python: from julia import Main
-      if "`seed'" != "" python: from julia import StableRNGs
-      python: import numpy as np
-      python: from sfi import Data, Matrix, Missing, Scalar
-      python: from julia import WildBootTests as wbt
-
       foreach X in R R1 V {
         cap python: `X' = np.asarray(Matrix.get('``X'''))
         if _rc python: `X' = np.empty([0,0])
@@ -747,34 +796,37 @@ local julia julia
 //   python:Main.`X' = `X'
 // }
 // python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
-      python: test = wbt.wildboottest(Main.Float64, R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+      qui python: Random.seed_b(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
+      python: test = WildBootTests.wildboottest(Main.Float64, R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1=R1, r1=r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
                                 issorted=True, ///
                                 hetrobust=bool(`hasrobust'), ///
-                                fedfadj=bool(`FEdfadj'), ///
+                                nfe=`NFE', ///
+                                fedfadj=`FEdfadj', ///
                                 fweights = "`wtype'"=="fweight", ///
                                 maxmatsize=`=0`matsizegb'', ///
                                 ptype="`ptype'", ///
                                 bootstrapc = "`statistic'"=="c", ///
-                                LIML=bool(`LIML'), Fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ARubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
+                                LIML=bool(`LIML'), Fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
+                                ARubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
                                 reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
                                 auxwttype="`weighttype'", ///
                                 rtol=`ptolerance', ///
-                                madjtype="nomadj" if "`madjust'"=="" else "`madjust'", NH0=`N_h0s', ///
+                                madjtype="none" if "`madjust'"=="" else "`madjust'", NH0=`N_h0s', ///
                                 ML=bool(`ML'), beta=b.transpose(), A=V, ///
                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
-                                diststat = "nodist" if "`svmat'"=="" else "`svmat'", ///
+                                diststat = "none" if "`svmat'"=="" else "`svmat'", ///
                                 getCI = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
-                                turbo = "`turbo'"!="" ///
-                                `=cond("`seed'"!="", ", rng=StableRNGs.StableRNG(`seed')", "")')
-
+                                rng=rng)
+      python: Macro.setLocal("seed", str(Main.rand(rng, Main.Int32)))  // chain Julia rng back to Stata to advance it replicably
+//       set seed `seed'
       python: Main.test = test
       if "`plotmat'"!="" {
         if `df'==1 {
             python: Matrix.store("`plotmat'", Main.eval("[test.plot[:X][1] test.plot[:p]]"))
-            python: Matrix.store("`peakmat'", Main.eval("test.peak[:X]"))
+            python: Matrix.store("`peakmat'", Main.eval("[test.peak[:X][1] test.peak[:p]]"))
         }
         else {
           python: Y, X = np.meshgrid(Main.eval("test.plot[:X][2]"), Main.eval("test.plot[:X][1]"))
@@ -804,7 +856,7 @@ local julia julia
       di _n "Consider Webb weights instead, using {cmd:weight(webb)}."
     }
     local reps = `repsname'  // in case reduced to 2^G
-    `quietly' if ((`NBootClustname'>12 | "`weighttype'" != "rademacher") & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1)) {
+    `quietly' if `reps' & (`NBootClustname'>12 | "`weighttype'" != "rademacher") & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1) {
       di _n "Note: The bootstrap usually performs best when the confidence level (here, `level'%)" _n "      times the number of replications plus 1 (`reps'+1=" `reps'+1 ") is an integer."
     }
 
@@ -872,7 +924,6 @@ local julia julia
 		cap confirm mat `plotmat'
 		if _rc == 0 {
 			tempvar X1 Y _plotmat
-			if `df'==2 tempvar X2
 			mat `_plotmat' = `plotmat'
 			return matrix plot`_h' = `plotmat'
 			mat `plotmat' = `_plotmat'
@@ -888,13 +939,15 @@ local julia julia
 				else {
 					mata st_matrix("`_plotmat'", st_matrix("`plotmat'") \ ((st_matrix("`cimat'")[,1] \ st_matrix("`cimat'")[,2]), J(2*`=rowsof(`cimat')', 1, 1-`level'/100)))
 				}
+
+        if colsof(`_plotmat')==3 tempvar X2
 				mat colnames `_plotmat' = `X1' `X2' `Y'
 				local _N = _N
         qui svmat `_plotmat', names(col)
 				label var `Y' " "  // in case user turns on legend
 				if `"`graphname'"'=="Graph" cap graph drop Graph`_h'
 
-				if `df'==1 {
+				if colsof(`_plotmat')==2 {
         	cap mata st_local("nonmiss", strofreal(nonmissing(st_matrix("`cimat'"))))
           if 0`nonmiss' > 1 {
             mata _boottestm = (-min(-st_matrix("`cimat'")) - min(st_matrix("`cimat'"))) / 2 / (`nonmiss' + 1)  // margin
@@ -981,6 +1034,7 @@ local julia julia
 end
 
 * Version history
+* 3.3.0 Added Julia support. Fixed plotting bug in artest with >1 instrument.
 * 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights; added support for one-way FEs based on interactions in reghdfe
 * 3.2.5 Added nosmall option and check for missing sample marker
 * 3.2.4 Fixed bug in test statistic in no-null tests after IV/GMM. Fixed Fuller adjustment always being treated as 1. Fixed bad value in lower left corner of contour plots.

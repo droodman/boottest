@@ -19,7 +19,7 @@ program define scoretest
 	version 11
 	tokenize `"`0'"', parse(",")
 	if `"`1'"' != "," {
-		local h0s `h0s' `1'
+		local h0s `1'
 		macro shift
 	}
 	local 0 `*'

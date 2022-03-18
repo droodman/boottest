@@ -25,8 +25,8 @@ boottest post_self=.04, nogr // wild bootstrap, Rademacher weights, null imposed
 boottest post_self=.04, weight(webb) noci // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI
 scoretest post_self=.04, nogr                   // Rao score/Lagrange multipler test of same
 
-boottest post_self post, reps(9999) weight(webb) nogr // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
-boottest (post_self) (post), reps(9999) weight(webb) nogr // same
+boottest post_self post, reps(999) weight(webb) nogr // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
+boottest (post_self) (post), reps(999) weight(webb) nogr // same
 boottest {post_self=.04} {post}, nogr // separate tests, no correction for multiple hypotheses
 boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
 
@@ -78,9 +78,9 @@ waldtest collgrad tenure, cluster(industry age) nogr // multi-way-clustered test
 boottest tenure, cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2) nogr
 
 qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
-boottest tenure, cluster(age occupation) bootcluster(occupation) seed(9999) nograph  // override estimate's clustering
+boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // override estimate's clustering
 qui reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)
-boottest tenure, cluster(age occupation) bootcluster(occupation) seed(9999) nograph  // should match previous result
+boottest tenure, cluster(age occupation) bootcluster(occupation) seed(999) nograph  // should match previous result
 
 qui probit c_city tenure wage ttl_exp collgrad, cluster(industry)
 boottest tenure, nogr                          // score bootstrap, Rademacher weights, null imposed, 999 replications
@@ -104,25 +104,25 @@ encode pixwbcode, gen(ccode)  // make numerical country identifier
 qui areg lnl0708s centr_tribe lnpd0 $pix $geo $poly, absorb(ccode)
 waldtest centr_tribe, nogr cluster(ccode pixcluster)
 set seed 2309487  // for exact reproducibility of results
-boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode)
-boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(pixcluster)
-boottest centr_tribe, nogr reps(9999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
+boottest centr_tribe, nogr reps(999) clust(ccode pixcluster) bootcluster(ccode)
+boottest centr_tribe, nogr reps(999) clust(ccode pixcluster) bootcluster(pixcluster)
+boottest centr_tribe, nogr reps(999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
 
 infile coll merit male black asian year state chst using regm.raw, clear
 set seed 3541641
 qui regress coll merit male black asian i.year i.state, cluster(state)	
 generate individual = _n  // unique ID for each observation
-boottest merit, nogr reps(9999) gridpoints(10)  // defaults to bootcluster(state)
-boottest merit, nogr reps(9999) gridpoints(10) nonull
-boottest merit, nogr reps(9999) gridpoints(10) bootcluster(state year)
-boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(state year)
-boottest merit, nogr reps(9999) gridpoints(10) bootcluster(individual)
-boottest merit, nogr reps(9999) gridpoints(10) nonull bootcluster(individual)
+boottest merit, nogr reps(999) gridpoints(10)  // defaults to bootcluster(state)
+boottest merit, nogr reps(999) gridpoints(10) nonull
+boottest merit, nogr reps(999) gridpoints(10) bootcluster(state year)
+boottest merit, nogr reps(999) gridpoints(10) nonull bootcluster(state year)
+boottest merit, nogr reps(999) gridpoints(10) bootcluster(individual)
+boottest merit, nogr reps(999) gridpoints(10) nonull bootcluster(individual)
 
 qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)
 foreach bootcluster in state "state year" individual {
   foreach nonull in "" nonull {
-    boottest merit, reps(9999) gridpoints(10) bootcl(`bootcluster') `nonull' nogr
+    boottest merit, reps(999) gridpoints(10) bootcl(`bootcluster') `nonull' nogr
   }
 }
 
@@ -131,15 +131,15 @@ set seed 8723419
 foreach crimevar in Violent Property {
   qui ivregress 2sls D.l`crimevar'pop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage)  ///
     D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust
-  boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(9999) gridmin(-2) gridmax(2) nogr
+  boottest DL.lpris_totpop, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) gridmin(-2) gridmax(2) nogr
 }
 
 qui ivregress 2sls D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year i.state, robust small
-boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(9999) seed(1231) nogr gridmin(-2) gridmax(2)
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
 qui ivreghdfe D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, absorb(state) small
-boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(9999) seed(1231) nogr gridmin(-2) gridmax(2)
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
 qui xtivreg   D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe small
-boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(9999) seed(1231) nogr gridmin(-2) gridmax(2)
+boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(999) seed(1231) nogr gridmin(-2) gridmax(2)
 
 qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust
 boottest DL.lpris_totpop=-1/3, cluster(state year) bootcluster(year) ptype(equaltail) reps(199) noci seed(1231)

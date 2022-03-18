@@ -854,7 +854,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
     purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
-                               NClustVar & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
+                               robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
@@ -1054,7 +1054,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   if (df==1) setsqrt(1)  // work with t/z stats instead of F/chi2
 
   if (small)
-    multiplier = (smallsample = (_Nobs - kZ - FEdfadj * NFE) / (_Nobs - robust)) / df  // divide by # of constraints because F stat is so defined
+    multiplier = (smallsample = (_Nobs - kZ - FEdfadj) / (_Nobs - robust)) / df  // divide by # of constraints because F stat is so defined
   else
     multiplier = smallsample = 1
 
@@ -1542,7 +1542,7 @@ void boottest::MakeInterpolables() {
           dnumerdr[h1].M = (*pnumer - numer0) / poles[h1]
           if (interpolate_u)
             dudr[h1].M = (*puddot - uddot0) / poles[h1]
-          if (robust)  // df > 1 for an ARubin test with >1 instruments. 
+          if (robust & !purerobust)  // df > 1 for an ARubin test with >1 instruments. 
             for (d1=1;d1<=df;d1++) {
               for (c=1;c<=NErrClustCombs;c++) {
                 dJcddr[h1].M[c,d1].M = ((*pJcd)[c,d1].M - Jcd0[c,d1].M) / poles[h1]
@@ -1555,7 +1555,7 @@ void boottest::MakeInterpolables() {
               ddenomdr[h1].M[d1,d1].M = ddenomdr[h1].M[d1,d1].M + ddenomdr[h1].M[d1,d1].M  // double diagonal terms
             }
         }
-      if (robust)  // quadratic interaction terms
+      if (robust & !purerobust)  // quadratic interaction terms
         for (h1=1;h1<=q;h1++)
           for (h2=h1;h2;h2--)
             if (newPole[h1] | newPole[h2])
@@ -1580,7 +1580,7 @@ void boottest::MakeInterpolables() {
       }
     }
 
-    if (robust)  // even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
+    if (robust & !purerobust)  // even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
       if (q==1)
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
@@ -1708,7 +1708,6 @@ void boottest::MakeNumerAndJ(real scalar w, | real colvector r) {  // called to 
             (*pJcd)[1,d].M = *_panelsum(*_panelsum(*puddot, pM->WXAR[d].M, *pinfoAllData) :* _v, infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
         }
       }
-
     for (c=NErrClustCombs; c>granular; c--)
       for (d=df;d;d--)
         (*pJcd)[c,d].M = Kcd[c,d].M * v
@@ -1988,7 +1987,7 @@ void boottest::plot() {
         lo = editmissing(gridmin[1], confpeak - halfwidth) // initial guess based on classical distribution
         hi = editmissing(gridmax[1], confpeak + halfwidth)
       } else {
-        tmp = sqrt(statDenom) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
+        tmp = sqrt(statDenom[1,1]) * (small? invttail(df_r, alpha/2) : -invnormal(alpha/2))
         lo = editmissing(gridmin[1], confpeak - tmp)
         hi = editmissing(gridmax[1], confpeak + tmp)
         if (scoreBS & (null | willplot)==0) {  // if doing simple Wald test with no graph, we're done
@@ -2032,7 +2031,7 @@ void boottest::plot() {
     plotX = rangen(lo, hi, gridpoints[1])
     plotY = J(rows(plotX), 1, .)
     plotY[1] = p_lo; plotY[rows(plotX)] = p_hi
-    p_confpeak = WREnonARubin? . : (twotailed? 1 : .5)
+    p_confpeak = WRE? . : (twotailed? 1 : .5)
     if (confpeak < lo) { // insert original point estimate into grid
       if (gridmin[1] == .) {
         plotX =   confpeak \ plotX
