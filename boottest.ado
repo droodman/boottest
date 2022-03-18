@@ -1,4 +1,4 @@
-*! boottest 4.0.0 18 March 2022
+*! boottest 4.0.1 18 March 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -123,6 +123,7 @@ program define _boottest, rclass sortpreserve
 
     cap python: import julia
     if _rc {
+      di "Installing PyJulia..."
       `pipline' julia
       cap python: import julia
       if _rc {
@@ -134,6 +135,7 @@ program define _boottest, rclass sortpreserve
 
     cap python: import numpy as np
     if _rc {
+      di "Installing NumPy..."
       `pipline' numpy
       cap python: import numpy as np
       if _rc {
@@ -154,6 +156,7 @@ program define _boottest, rclass sortpreserve
     qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="WildBootTests"]')
     python: Macro.setLocal("rc", str(Main.eval('length(p)')))
     if `rc'==0 {
+      di "Installing WildBootTests.jl..."
       cap python: Main.eval('Pkg.add("WildBootTests")')
       if _rc {
         di as err "Failed to automatically install the Julia package WildBootTests.jl."
@@ -162,6 +165,7 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
+      di "Upgrading WildBootTests.jl..."
       cap python: Main.eval('p[1].version<v"0.7.8" && Pkg.update("WildBootTests")')  // hard-coded version requirement
       if _rc {
         di as err "Failed to automatically update the Julia package WildBootTests.jl."
@@ -1059,6 +1063,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 4.0.1 Bumped WildBootTests version to 0.7.8. Added messages about installation process.
 * 4.0.0 Added Julia support. Fixed plotting bug in artest with >1 instrument. Added sensitivity to (iv)reghdfe's e(df_a) return value.
 * 3.2.6 For tests of dimension > 2 return symmetric r(V), not upper triangle; fixed crash in WRE with matsizegb() and obs weights; added support for one-way FEs based on interactions in reghdfe
 * 3.2.5 Added nosmall option and check for missing sample marker
