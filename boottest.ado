@@ -162,7 +162,7 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      cap python: Main.eval('p[1].version<v"0.7.7" && Pkg.update("WildBootTests")')  // hard-coded version requirement
+      cap python: Main.eval('p[1].version<v"0.7.8" && Pkg.update("WildBootTests")')  // hard-coded version requirement
       if _rc {
         di as err "Failed to automatically update the Julia package WildBootTests.jl."
         di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
