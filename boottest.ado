@@ -118,7 +118,8 @@ program define _boottest, rclass sortpreserve
 		}
 
 		qui python query
-		local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"
+		local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
+		python: from sfi import Data, Matrix, Missing, Scalar, Macro
 
 		cap python: import julia
 		if _rc {
@@ -143,7 +144,8 @@ program define _boottest, rclass sortpreserve
 		}
 
 		cap python: from julia import Main, Random
-		if _rc {
+    if !_rc qui python: Scalar.setValue("rc", Main.eval('VERSION < v"1.7.0"')) 
+		if _rc | rc {
 			di as err "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible through the system path."
 			di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
 			exit 198
@@ -153,7 +155,6 @@ program define _boottest, rclass sortpreserve
 		python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
 		python: from julia import WildBootTests, StableRNGs
     python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
-		python: from sfi import Data, Matrix, Missing, Scalar, Macro
 		global boottest_julia_loaded 1
 	}
 
@@ -821,7 +822,7 @@ program define _boottest, rclass sortpreserve
                                 getauxweights = "`svv'"!="", ///
                                 rng=rng)
       python: Macro.setLocal("seed", str(Main.rand(rng, Main.Int32)))  // chain Julia rng back to Stata to advance it replicably
-//       set seed `seed'
+      set seed `seed'
       python: Main.test = test
       if "`plotmat'"!="" {
         if `df'==1 {
