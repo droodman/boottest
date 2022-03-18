@@ -394,7 +394,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
                          t(2227) =     1.2941
                         Prob>|t| =     0.1852
 
-95% confidence set for null hypothesis expression: [-.01538, .07959]
+95% confidence set for null hypothesis expression: [-.01528, .07978]
 
 . 
 . qui ivregress liml wage (collgrad tenure = ttl_exp union), robust  // no clustering
@@ -421,9 +421,6 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
 . waldtest collgrad tenure, cluster(industry age) nogr // multi-way-clustered tests after estimation command not offering such
 
 Overriding estimator's cluster/robust settings with cluster(industry age)
-
-Note: The bootstrap usually performs best when the confidence level (here, 95%)
-      times the number of replications plus 1 (0+1=1) is an integer.
 
 Wald test, clustering by industry age:
   collgrad tenure
@@ -658,9 +655,6 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights
 
 Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
 
-Note: The bootstrap usually performs best when the confidence level (here, 95%)
-      times the number of replications plus 1 (0+1=1) is an integer.
-
 Wald test, clustering by ccode pixcluster:
   centr_tribe
 
@@ -893,15 +887,15 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state
 
 Overriding estimator's cluster/robust settings with cluster(state year)
 
-Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+Warning: 4 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
   DL.lpris_totpop=-1/3
 
-                           t(20) =     0.9661
-    2 * min(Prob>|t|, Prob<-|t|) =     0.5878
+                           t(20) =     2.1870
+    2 * min(Prob>|t|, Prob<-|t|) =     0.0603
 
-95% confidence set for null hypothesis expression: [., -1.75] U [-.7314, .125] U [.4461, .]
+95% confidence set for null hypothesis expression: [., -1.077] U [-.3493, .]
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
 
 . qui xtivreg   D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) D.(lincomepop unemp lpolicepop metrop black a*pop) i.year, fe small
@@ -928,13 +922,13 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by state
 
 Overriding estimator's cluster/robust settings with cluster(state year)
 
-Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
 
 Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
   DL.lpris_totpop=-1/3
 
-                               z =     1.3178
-    2 * min(Prob>|z|, Prob<-|z|) =     0.4747
+                               z =     3.5020
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0203
 
 . qui ivreg2 D.lPropertypop (DL.lpris_totpop = ibnL.stage#i(1/3)L.substage) i.year i.state, robust partial(i.year i.state)
 
@@ -942,13 +936,13 @@ Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state
 
 Overriding estimator's cluster/robust settings with cluster(state year)
 
-Warning: 1 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+Warning: 2 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
 
 Wild bootstrap-t, null imposed, 199 replications, Wald test, clustering by state year, bootstrap clustering by year, Rademacher weights:
   DL.lpris_totpop=-1/3
 
-                               z =     0.8309
-    2 * min(Prob>|z|, Prob<-|z|) =     0.6364
+                               z =     3.2716
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0203
 
 . 
 . qui log close

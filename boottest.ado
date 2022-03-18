@@ -151,8 +151,32 @@ program define _boottest, rclass sortpreserve
 			exit 198
 		}
 
-		python: Main.eval('using Pkg; all([v.name!="WildBootTests" for v in values(Pkg.dependencies())]) && Pkg.add("WildBootTests"); nothing')
-		python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
+		qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="WildBootTests"]')
+    python: Macro.setLocal("rc", str(Main.eval('length(p)')))
+		if `rc'==0 {
+      cap python: Main.eval('Pkg.add("WildBootTests")')
+      if _rc {
+        di as err "Failed to automatically install the Julia package WildBootTests.jl."
+        di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("WildBootTests")}."'
+        exit 198
+      }
+    }
+    else {
+      cap python: Main.eval('p[1].version<v"0.7.7" && Pkg.update("WildBootTests")')  // hard-coded version requirement
+      if _rc {
+        di as err "Failed to automatically update the Julia package WildBootTests.jl."
+        di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
+        exit 198
+      }
+    }
+
+		cap python: Main.eval('all([v.name!="StableRNGs" for v in values(Pkg.dependencies())]) && Pkg.add("StableRNGs")')
+    if _rc {
+      di as err "Failed to automatically install the Julia package StableRNGs."
+      di as err `"This should be installable from within Julia by typing {cmd:using Pkg; Pkg.add("StableRNGs")}."'
+      exit 198
+    }
+
 		python: from julia import WildBootTests, StableRNGs
     python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
 		global boottest_julia_loaded 1
