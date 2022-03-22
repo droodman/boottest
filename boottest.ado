@@ -173,7 +173,7 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.8"')))
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.9"')))
       if "`rc'" == "True" {
         di "Upgrading WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")  // hard-coded version requirement
