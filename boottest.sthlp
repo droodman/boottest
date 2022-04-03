@@ -435,9 +435,9 @@ the {cmd:julia} option. Results from the two will usually not match exactly sinc
 as the number of bootstrap replications rises.
 
 {pstd}The Julia implementation is usually an order of magnitude faster, once it gets going. But it comes with significant overhead. The first time it is run within a Stata session,
-or the first time run a new kind of test is run within the session, such as the WCR after OLS or the WRE after 2SLS, 15-20 seconds may pass while code is 
-compiled: Julia uses just-in-time compilation. In addition, on each invocation, data is temporarily copied from Stata to Julia. If {cmd:boottest}
-already feels fast in your applications, the {cmd:julia} option will probably not improve your life.
+or with the {cmd:float(32)} option for single-precision, or in order to request a different kind of test such as the WCR after OLS or the WRE after 2SLS, 15-20 seconds may pass while code is 
+compiled. Julia uses just-in-time compilation, but sometimes it feels just-not-in-time. In addition, on each invocation, data is temporarily copied from Stata to Julia, which takes 
+time. If {cmd:boottest} already feels fast in your applications, the {cmd:julia} option will probably not improve your life.
 
 {pstd}However, for hard problems, such as ones involving the subcluster bootstrap, or multiway clustering in which all-cluster intersections are numerous, the Julia implementation
 can be much faster.

@@ -102,7 +102,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(integer 1000000) PTOLerance(real 1e-6) svv MARGins ///
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-6) svv MARGins ///
             issorted julia float(integer 64) *]
 
   if "`julia'" != "" & !0$boottest_julia_loaded {
@@ -111,13 +111,13 @@ program define _boottest, rclass sortpreserve
       exit 198
     }
 
+    qui python query
     if `"`c(python_exec)'"' == "" {
       di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
       di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
       exit 198
     }
 
-    qui python query
     local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
     python: from sfi import Data, Matrix, Missing, Scalar, Macro
 
@@ -173,9 +173,9 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.9"')))
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.10"')))
       if "`rc'" == "True" {
-        di "Upgrading WildBootTests.jl..."
+        di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")  // hard-coded version requirement
         if _rc {
           di as err _n "Failed to automatically update the Julia package WildBootTests.jl."
@@ -373,7 +373,7 @@ program define _boottest, rclass sortpreserve
 			di as err "{cmd:boottype(wild)} not accepted after Maximum Likelihood-based estimation."
 			exit 198
 		}
-		if "`boottype'"=="score" & "`fuller'`K'" != "." {
+		if "`boottype'"=="score" & "`fuller'`K'" != "." & "`e(model)'"!="liml" {
 			di as err "{cmd:boottype(score)} not accepted after Fuller LIML or k-class estimation."
 			exit 198
 		}
@@ -401,7 +401,7 @@ program define _boottest, rclass sortpreserve
     local FEdfadj = ("`dfadj'" != "") * `NFE'
   }
   else if inlist("`cmd'","xtivreg","xtivreg2","xtdidregress") local FEdfadj 0
-  else if inlist("`cmd'", "reghdfe", "ivreghdfe") local FEdfadj = 1 + e(df_a)
+  else if inlist("`cmd'", "reghdfe", "ivreghdfe") local FEdfadj = max(1, e(df_a))
   else local FEdfadj `NFE'
 
 	if `"`seed'"'!="" set seed `seed'
@@ -810,7 +810,6 @@ program define _boottest, rclass sortpreserve
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
     if "`julia'"=="" {
-
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
@@ -1079,6 +1078,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 4.0.3 Bumped WildBootTests version to 0.7.10. Fixed failure to incorporate constraints into dof calculation for small-sample correction
 * 4.0.2 Fixed bugs in Julia installation.
 * 4.0.1 Bumped WildBootTests version to 0.7.8. Added messages about installation process.
 * 4.0.0 Added Julia support. Fixed plotting bug in artest with >1 instrument. Added sensitivity to (iv)reghdfe's e(df_a) return value.
