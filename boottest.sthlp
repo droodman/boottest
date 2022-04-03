@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 4.0.0 18 March 2022}{...}
+{* *! boottest 4.0.3 3 April 2022}{...}
 {help boottest:boottest}
 {hline}{...}
 
