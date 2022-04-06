@@ -1,4 +1,4 @@
-*! boottest 4.0.3 3 April 2022
+*! boottest 4.0.4 6 April 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -173,7 +173,7 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.10"')))
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.11"')))
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")  // hard-coded version requirement
@@ -824,7 +824,7 @@ program define _boottest, rclass sortpreserve
       }
       foreach X in gridminvec gridmaxvec gridpointsvec {
         cap python: `X' = np.asarray([np.nan if x==Missing.getValue() else x for x in Matrix.get('``X''')[0]])
-        if _rc python: `X' = np.empty([`df',0])
+        if _rc python: `X' = np.empty([`=`df'',0])
       }
       foreach X in r r1 b {
         cap python: `X' = np.asarray(Matrix.get('``X'''))
@@ -852,16 +852,16 @@ program define _boottest, rclass sortpreserve
                                 maxmatsize=`=0`matsizegb'', ///
                                 ptype="`ptype'", ///
                                 bootstrapc = "`statistic'"=="c", ///
-                                LIML=bool(`LIML'), Fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
-                                ARubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
+                                liml=bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
+                                arubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
                                 reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
                                 auxwttype="`weighttype'", ///
                                 rtol=`ptolerance', ///
-                                madjtype="none" if "`madjust'"=="" else "`madjust'", NH0=`N_h0s', ///
-                                ML=bool(`ML'), beta=b.transpose(), A=V, ///
+                                madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
+                                ml=bool(`ML'), beta=b.transpose(), A=V, ///
                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
                                 diststat = "none" if "`svmat'"=="" else "`svmat'", ///
-                                getCI = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
+                                getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
                                 rng=rng)
       python: Macro.setLocal("seed", str(Main.rand(rng, Main.Int32)))  // chain Julia rng back to Stata to advance it replicably
@@ -877,7 +877,7 @@ program define _boottest, rclass sortpreserve
           python: Matrix.store("`plotmat'", np.vstack((np.reshape(X,-1), np.reshape(Y,-1), Main.eval("test.plot[:p]"))).transpose())
         }
       }
-      if `level'<100 & "`cimat'" != "" python: Matrix.store("`cimat'", test.CI)
+      if `level'<100 & "`cimat'" != "" python: Matrix.store("`cimat'", test.ci)
       python: Scalar.setValue("`teststat'", test.stat)
       python: Scalar.setValue("`df'", test.dof)
       python: Scalar.setValue("`df_r'", test.dof_r)
@@ -1078,6 +1078,7 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
+* 4.0.4 Fixed Julia crash. Moved to WildBootTests version 0.7.12.
 * 4.0.3 Bumped WildBootTests version to 0.7.10. Fixed failure to incorporate constraints into dof calculation for small-sample correction
 * 4.0.2 Fixed bugs in Julia installation.
 * 4.0.1 Bumped WildBootTests version to 0.7.8. Added messages about installation process.
