@@ -1,4 +1,4 @@
-*! boottest 4.0.4 6 April 2022
+*! boottest 4.0.4 7 May 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -133,6 +133,18 @@ program define _boottest, rclass sortpreserve
       exit 198
     }
 
+    cap python: import psutil
+    if _rc {
+      di "Installing psutil..."
+      `pipline' psutil
+      cap python: import psutil
+    }
+    if _rc {
+      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
+      di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
+      exit 198
+    }
+
     cap python: import numpy as np
     if _rc {
       di "Installing NumPy..."
@@ -144,16 +156,19 @@ program define _boottest, rclass sortpreserve
         exit 198
       }
     }
-
-    cap python: from julia import Main, Random, Pkg
+    
+    python: import sys; nthreads = str(psutil.cpu_count(logical=False)) if 'psutil' in sys.modules else "auto"  // try to set # of Julia threads to # of physical cores
+    local pyline from julia.api import LibJulia; LibJulia.load().init_julia(['--threads='+nthreads]); from julia import Main, Random, Pkg
+    cap python: `pyline'
     if _rc {
-      cap python: julia.install(color=False); from julia import Main, Random, Pkg
+      cap python: julia.install(color=False); `pyline'
       if _rc {
         di as err _n "Could not automatically initialize the PyJulia package."
         di as err `"Perhaps {browse "https://pyjulia.readthedocs.io/en/latest/installation.html#install-pyjulia":these instructions} will help."'
         exit 198
       }
     }
+
     qui python: Scalar.setValue("rc", Main.eval('VERSION < v"1.7.0"')) 
     if 0`rc' {
       di as err _n "The {cmd:julia} option requires that Julia 1.7 or higher be installed and accessible by default through the system path."
@@ -173,10 +188,10 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.11"')))
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.13"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
-        cap python: Pkg.update("WildBootTests")  // hard-coded version requirement
+        cap python: Pkg.update("WildBootTests")
         if _rc {
           di as err _n "Failed to automatically update the Julia package WildBootTests.jl."
           di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
@@ -185,7 +200,7 @@ program define _boottest, rclass sortpreserve
       }
     }
 
-    qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="StableRNGs"]')
+    qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.is_direct_dep && v.name=="StableRNGs"]')
     python: Macro.setLocal("rc", str(Main.eval('length(p)')))
     if `rc'==0 {
       di "Installing StableRNGs.jl..."
@@ -337,7 +352,7 @@ program define _boottest, rclass sortpreserve
 	local LIML = ("`cmd'"=="ivreg2" & "`e(model)'"=="liml") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="liml")| (inlist("`cmd'","reghdfe","ivreghdfe") & strpos("`e(title)'", "LIML"))
 	local WRE = `"`boottype'"'!="score" & `IV' & `reps'
 	local small = (e(df_r) != . | "`small'" != "" | e(cmd)=="cgmreg") & "`nosmall'"==""
-  local partial = `:word count `e(partial1)'' & inlist("`e(cmd)'", "ivreg2", "ivreghdfe")
+  local partial = `:word count `e(partial1)'' & inlist("`e(cmd)'", "ivreg2", "xtivreg2", "ivreghdfe")
 	local fuller `e(fuller)'  // "" if missing
 	local K = e(kclass)  // "." if missing
 
@@ -496,11 +511,26 @@ program define _boottest, rclass sortpreserve
     local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
 		local _cons _cons
 		local colnames: list colnames - _cons
+
 		if `IV' {
 			local Xnames_endog `e(instd)'
 			local Xnames_exog: list colnames - Xnames_endog
 			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress") | e(partialcons)==1
-			if "`cmd'"=="ivreg2" | "`e(cmd)'"=="ivreghdfe" local ZExclnames `e(exexog1)'
+
+			if inlist("`cmd'", "ivreg2", "xtivreg2", "ivreghdfe") local ZExclnames `e(exexog1)'
+//       else if "`e(cmd)'"=="ivreghdfe" {  // ivreghdfe provides no collinear instrument info
+//         if "`FEname'"==""  local ZExclnames `e(exexog1)'
+//         else {
+//           qui _rmdcoll `Ynames' `Xnames_exog' i.`FEname' `e(exexog1)' if e(sample) [`e(wtype)'`e(wexp)']  // will fail if number of groups exceeds matsize
+//           local varlist `r(varlist)'
+//           local n: word count `varlist'
+//           forvalues i=`=`n'-`:word count `e(exexog1)''+1'/`n' {
+//             local var: word `i' of `varlist'
+//             _ms_parse_parts `var'
+//             if !r(omit) local ZExclnames `ZExclnames' `var'
+//           }
+//         }
+//       }
       else {
         local ZExclnames `e(insts)'
         local ZExclnames: list ZExclnames - Xnames_exog
@@ -1078,7 +1108,8 @@ program define _boottest, rclass sortpreserve
 end
 
 * Version history
-* 4.0.4 Fixed Julia crash. Moved to WildBootTests version 0.7.12.
+* 4.0.5 Fixed bugs in support for xtivreg2. Moved to WildBootTests version 0.7.13.
+* 4.0.4 Fixed Julia crash. Moved to WildBootTests version 0.7.11.
 * 4.0.3 Bumped WildBootTests version to 0.7.10. Fixed failure to incorporate constraints into dof calculation for small-sample correction
 * 4.0.2 Fixed bugs in Julia installation.
 * 4.0.1 Bumped WildBootTests version to 0.7.8. Added messages about installation process.

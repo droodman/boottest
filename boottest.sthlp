@@ -195,7 +195,7 @@ after estimation commands that do not support those adjustments.
 The tests are available after OLS, constrained OLS, 2SLS, and LIML estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
 {stata ssc describe cmp:ivreg2}. The
 program works with Fuller LIML and {it:k}-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
-effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2}; {help reghdfe:reghdfe}; {help didregress}; 
+effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2:xtivreg2, fe}; {help reghdfe:reghdfe}; {help didregress}; 
 or {help xtdidregress}. ({help didregress} and {help xtdidregress} themselves can run the wild bootstrap, but much more slowly.) And {cmd:boottest} works after most Stata 
 ML-based estimation commands, including {help probit}, {help glm}, {stata ssc describe cmp:cmp}, and, in Stata 14.0 or later, 
 {help sem} and {help gsem} (score bootstrap only). (To work with {cmd:boottest}, an iterative optimization command must accept
