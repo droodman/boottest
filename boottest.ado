@@ -395,7 +395,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-  local NFE = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), e(N_g),  ///
+  local NFE = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), e(N_g) + 0`e(singleton)',  ///
               cond(`DID', 0`e(N_clust)',                                  ///
               cond("`cmd'"=="areg", 1+e(df_a),                            ///
                    max(0`e(K1)', 0`e(df_a_initial)'))))  // reghdfe
