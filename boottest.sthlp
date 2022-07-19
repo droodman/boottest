@@ -553,7 +553,7 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {title:Examples}
 
-{phang}. {stata "use http://web.archive.org/web/20150802214527/http://faculty.econ.ucdavis.edu/~dlmiller/statafiles/collapsed"}{p_end}
+{phang}. {stata "use https://raw.githubusercontent.com/droodman/boottest/master/data/collapsed"}{p_end}
 
 {phang}. {stata regress hasinsurance selfemployed post post_self, cluster(year)}{p_end}
 {phang}. {stata boottest post_self=.04} // wild bootstrap, Rademacher weights, null imposed, 999 replications{p_end}
