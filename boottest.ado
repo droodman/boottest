@@ -1,4 +1,4 @@
-*! boottest 4.0.4 7 May 2022
+*! boottest 4.1.0 13 July 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -103,7 +103,8 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-6) svv MARGins ///
-            issorted julia float(integer 64) *]
+            issorted julia float(integer 64) Format(string) *]
+  if "`format'"=="" local format %10.4g
 
   if "`julia'" != "" & !0$boottest_julia_loaded {
     if c(stata_version) < 16 {
@@ -140,8 +141,8 @@ program define _boottest, rclass sortpreserve
       cap python: import psutil
     }
     if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
-      di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
+      di as err _n "The {cmd:julia} option requires the Python package psutil. Unable to install it automatically."
+      di as err `"You can install it {browse "https://github.com/giampaolo/psutil/blob/master/INSTALL.rst":manually}."'
       exit 198
     }
 
@@ -1038,9 +1039,9 @@ program define _boottest, rclass sortpreserve
 					local 0, `graphopt'
 					syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
 
-					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) xtitle("`constraintLHS1'") ///
+					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) mlabformat(`format') xtitle("`constraintLHS1'") ///
             || if (`gridmin'<. | -`X1'<=-`plotmin') & (`gridmax'<. | `X1'<=`plotmax'), ///
-						ytitle(`"`=strproper("`madjust'")+ cond("`madjust'"!="","-adjusted ", "")' p value"') ///
+						ytitle(`"`=strproper("`madjust'") + cond("`madjust'"!="","-adjusted ", "")' p value"') ///
 						yscale(range(0 .)) name(`graphname'`_h', `replace') ///
 						`=cond(`level'<100, "yline(`=1-`level'/100') ylabel(#6 `=1-`level'/100')", "")' legend(off) `options'
 				}
@@ -1066,11 +1067,16 @@ program define _boottest, rclass sortpreserve
 		cap confirm mat `cimat'
 		if _rc==0 {
 			di _n as res `level' "%" as txt " confidence set for null hypothesis expression: " _c
+      local CIstr
+      local infty = cond(c(stata_version)>=14, "∞", ".")
+      local neginfty = cond(c(stata_version)>=14, "-∞", ".")
+      local union = cond(c(stata_version)>=14, "∪", "U")
 			forvalues i=1/`=rowsof(`cimat')' {
-				if `i'>1 di " U " _c
-				di  as txt "[" as res strofreal(`cimat'[`i',1], "%10.4g") as txt ", " as res strofreal(`cimat'[`i',2], "%10.4g") as txt "]" _c
+				if `i'>1 local CIstr = "`CIstr' `union' "
+				local CIstr = "`CIstr'" + cond(`cimat'[`i',1]==., "(`neginfty'", "[" + strofreal(`cimat'[`i',1], "`format'")) + ", " + cond(`cimat'[`i',2]==., "`infty')", strofreal(`cimat'[`i',2], "`format'") + "]")
 			}
-			di
+      local CIstr = subinstr("`CIstr'", "-", "−", .)  // proper minus sign
+			di as res "`CIstr'"
 
 			if inlist("`ptype'", "symmetric", "equaltail") {
 				tempname t
@@ -1080,6 +1086,7 @@ program define _boottest, rclass sortpreserve
 			mat colnames `cimat' = lo hi
       cap mat rownames `cimat' = `h0text'
 			return matrix CI`_h' = `cimat'
+			return local CIstr`_h' `CIstr'
 		}
 		
 		if "`statistic'" == "c" & `df'==1 {
@@ -1107,7 +1114,9 @@ program define _boottest, rclass sortpreserve
   return scalar NH0s = `N_h0s'
 end
 
+
 * Version history
+* 4.1.0 Added format option.
 * 4.0.5 Fixed bugs in support for xtivreg2. Moved to WildBootTests version 0.7.13.
 * 4.0.4 Fixed Julia crash. Moved to WildBootTests version 0.7.11.
 * 4.0.3 Bumped WildBootTests version to 0.7.10. Fixed failure to incorporate constraints into dof calculation for small-sample correction

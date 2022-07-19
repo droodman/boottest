@@ -1,5 +1,5 @@
 {smcl}
-{* *! boottest 4.0.3 3 April 2022}{...}
+{* *! boottest 4.1.0 13 July 2022}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -43,11 +43,11 @@ In words, {it:indeplist} is a list of hypotheses to be tested independently; if 
 in turn consists of one or more jointly tested constraints, linear in parameters; if there is more than one, then each must be enclosed in parentheses. Finally, each 
 individual constraint expression must conform to the syntax for {help constraint:constraint define}.
 
-{synoptset 45 tabbed}{...}
+{synoptset 37 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|}}specify weight type for bootstrapping; default is {it:rademacher}{p_end}
-{synopt:{space 12} {it:mammen} {cmd:|} {it:webb} {cmd:|} {it:normal}{cmd:)} {cmd:|} {it:gamma}{cmd:)}}{p_end}
+{synopt:{cmdab:weight:type(}{it:rademacher} {cmd:|} {it:mammen} {cmd:|} }specify weight type for bootstrapping; default is {it:rademacher}{p_end}
+{synopt:{space 12} {it:webb} {cmd:|} {it:normal} {cmd:|} {it:gamma}{cmd:)}}{p_end}
 {synopt:{opt boot:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
 {synopt:{opt stat:istic(t | c)}}specify statistic type to bootstrap; default is {it:t}{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
@@ -74,21 +74,23 @@ individual constraint expression must conform to the syntax for {help constraint
 {p2colreset}{...}
 
 {pstd}
-These options are relevant when testing one or two hypotheses after OLS/2SLS/LIML/k-class, when by default a confidence function is plotted and, if there is one
-hypothesis, a confidence set is derived:
+These options are relevant when testing one- or two-dimensional hypotheses after OLS/2SLS/LIML/k-class, when by default a confidence function is plotted and, if the hypothesis is
+one-dimensional, a confidence set is derived:
 
-{synoptset 45 tabbed}{...}
+{synoptset 37 tabbed}{...}
 {synopthdr}
 {synoptline}
 {synopt:{opt gridmin(# [#])}}set lower end(s) of confidence set search range; two entries for 2-D hypotheses{p_end}
 {synopt:{opt gridmax(# [#])}}analogous upper ends{p_end}
 {synopt:{opt gridpoints(# [#])}}set number of equally space points to compute rejection confidence{p_end}
 {synopt:{opt graphopt(string)}}formatting options to pass to graph command{p_end}
-{synopt:{opt noci}}prevent derivation of confidence set from inverted bootstrap test{p_end}
-{synopt:{opt ptol:erance(#)}}sets precision of identification of confidence set bounds (default 1e-6){p_end}
 {synopt:{cmd:graphname(}{it:name}[{cmd:, replace}]{cmd:)}}name graph; for multiple independent hypotheses, uses {it:name} as stub{p_end}
 {synopt:{opt nogr:aph}}allow derivation of confidence set but don't graph confidence function{p_end}
-{synopt:{opt p:type(symmetric | equaltail | lower | upper)}}for unary hypotheses, set p value type; {it:symmetric} is default{p_end}
+{synopt:{cmdab:f:ormat(}fmt{cmd:)}}set {help format:numerical format} for confidence set bounds; default is %6.0g{p_end}
+{synopt:{opt noci}}prevent derivation of confidence set from inverted bootstrap test{p_end}
+{synopt:{opt ptol:erance(#)}}sets precision of identification of confidence set bounds (default 1e-6){p_end}
+{synopt:{cmdab:p:type(}{it:symmetric} {cmd:|} {it:equaltail} {cmd:|}}for unary hypotheses, set p value type; {it:symmetric} is default{p_end}
+{synopt:{space 12} {it:lower} {cmd:|} {it:upper}{cmd:)}}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -334,7 +336,7 @@ min(1, n*p) where p is the unadjusted probability and n is the number of hypothe
 confidence level is 95% and the null is expressed in a constraint as X + Y = 1, 
 {cmd:boottest} will iteratively search for the high and low values U and L such that the bootstrapped two-tailed p values of the 
 hypotheses X + Y = U and X + Y = L are 0.05. See Cameron and Miller (2015, section VIC.2). This option is only relevant when testing a 
-one-costraint hypothesis after OLS/2SLS/GMM/LIML, for only then is the confidence interval derived anyway. 
+one-costraint hypothesis after OLS/2SLS/GMM/LIML, for only then is the confidence interval derived anyway.
 
 {phang}{opt l:evel(#)} specifies the confidence level, in percent, for the confidence interval; see {help level:help level}. The
 default is controlled by {help level:set level} and is usually 95. Setting it to 100 suppresses computation and plotting of the confidence 
@@ -357,6 +359,10 @@ with the bootstrapped distribution, and uses 25 grid points.
 producing {it:name}_1, {it:name}_2, etc.
 
 {phang}{opt nogr:aph} prevents graphing of the confidence function but not the derivation of confidence sets.
+
+{phang}{cmdab:f:ormat(}fmt{cmd:)} sets the {help format:numerical format} for confidence set bounds. This affects the 
+confidence curve plots and the construction of the string destription of the condifence set returned in {cmd:r(CIstr)}. The
+default is %5.0g.
 
 {phang}{opt p:type(symmetric | equaltail | lower | upper)} sets the p value type. The option applies only to unary hypotheses, ones involving a single 
 equality. The default, {it:symmetric}, has the p value derived from the
@@ -493,10 +499,11 @@ the Julia StableRNG with a seed extracted from the Stata random-number generator
 {synopt:{cmd:r(weighttype)}}bootstrapping weight type{p_end}
 {synopt:{cmd:r(robust)}}indicates robust/clustered test{p_end}
 {synopt:{cmd:r(clustvars)}}clustering variables for test, if any{p_end}
+{synopt:{cmd:r(CIstr)}}confidence set statement in string form{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(CI)}}bounds of confidence sets, if any{p_end}
-{synopt:{cmd:r(plot)}}data for p value plot, if any{p_end}
+{synopt:{cmd:r(CI)}}bounds of confidence set; if disjoint, one row per piece{p_end}
+{synopt:{cmd:r(plot)}}data for p value plot{p_end}
 {synopt:{cmd:r(dist)}}t/z distribution, if requested with {opt svm:at}{p_end}
 {synopt:{cmd:r(v)}}wild weight matrix, if requested with {opt svv}{p_end}
 {synopt:{cmd:r(b)}}numerator of test statistic{p_end}
