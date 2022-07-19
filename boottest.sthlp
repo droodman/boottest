@@ -1,5 +1,5 @@
 {smcl}
-{* *! boottest 4.1.0 13 July 2022}{...}
+{* *! boottest 4.1.0 19 July 2022}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -195,7 +195,7 @@ after estimation commands that do not support those adjustments.
 
 {pstd}
 The tests are available after OLS, constrained OLS, 2SLS, and LIML estimation performed with {help regress}, {help cnsreg}, {help ivreg}, {help ivregress}, or 
-{stata ssc describe cmp:ivreg2}. The
+{stata ssc describe ivreg2:ivreg2}. The
 program works with Fuller LIML and {it:k}-class estimates done with {help ivreg2} (WRE bootstrap only). The program also works with regressions with one set of "absorbed" fixed
 effects performed with {help areg}; {help xtreg:xtreg, fe}; {help xtivreg:xtivreg, fe}; {help xtivreg2:xtivreg2, fe}; {help reghdfe:reghdfe}; {help didregress}; 
 or {help xtdidregress}. ({help didregress} and {help xtdidregress} themselves can run the wild bootstrap, but much more slowly.) And {cmd:boottest} works after most Stata 
@@ -303,6 +303,15 @@ this case, it does not attempt to numerically describe the boundary of the confi
 boundary easy to perceive. The {opt gridmin()}, {opt gridmax()}, and {opt gridpoints()} options, if included, now should provide two numbers each, for the first and second
 dimensions of the hypothesis. But any entry may be missing (".") to accept {cmd:boottest}'s best guess at a good boundary (for {opt gridmin()} and {opt gridmax()}) or fixed default
 (25, for {opt gridpoints()}). To override the default formatting of the contour plot, include {help twoway contour} options inside a {cmd:boottest} {opt graphopt()} option.
+
+
+{title:Including results in estimation tables}
+
+{pstd}The easiest way to add {cmd:boottest} results to estimation tables is to first store them in the relevant e() results using the {cmd:estadd} command in the
+{stata ssc describe estout:estout} package. For example, after a {cmd:boottest} command, {cmd:estadd scalar p = r(p)} saves the {it:p} value as e(p). {cmd:estadd local CIstr "`r(CIstr)'"} 
+saves the string describing the bootstrap confidence set as e(CIstr). (Use {cmd:boottest}'s {cmdab:f:ormat()} option to control the number display in this 
+string.) Then, commands such as {help table}, {stata ssc describe estout:esttab}, and {stata ssc describe outreg2:outreg2} can access the results
+as they build tables. 
 
 
 {marker options}{...}
@@ -597,7 +606,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata boottest tenure} // reasonable match on test statistic and p value{p_end}
 
 {phang}. {stata ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)}{p_end}
-{phang}. {stata boottest tenure, nograph} // Wald test, WRE bootstrap, Rademacher weights, 999 replications{p_end}
+{phang}. {stata boottest tenure, seed(934871) format(%5.2f) nograph}  // Wald test, WRE bootstrap, Rademacher weights, 999 replications{p_end}
+{phang}. {stata estadd local CIstr "`r(CIstr)'"}  // Store string description of confidence set as e(CIstr){p_end}
 {phang}. {stata boottest, nograph ar} // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid){p_end}
 
 {phang}. {stata ivregress liml wage (collgrad tenure = ttl_exp union), cluster(industry)}{p_end}
