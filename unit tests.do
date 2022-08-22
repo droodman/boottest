@@ -20,7 +20,7 @@ version 13
 
 set seed 0193284710
 
-foreach julia in "" julia {
+foreach julia in "" /*julia*/ {
   use collapsed, clear
 
   qui regress hasinsurance selfemployed post post_self, cluster(year)

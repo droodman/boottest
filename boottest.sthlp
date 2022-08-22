@@ -114,7 +114,8 @@ but Young (2022) presents evidence that the bootstrap-c (or "non-studentized" te
 Wang (2021) favors the non-studentized test when instruments are weak (but strong in at least one cluster). The option 
 {cmdab:stat:istic(c)} invokes the feature.
 
-{p 2 4 0}* The second major new feature is the {cmdab:marg:ins} option, which allows you to bootstrap results from the {cmd:margins} command. To use this feature,
+{p 2 4 0}* The second notable new feature is the {cmdab:marg:ins} option, which allows you to bootstrap results from the {cmd:margins} command when those results are
+linear functions of the parameters. To use this feature,
 run {cmd:boottest} immediately after {cmd:margins} and do not include any hypotheses before the comma in the {cmd:boottest} command line. {cmd:boottest} will treat
 each marginal effect separately.
 
@@ -173,7 +174,7 @@ distribution. In contrast, the bootstrap-c uses the same bootstrap data-generati
 combinations thereof. From the bootstrap numerators, the bootstrap-c algorithm then computes a single covariance matrix for use in all the statistics. For one-dimensional hypotheses,
 dividing the test statistic numerator and its bootstrap replications by this universal denominator has no substantive effect; but it is needed for higher-dimensional hypothesis in order
 to norm the numerators, which are vectors. Under standard asumptions, the
-bootstrap-t, unlike the bootstrap-c, offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2019) and Wang (2021) provide evidence
+bootstrap-t, unlike the bootstrap-c, offers {it:asymptotic refinement}, more-rapid convergence to the true distribution. But Young (2022) and Wang (2021) provide evidence
 that in instrumental variables estimation, the bootstrap-c is at least as reliable. {cmd:boottest} offers both through the {cmdab:stat:istic()} option, {cmd:stat(t)} being the default.
 
 {p 4 6 0}
@@ -336,7 +337,8 @@ and {cmd:scoretest} facilitate this usage.
 
 {phang}{opt marg:ins} instructs {cmd:boottest} to treat results from a call to {cmd:margins}, which must just have been generated, as a linear combination of parameters,
 and test the independent hypotheses that each is 0. {cmd:boottest} extracts the coefficients of these linear combinations from the r(Jacobian) return value of
-{cmd:margins}. When using this option, do not include any hypotheses before the comma (or in the deprecated {cmd:h0()} option).
+{cmd:margins}. When using this option, do not include any hypotheses before the comma 
+(or in the deprecated {cmd:h0()} option). This option only works for margins that are linear predictions, such as average predicted outcome by subgroup after {cmd:regress}.
 
 {phang}{opt madj:ust(bonferroni | sidak)} requests the Bonferroni or Sidak adjustment for multiple hypothesis tests. The Bonferroni correction is
 min(1, n*p) where p is the unadjusted probability and n is the number of hypotheses. The Sidak correction is 1 - (1 - p) ^ n.
@@ -678,4 +680,4 @@ large. {it:Transactions of the American Mathematical Society} 54: 426-82.{p_end}
 {p 4 8 2}Webb, M.D. 2014. Reworking wild bootstrap based inference for clustered errors. Queen's Economics Department Working Paper No. 1315.{p_end}
 {p 4 8 2}Wu, C.F.J. 1986. Jackknife, bootstrap and other resampling methods in regression analysis (with discussions). {it:Annals of Statistics}
 14: 1261-1350.{p_end}
-{p 4 8 2}Young, A. 2022. Leverage, heteroskedasticity and instrumental variances in practical application. https://personal.lse.ac.uk/YoungA/Leverage&IV.pdf.{p_end}
+{p 4 8 2}Young, A. 2022. Consistency without inference: Instrumental variables in practical application. {it:European Economic Review} 147.{p_end}

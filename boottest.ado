@@ -1,4 +1,4 @@
-*! boottest 4.1.0 13 July 2022
+*! boottest 4.1.1 1 August 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -103,8 +103,10 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-6) svv MARGins ///
-            issorted julia float(integer 64) Format(string) *]
+            issorted julia float(integer 64) Format(string) jk JACKknife*]
   if "`format'"=="" local format %10.4g
+  
+  local jk = "`jk'`jacknife'" != ""
 
   if "`julia'" != "" & !0$boottest_julia_loaded {
     if c(stata_version) < 16 {
@@ -228,7 +230,11 @@ program define _boottest, rclass sortpreserve
     di as err "Include the {cmd:margins} option or state null hyptheses, but don't do both."
     exit 198
   }
-
+  if `margins' & "`r(predict1_label)'" != "Linear prediction" {
+    di as err _n "{cmd:margins} option only works with linear margins predictions such as average predictions after {cmd:regress}."
+    exit 198
+  }
+  
   if inlist("`e(cmd)'", "didregress", "xtdidregress") & `"`h0s'`h0'"' == "" local h0s r1vs0.`e(treatment)'
 
 	if `matsizegb'==1000000 local matsizegb .
@@ -380,6 +386,11 @@ program define _boottest, rclass sortpreserve
 		exit 198
 	}
 
+  if `jk' & `ML' {
+		di as err "boottest can't jackknife ML-based estimates."
+		exit 198
+  }
+  
 	if "`boottype'"'=="" local boottype = cond(`ML', "score", "wild")
 	else {
 		local 0, `boottype'
@@ -422,7 +433,7 @@ program define _boottest, rclass sortpreserve
 
 	if `"`seed'"'!="" set seed `seed'
 
-	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0
+	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0 touse
 	mat `b' = e(b)
 	if "`e(wtype)'" != "" {
 		tokenize `e(wexp)'
@@ -470,6 +481,9 @@ program define _boottest, rclass sortpreserve
       }
       scalar `df' = 1  // always when working with margins results, df = 1 and constant term = 0
       mat `r' = 0
+
+      local 0 r(cmdline)
+      marksample marginstouse
     }
     else {
     	di as err "{cmd:margins} results not found."
@@ -838,11 +852,18 @@ program define _boottest, rclass sortpreserve
       exit _rc
     }
 
+    if `margins' {
+      cap drop `touse'
+      gen byte `touse' = `hold' & `marginstouse'
+      local sample `touse'
+    }
+    else local sample `hold'
+
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
     if "`julia'"=="" {
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
-                          `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', "`weighttype'", "`ptype'", "`statistic'", ///
+                          `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', `jk', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
                           "`Ynames'", "`b'", "`V'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `NBootClustVar', `NErrClustVar', ///
                           "`FEname'", `NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
@@ -1116,6 +1137,7 @@ end
 
 
 * Version history
+* 4.1.1 Made margins option honor if/in clause in margins call. Clarifed in help that margins option is only for linear predictions.
 * 4.1.0 Added format option.
 * 4.0.5 Fixed bugs in support for xtivreg2. Moved to WildBootTests version 0.7.13.
 * 4.0.4 Fixed Julia crash. Moved to WildBootTests version 0.7.11.
