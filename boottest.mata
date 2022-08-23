@@ -43,7 +43,7 @@ pointer (real matrix) pcol(real matrix A, real vector p)
 
 // right-multiply a data matrix by a matrix, with efficient handling of special cases like latter is identity
 pointer (real matrix) scalar pXB(real matrix X, real matrix M) {
-  scalar r
+  real scalar r
   r = rows(M)
   return (all(colsum(M) :== 1) & all(colsum(!M) :== r-1)?  // is M 0's but for one 1 in each col, so it's just copying/reordering cols?
              (all(diagonal(M)) & rows(M)==cols(M)?  // is M just the identity matrix?
@@ -448,11 +448,11 @@ pragma unused _jk
 }
 
 void boottestOLS::MakeResiduals(real scalar _jk) {
-  real scalar g; real matrix s
+  real scalar g; real colvector S
   if (_jk)
     for (g=parent->Nstar; g>1; g--) {
-      s = parent->infoBootData[g,1], . \ parent->infoBootData[g,2], .
-      u1ddot[2].M[|s|] = (*py1par)[|s|] - *pX12B((*parent->pX1)[|s|], (*parent->pX2)[|s|], beta[g+1].M)
+      S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
+      u1ddot[2].M[|S, (.\.)|] = (*py1par)[|S|] - *pX12B(*pXS(*parent->pX1, S), *pXS(*parent->pX2, S), beta[g+1].M)
     }
   else
     u1ddot.M = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta.M)
