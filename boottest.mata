@@ -384,7 +384,6 @@ void boottestOLS::Estimate(real scalar _jk, real colvector r1) {
 }
 
 void boottestARubin::Estimate(real scalar _jk, real colvector r1) {
-pragma unused _jk
   real scalar g
   if (_jk)
     for (g=cols(beta0); g>1; g--)
@@ -448,13 +447,14 @@ pragma unused _jk
 }
 
 void boottestOLS::MakeResiduals(real scalar _jk) {
-  real scalar g; real colvector S
-  if (_jk)
+  real scalar g, m; real colvector S
+  if (_jk) {
+    m = (parent->Nstar - 1) / parent->Nstar
     for (g=parent->Nstar; g>1; g--) {
       S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
-      u1ddot[2].M[|S, (.\.)|] = (*py1par)[|S|] - *pX12B(*pXS(*parent->pX1, S), *pXS(*parent->pX2, S), beta[g+1].M)
+      u1ddot[2].M[|S, (.\.)|] = m * ((*py1par)[|S|] - *pX12B(*pXS(*parent->pX1, S), *pXS(*parent->pX2, S), beta[g+1].M))
     }
-  else
+  } else
     u1ddot.M = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta.M)
 }
 
