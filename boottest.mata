@@ -376,20 +376,14 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
 // For WRE, should only be called once for the replication regressions, since for them r1 is the unchanging model constraints
 void boottestOLS::Estimate(real scalar _jk, real colvector r1) {
   real scalar g
-  if (_jk)
-    for (g=cols(beta0); g>1; g--)
-      beta[g].M = beta0[g].M - dbetadr[g].M * r1
-  else
-    beta.M = beta0.M - dbetadr.M * r1
+  for (g=_jk? cols(beta0) : 1; g; g--)
+    beta[g].M = beta0[g].M - dbetadr[g].M * r1
 }
 
 void boottestARubin::Estimate(real scalar _jk, real colvector r1) {
   real scalar g
-  if (_jk)
-    for (g=cols(beta0); g>1; g--)
-      beta[g].M = beta0[g].M - dbetadr[g].M * r1
-  else
-    beta.M = beta0.M - dbetadr.M * r1
+  for (g=_jk? cols(beta0) : 1; g; g--)
+    beta[g].M = beta0[g].M - dbetadr[g].M * r1
   py1par = &(*parent->py1  - *parent->pY2 * r1)
 }
 
@@ -448,14 +442,14 @@ pragma unused _jk
 
 void boottestOLS::MakeResiduals(real scalar _jk) {
   real scalar g, m; real colvector S
+  u1ddot.M = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta.M)
   if (_jk) {
     m = sqrt((parent->Nstar - 1) / parent->Nstar)
-    for (g=parent->Nstar; g>1; g--) {
+    for (g=parent->Nstar; g; g--) {
       S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
       u1ddot[2].M[|S, (.\.)|] = m * ((*py1par)[|S|] - *pX12B(*pXS(*parent->pX1, S), *pXS(*parent->pX2, S), beta[g+1].M))
     }
-  } else
-    u1ddot.M = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta.M)
+  }
 }
 
 void boottestIVGMM::MakeResiduals(real scalar _jk) {
@@ -1659,25 +1653,26 @@ void boottest::MakeInterpolables() {
 void boottest::_MakeInterpolables(real colvector r) {
   real scalar d, c, _jk; real colvector uXAR; pointer (real matrix) scalar pustarXAR, ptmp
 
+  if (ML)
+    uXAR = *pSc * (AR = *pA * *pR')
+  else {
+    if (ARubin)
+      DGP.Estimate(jk, r)
+    else if (kappa) {
+      if (null) {  // in score bootstrap for IV/GMM, if imposing null, then DGP constraints, kappa, Hessian, etc. do vary with r and must be set now
+        DGP.Estimate(jk, *pr1 \ r)
+        DGP.InitTestDenoms()
+      }
+    } else  // regular OLS
+      DGP.Estimate(jk, null? *pr1 \ r : *pr1)
+
+    DGP.MakeResiduals(jk)
+  }
+
   for (_jk=jk; _jk>=0; _jk--) { // for jackknife, run 2nd time on full original sample to get test stat
-    if (ML)
-      uXAR = *pSc * (AR = *pA * *pR')
-    else {
-      if (ARubin)
-        DGP.Estimate(_jk, r)
-      else if (kappa) {
-        if (null) {  // in score bootstrap for IV/GMM, if imposing null, then DGP constraints, kappa, Hessian, etc. do vary with r and must be set now
-          DGP.Estimate(_jk, *pr1 \ r)
-          DGP.InitTestDenoms()
-        }
-      } else  // regular OLS
-        DGP.Estimate(_jk, null? *pr1 \ r : *pr1)
 
-      DGP.MakeResiduals(_jk)
-
-      if (scoreBS | (robust & granular * !(jk & !_jk) < NErrClustCombs))
-        uXAR = DGP.u1ddot[1+_jk].M :* pM->XAR
-    }
+    if (!ML & (scoreBS | (robust & granular * !(jk & !_jk) < NErrClustCombs)))
+      uXAR = DGP.u1ddot[1+_jk].M :* pM->XAR
 
     SuwtXA = scoreBS?
                 (B? 
