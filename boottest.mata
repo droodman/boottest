@@ -449,7 +449,7 @@ pragma unused _jk
 void boottestOLS::MakeResiduals(real scalar _jk) {
   real scalar g, m; real colvector S
   if (_jk) {
-    m = (parent->Nstar - 1) / parent->Nstar
+    m = sqrt((parent->Nstar - 1) / parent->Nstar)
     for (g=parent->Nstar; g>1; g--) {
       S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
       u1ddot[2].M[|S, (.\.)|] = m * ((*py1par)[|S|] - *pX12B(*pXS(*parent->pX1, S), *pXS(*parent->pX2, S), beta[g+1].M))
