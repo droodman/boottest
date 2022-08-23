@@ -910,7 +910,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       Clust.N = Nobs
       Clust.info = J(Nobs, 0, 0)  // signals _panelsum not to aggregate
       NErrClustCombs = 1
-      if (jk | scoreBS | WREnonARubin==0)
+      if (scoreBS | WREnonARubin==0)
         ClustShare = haswt? *pwt/sumwt : 1/_Nobs
     }
 
@@ -1738,7 +1738,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                       scoreBS?
                          (B? 
                            colsum(SuwtXA)' : 
-                           SuwtXA * v_sd    ) :
+                           SuwtXA         ) :
                          (robust==0 | granular | purerobust?
                             *pR * (betadev = rowsum(SuwtXA)) :
                            rowsum(*pR * SuwtXA)))
