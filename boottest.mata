@@ -1,4 +1,4 @@
-*! boottest 4.0.3 3 April 2022
+*! boottest 4.2.0 24 August 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify

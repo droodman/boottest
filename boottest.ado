@@ -1,4 +1,4 @@
-*! boottest 4.1.1 1 August 2022
+*! boottest 4.2.0 24 August 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -388,6 +388,11 @@ program define _boottest, rclass sortpreserve
 
   if `jk' & `ML' {
 		di as err "boottest can't jackknife ML-based estimates."
+		exit 198
+  }
+  
+  if `jk' & `IV' & !`ar' {
+		di as err "boottest can't (yet) jackknife IV-based estimates, except with the Anderson-Rubin test."
 		exit 198
   }
   
@@ -905,7 +910,9 @@ program define _boottest, rclass sortpreserve
                                 ptype="`ptype'", ///
                                 bootstrapc = "`statistic'"=="c", ///
                                 liml=bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
-                                arubin=bool(`ar'), small=bool(`small'), scorebs=bool(`scoreBS'), ///
+                                arubin=bool(`ar'), small=bool(`small'), ///
+                                scorebs=bool(`scoreBS'), ///
+                                jk=bool(`jk'), ///
                                 reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
                                 auxwttype="`weighttype'", ///
                                 rtol=`ptolerance', ///
@@ -1137,6 +1144,7 @@ end
 
 
 * Version history
+* 4.2.0 Added jackknife (WCU/WCR_31) for OLS and Anderson-Rubin
 * 4.1.1 Made margins option honor if/in clause in margins call. Clarifed in help that margins option is only for linear predictions.
 * 4.1.0 Added format option.
 * 4.0.5 Fixed bugs in support for xtivreg2. Moved to WildBootTests version 0.7.13.
