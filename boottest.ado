@@ -106,7 +106,7 @@ program define _boottest, rclass sortpreserve
             issorted julia float(integer 64) Format(string) jk JACKknife*]
   if "`format'"=="" local format %10.4g
   
-  local jk = "`jk'`jacknife'" != ""
+  local jk = "`jk'`jackknife'" != ""
 
   if "`julia'" != "" & !0$boottest_julia_loaded {
     if c(stata_version) < 16 {
