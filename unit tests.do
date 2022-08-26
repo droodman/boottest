@@ -20,13 +20,15 @@ version 13
 
 set seed 0193284710
 
-foreach julia in "" /*julia*/ {
+foreach julia in "" julia {
   use collapsed, clear
 
   qui regress hasinsurance selfemployed post post_self, cluster(year)
-  boottest post_self=.04, `julia' nogr // wild bootstrap, Rademacher weights, null imposed, 999 replications
-  boottest post_self=.04, `julia' weight(webb) noci // wild bootstrap, Webb weights, null imposed, 999 replications, no graph or CI
-  scoretest post_self=.04, `julia' nogr                   // Rao score/Lagrange multipler test of same
+  boottest post_self=.04, `julia' nogr
+  boottest post_self=.04, `julia' weight(webb) noci
+  boottest post_self=.04, `julia' weight(webb) jk nogr
+  boottest post_self=.04, `julia' weight(webb) jk nogr nonull
+  scoretest post_self=.04, `julia' nogr
 
   boottest post_self post, `julia' reps(999) weight(webb) nogr // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
   boottest (post_self) (post), `julia' reps(999) weight(webb) nogr // same

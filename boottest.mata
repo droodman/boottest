@@ -102,7 +102,7 @@ class boottest {
   real scalar scoreBS, B, small, auxwttype, null, dirty, initialized, ML, Nobs, _Nobs, kZ, kY2, kX1, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
     sqrt, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClustVar, BootClust, FEdfadj, jk, ///
     NFE, granular, purerobust, subcluster, Nstar, BFeas, v_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
-  real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, betadev, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0
+  real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0
   real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, confpeak, gridmin, gridmax, gridpoints, numersum, anchor, poles, invFEwt
   real rowvector peak, betas, As
   string scalar obswttype, madjtype, seed
@@ -307,9 +307,9 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   y1y1 = cross(y1  , *parent->pwt, y1)
   Zy1  = cross(*pZ , *parent->pwt, y1)    
   XZ   = cross(*pX1, *parent->pwt, *pZ) \ 
-         cross(X2  , *parent->pwt, *pZ)
-  ZZ  =  cross(*pZ , *parent->pwt, *pZ )
-  if (isDGP & parent->WREnonARubin) ZY2 =  cross(*pZ, *parent->pwt, Y2)
+         cross(  X2, *parent->pwt, *pZ)
+  ZZ  =  cross( *pZ, *parent->pwt, *pZ)
+  if (isDGP & parent->WREnonARubin) ZY2 = cross(*pZ, *parent->pwt, Y2)
   
   ZXinvXXXZ = XZ ' (invXXXZ = invXX * XZ)
 
@@ -916,7 +916,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
     purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
-                               robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
+                               !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
@@ -1731,18 +1731,19 @@ void boottest::_MakeInterpolables(real colvector r) {
 // compute stuff depending linearly on v, needed to prep for interpolation
 // _jk = 0 for non-jackknife, or for non-jk, full original-sample estimation of test stat for jk
 void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r) {  // called to *prepare* interpolation, or when w>1, in which case there is no interpolation
-  real scalar c, d; real matrix _v; pointer(real matrix) scalar pv
+  real scalar c, d; real matrix _v; pointer(real matrix) scalar pv; real matrix betadev
 
-  if (jk & !_jk & !ARubin & null)
-    (*pnumer)[,1] = v_sd * (  // full original-sample test stat numerator
-                      scoreBS?
-                         (B? 
-                           colsum(SuwtXA)' : 
-                           SuwtXA         ) :
-                         (robust==0 | granular | purerobust?
-                            *pR * (betadev = rowsum(SuwtXA)) :
-                           rowsum(*pR * SuwtXA)))
-  else {
+  if (jk & !_jk) {
+    if ( !ARubin & null) 
+      (*pnumer)[,1] = v_sd * (  // full original-sample test stat numerator
+                          scoreBS?
+                             (B? 
+                               colsum(SuwtXA)' : 
+                               SuwtXA         ) :
+                             (robust==0 | granular | purerobust?
+                               *pR * (betadev = rowsum(SuwtXA)) :
+                               rowsum(*pR * SuwtXA)))
+  } else {
     numerw = scoreBS?
                (B? 
                  cross(SuwtXA, v) : 
@@ -1751,7 +1752,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                   *pR * (betadev = SuwtXA * v) :
                  (*pR * SuwtXA) * v)
 
-    if (w==1 & !_jk) {
+    if (w==1) {
       if      ( ARubin) numerw[,1] = v_sd * DGP.Rpar * DGP.beta.M[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
       else if (null==0) numerw[,1] = v_sd * (*pR * (ML? beta : pM->Rpar * pM->beta.M) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
     }

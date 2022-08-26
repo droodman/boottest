@@ -191,7 +191,7 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.7.13"')))  // hard-coded version requirement
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.8.1"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")
@@ -948,7 +948,7 @@ program define _boottest, rclass sortpreserve
       python: Matrix.store("`b0'", test.b)
       python: Matrix.store("`V0'", test.V)
       if "`dist'"!="" python: Matrix.store("`dist'", test.dist)
-      if "`svv'"!="" python: Matrix.store("`svv'", test.auxweights)
+      if "`svv'" !="" python: Matrix.store("`svv'", test.auxweights)
     }
 
 		_estimates unhold `hold'
@@ -1144,6 +1144,7 @@ end
 
 
 * Version history
+* 4.2.1 jk bug fixes
 * 4.2.0 Added jackknife (WCU/WCR_31) for OLS and Anderson-Rubin
 * 4.1.1 Made margins option honor if/in clause in margins call. Clarifed in help that margins option is only for linear predictions.
 * 4.1.0 Added format option.
