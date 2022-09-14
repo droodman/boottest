@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 struct smatrix {
   real matrix M
@@ -70,7 +70,7 @@ class boottestOLS {  // class for performing OLS
   real scalar LIML, Fuller, kappa, isDGP, kZ
   real colvector y1, u1dddot, invXXXy1par, X1y1
   real rowvector Yendog
-  real matrix invZperpZperp, XZ, PXZ, YPXY, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparY, RR1invR1R1, YY, AR, XAR, R1invR1R1Y, invXXXZ, U2ddot, XinvXX, Rt1, invXX, Y2, X2, invH
+  real matrix invZperpZperp, XZ, PXZ, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparY, RR1invR1R1, YY, AR, XAR, R1invR1R1Y, invXXXZ, U2ddot, XinvXX, Rt1, invXX, Y2, X2, invH
   pointer(real colvector) scalar py1par, pXy1par
   pointer(real matrix) scalar pA, pZ, pZperp, pX1
   pointer (class boottest scalar) scalar parent
@@ -88,12 +88,18 @@ class boottestARubin extends boottestOLS {
 
 class boottestIVGMM extends boottestOLS {
   real matrix ZZ, XY2, XX, H_2SLS, V, ZY2, X2Y2, X1Y2, ZR1ZR1, X2ZR1, ZR1Y2, X1ZR1, ZZR1, ZXinvXXXZ, H_2SLSmZZ
-  real colvector ZXinvXXXy1par, t1Y, X2y1, Zy1
+  real colvector t1Y, X2y1, Zy1
   real rowvector y1Y2, twoy1ZR1
   real scalar y1y1, y1pary1par
-  pointer(real colvector) scalar pX2y1par, pX1y1par, pZy1par
+  pointer(real rowvector) scalar pZy1par
   pointer(real rowvector) scalar py1parY2
   pointer(real matrix) scalar pRperp, pZR1
+
+  pointer(struct smatrix rowvector) scalar py1parY2g, pZy1parg, pXy1parg  // jk stuff
+  struct smatrix rowvector XY2g, ZY2g, XXg, XZg, YYg, Zy1g, X1y1g, X2y1g, y1Y2g, invHg, ZZg, invXXg, H_2SLSg, H_2SLSmZZg, ZR1Y2g, ZR1ZR1g, twoy1ZR1g, ZZR1g, X1ZR1g, X2ZR1g, ZXinvXXXZg
+  real colvector kappag, _Nobsg, y1pary1parg, y1y1g
+  pointer(real colvector) scalar py1pary1parg
+
   private void new()
   private virtual void InitVars(), Estimate(), MakeResiduals(), MakeH()
 }
@@ -203,7 +209,7 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // Rperp is for replication regression--no null imposed
-  real matrix H, s, _X1, _H, _invH; pointer(real matrix) scalar pR1AR1, _pwt, _pR1AR1; real scalar g; real colvector _X1y1
+  real matrix H, S, _X1, _H, _invH; pointer(real matrix) scalar pR1AR1, _pwt, _pR1AR1; real scalar g; real colvector _X1y1
 
   beta = dbetadr = beta0 = smatrix(parent->jk? parent->Nstar + 1 : 1)
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
@@ -218,10 +224,10 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // Rperp is fo
   if (parent->jk) {
     u1ddot[2].M = J(parent->Nobs, 1, 0)
     for (g=parent->Nstar; g; g--) {
-      s = parent->infoBootData[g,1], . \ parent->infoBootData[g,2], .
-      _X1 = (*parent->pX1)[|s|]
-      _pwt = parent->haswt? &((*parent->pwt)[|s|]) : parent->pwt
-      _X1y1 = X1y1 - cross(_X1, *_pwt, (*parent->py1)[|s|])
+      S = parent->infoBootData[g,1], . \ parent->infoBootData[g,2], .
+      _X1 = (*parent->pX1)[|S|]
+      _pwt = parent->haswt? &((*parent->pwt)[|S|]) : parent->pwt
+      _X1y1 = X1y1 - cross(_X1, *_pwt, (*parent->py1)[|S|])
       _invH = invsym(_H = H - cross(_X1, *_pwt, _X1))
       _pR1AR1 = rows(R1perp)? &( R1perp * invsym(R1perp ' _H *  R1perp) *  R1perp') : &_invH
       beta0[g+1].M   = *_pR1AR1 * _X1y1
@@ -237,7 +243,7 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // Rperp is fo
 
 void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   pragma unused pRperp
-  real matrix H, X2X1, X1Y2, X2Y2, _X1, _X2, _X1Y2, _X2Y2, _X2X1, _invH, s, _H, _Y2; real colvector _y1, _X1y1, _X2y1, X1y1, X2y1; pointer(real matrix) scalar pR1AR1, _pR1AR1; pointer(real colvector) _pwt; real scalar g
+  real matrix H, X2X1, X1Y2, X2Y2, _X1, _X2, _X1Y2, _X2Y2, _X2X1, _invH, _H, _Y2; real colvector _y1, S, _X1y1, _X2y1, X1y1, X2y1; pointer(real matrix) scalar pR1AR1, _pR1AR1; pointer(real colvector) _pwt; real scalar g
 
   beta = dbetadr = beta0 = smatrix(parent->jk? parent->Nstar + 1 : 1)
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
@@ -256,12 +262,12 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   if (parent->jk) {
     u1ddot[2].M = J(parent->Nobs, 1, 0)
     for (g=parent->Nstar; g; g--) {
-      s = parent->infoBootData[g,1], . \ parent->infoBootData[g,2], .
-      _X1 = *pXS(*parent->pX1, s[,1])
-      _X2 = (*parent->pX2)[|s|]
-      _y1 = (*parent->py1)[|s|]
-      _Y2 = (*parent->pY2)[|s|]
-      _pwt = parent->haswt? &((*parent->pwt)[|s|]) : parent->pwt
+      S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
+      _X1 = *pXS(*parent->pX1, S)
+      _X2 = *pXS(*parent->pX2, S)
+      _y1 = *pXS(*parent->py1, S)
+      _Y2 = *pXS(*parent->pY2, S)
+      _pwt = parent->haswt? &((*parent->pwt)[|S|]) : parent->pwt
       _X1y1 = X1y1 - cross(_X1, *_pwt, _y1)
       _X2y1 = X2y1 - cross(_X2, *_pwt, _y1)
       _X1Y2 = X1Y2 - cross(_X1, *_pwt, _Y2)
@@ -281,23 +287,124 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
 }
 
 void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
-  real matrix X2X1; real scalar i,j; pointer (real colvector) scalar puwt
+  real matrix X2X1, ZperpZperp, ZperpX1, ZperpX2, ZperpZ, ZperpZR1, ZperpY2, perpRperpX, parentY2g, parentX2g, _ZperpZperp, _invZperpZperpg, _ZperpX1, _ZperpX2, _ZperpZ, _ZperpZR1, _ZperpY2, _X1, _X2, _Z, _ZR1, _Y2, X1g, X2g, Zg, Zperpg, ZR1g, Y2g, _X2X1, _X1X1, _X2X2, _X1Y2, _X2Y2 
+  real colvector Zperpy1, S, wtg, parenty1g, _Zperpy1, _y1, y1g
+  real scalar i,j,g
+  pointer (real colvector) scalar puwt
   
   this.pRperp = pRperp
+  perpRperpX = perp(RperpX)
 
   pZperp = pXB(*parent->pX1, RperpX)
-  invZperpZperp = invsym(cross(*pZperp, *parent->pwt, *pZperp))
-  pX1 = pXB(*parent->pX1, perp(RperpX)); pX1 = &(*pX1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *pX1)))  // FWL-process X1
-  X2 = *parent->pX2 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->pX2))                // FWL-process X2
-  X2X1 = cross(X2, *parent->pwt, *pX1)
-  invXX = invsym((XX = cross(*pX1, *parent->pwt, *pX1), X2X1' \ X2X1, cross(X2, *parent->pwt, X2)))
+  invZperpZperp = invsym(ZperpZperp = cross(*pZperp, *parent->pwt, *pZperp))
+  pX1 = pXB(*parent->pX1, perpRperpX)
   pZ   = pX12B(*parent->pX1, *parent->pY2, Rpar     )  // Zpar
   pZR1 = pX12B(*parent->pX1, *parent->pY2, R1invR1R1)  // Z*R1
-  pZ   =    &(*pZ   - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt,        *pZ  )))  // partialling out
-  pZR1 =    &(*pZR1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt,        *pZR1)))
-  Y2 = *parent->pY2 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->pY2))
-  y1 = *parent->py1 - *pZperp * (invZperpZperp * cross(*pZperp, *parent->pwt, *parent->py1))
+  
+  ZperpX1 = cross(*pZperp, *parent->pwt, *pX1)
+  ZperpX2 = cross(*pZperp, *parent->pwt, *parent->pX2)
+  ZperpZ   = cross(*pZperp, *parent->pwt,        *pZ  )
+  ZperpZR1 = cross(*pZperp, *parent->pwt,        *pZR1)
+  ZperpY2  = cross(*pZperp, *parent->pwt, *parent->pY2)
+  Zperpy1  = cross(*pZperp, *parent->pwt, *parent->py1)
+  
+  if (parent->jk & isDGP) {
+    XY2g = ZY2g = XXg = XZg = YYg = Zy1g = X1y1g = X2y1g = y1Y2g = invHg = ZZg = invXXg = H_2SLSg = H_2SLSmZZg = ZR1Y2g = ZR1ZR1g = twoy1ZR1g = ZZR1g = X1ZR1g = X2ZR1g = ZXinvXXXZg = smatrix(parent->Nstar)
+    beta = smatrix(parent->Nstar + 1)
+    u1ddot.M = u1dddot = U2ddot = J(parent->Nobs, 1, 0)
+    if (cols(R1invR1R1)) {
+      py1pary1parg = &J(parent->Nstar,1,0)
+      py1parY2g = &smatrix(parent->Nstar)
+      pZy1parg  = &smatrix(parent->Nstar)
+      pXy1parg  = &smatrix(parent->Nstar)
+    }
 
+    for (g=parent->Nstar; g; g--) {
+      S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
+      wtg = parent->haswt? ((*parent->pwt)[|S|]) : *parent->pwt
+      parentX2g = *pXS(*parent->pX2, S)
+      parentY2g = *pXS(*parent->pY2, S)
+      parenty1g = *pXS(*parent->py1, S)
+      Zperpg = *pXS(*pZperp, S)
+      X1g = *pXS(*pX1, S)
+      Zg   = *pXS(*pZ, S)
+      ZR1g = *pXS(*pZR1, S)
+
+      _ZperpZperp = ZperpZperp - cross(Zperpg, wtg, Zperpg)
+      _invZperpZperpg = invsym(_ZperpZperp)
+      _ZperpX1  = ZperpX1 - cross(Zperpg, wtg, X1g)
+      _ZperpX2  = ZperpX2 - cross(Zperpg, wtg, parentX2g)
+      _ZperpZ   = ZperpZ - cross(Zperpg, wtg, Zg)
+      _ZperpZR1 = ZperpZR1 - cross(Zperpg, wtg, ZR1g)
+      _ZperpY2  = ZperpY2 - cross(Zperpg, wtg, parentY2g)
+      _Zperpy1  = Zperpy1 - cross(Zperpg, wtg, parenty1g)
+
+      _X1 = *pX1 - *pZperp * (_invZperpZperpg * _ZperpX1)
+      _X2 = *parent->pX2 - *pZperp * (_invZperpZperpg * _ZperpX2)
+      _Z   =*pZ   - *pZperp * (_invZperpZperpg * _ZperpZ)
+      _ZR1 =*pZR1 - *pZperp * (_invZperpZperpg * _ZperpZR1)
+      _Y2 = *parent->pY2 - *pZperp * (_invZperpZperpg * _ZperpY2)
+      _y1 = *parent->py1 - *pZperp * (_invZperpZperpg * _Zperpy1)
+
+      X1g  = *pXS(_X1, S)
+      X2g  = *pXS(_X2 , S)
+      Zg   = *pXS(_Z  , S)
+      ZR1g = *pXS(_ZR1, S)
+      Y2g  = *pXS(_Y2 , S)
+      y1g  = *pXS(_y1 , S)
+
+      _X2X1 = cross(_X2, *parent->pwt, _X1) - cross(X2g, wtg, X1g)
+      _X1X1 = cross(_X1, *parent->pwt, _X1) - cross(X1g, wtg, X1g)
+      _X2X2 = cross(_X2, *parent->pwt, _X2) - cross(X2g, wtg, X2g)
+      invXXg[g].M = invsym((_X1X1, _X2X1' \ _X2X1, _X2X2))
+      _X1Y2 = cross(_X1, *parent->pwt, _Y2) - cross(X1g, wtg, Y2g)
+      _X2Y2 = cross(_X2, *parent->pwt, _Y2) - cross(X2g, wtg, Y2g)
+      XY2g[g].M = _X1Y2 \ _X2Y2
+      y1Y2g[g].M = cross(_y1, *parent->pwt, _Y2) - cross(y1g, wtg, Y2g)
+      X2y1g[g].M = cross(_X2, *parent->pwt, _y1) - cross(X2g, wtg, y1g)
+      X1y1g[g].M = cross(_X1, *parent->pwt, _y1) - cross(X1g, wtg, y1g)
+      y1y1g[g]   = cross(_y1, *parent->pwt, _y1) - cross(y1g, wtg, y1g)
+      Zy1g [g].M = cross(_Z , *parent->pwt, _y1) - cross(Zg , wtg, y1g)    
+      XZg  [g].M = cross(_X1, *parent->pwt, _Z)  - cross(X1g, wtg, Zg) \ 
+                   cross(_X2, *parent->pwt, _Z)  - cross(X2g, wtg, Zg)
+      ZZg[g].M   = cross(_Z , *parent->pwt, _Z)  - cross(Zg , wtg, Zg)
+      if (isDGP & parent->WREnonARubin)
+        ZY2g[g].M = cross(_Z, *parent->pwt, _Y2)  - cross(Zg, wtg, Y2g)
+      
+      ZXinvXXXZg[g].M = XZg[g].M ' invXXg[g].M * XZg[g].M
+
+      if (cols(R1invR1R1)) {
+        X2ZR1g[g].M  = cross(_X2, *parent->pwt, _ZR1) - cross(X2g, wtg, ZR1g)
+        X1ZR1g[g].M  = cross(_X1, *parent->pwt, _ZR1) - cross(X1g, wtg, ZR1g)
+        ZZR1g[g].M   = cross(_Z , *parent->pwt, _ZR1) - cross(Zg, wtg, ZR1g)
+        twoy1ZR1g[g].M  = cross( y1  , *parent->pwt, *pZR1) - cross(y1g, wtg, ZR1g); twoy1ZR1g[g].M = twoy1ZR1g[g].M + twoy1ZR1g[g].M
+        ZR1ZR1g[g].M = cross(*pZR1, *parent->pwt, *pZR1) - cross(ZR1g, wtg, ZR1g)
+        ZR1Y2g[g].M  = cross(*pZR1, *parent->pwt, Y2   ) - cross(ZR1g, wtg, Y2g)
+      }
+      H_2SLSg[g].M = XZg[g].M ' invXXg[g].M * XZg[g].M
+      if (kappa!=1 | LIML) H_2SLSmZZg[g].M = H_2SLSg[g].M - ZZg[g].M
+    }
+
+    if (cols(R1invR1R1)==0) {
+      py1parY2g   = &y1Y2g 
+      pZy1parg    = &Zy1g
+      py1pary1parg = &y1y1g 
+      pXy1parg = &smatrix(parent->Nstar); for (g=parent->Nstar; g; g--) (*pXy1parg)[g].M = X1y1g[g].M \ X2y1g[g].M
+    }
+
+		if (Fuller)  // number of observations outside each bootstrapping cluster
+	    _Nobsg = parent->_Nobs :- (parent->obswttype=="fweight"? panelsum(*parent->pwt, parent->infoBootData) : (parent->infoBootData[,2] - parent->infoBootData[,1]) :+ 1)
+  }
+
+  pX1 = &(*pX1 - *pZperp * (invZperpZperp * ZperpX1))  // FWL-process X1
+  X2 = *parent->pX2 - *pZperp * (invZperpZperp * ZperpX2)               // FWL-process X2
+  pZ   =    &(*pZ   - *pZperp * (invZperpZperp * ZperpZ))  // partialling out
+  pZR1 =    &(*pZR1 - *pZperp * (invZperpZperp * ZperpZR1))
+  Y2 = *parent->pY2 - *pZperp * (invZperpZperp * ZperpY2)
+  y1 = *parent->py1 - *pZperp * (invZperpZperp * Zperpy1)
+
+  X2X1 = cross(X2, *parent->pwt, *pX1)
+  invXX = invsym((XX = cross(*pX1, *parent->pwt, *pX1), X2X1' \ X2X1, cross(X2, *parent->pwt, X2)))
   X1Y2 = cross(*pX1, *parent->pwt, Y2)
   X2Y2 = cross(X2  , *parent->pwt, Y2)
   XY2 = X1Y2 \ X2Y2
@@ -322,8 +429,6 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     ZR1Y2  = cross(*pZR1, *parent->pwt, Y2   )
   } else {
     py1parY2   = &y1Y2 
-    pX2y1par   = &X2y1
-    pX1y1par   = &X1y1
     pZy1par    = &Zy1
     y1pary1par = y1y1 
     pXy1par = &(X1y1 \ X2y1)
@@ -388,10 +493,14 @@ void boottestARubin::Estimate(real scalar _jk, real colvector r1) {
 }
 
 void boottestIVGMM::MakeH() {
-  pointer(real matrix) scalar pH
+  pointer(real matrix) scalar pH; real scalar g
 
   pH = kappa==1? &H_2SLS : &(ZZ + kappa * H_2SLSmZZ)
   invH = invsym(*pH)
+
+  if (parent->jk & isDGP)
+    for (g=parent->Nstar; g; g--)
+      invHg[g].M = invsym(kappa==1? H_2SLSg[g].M : ZZg[g].M + kappag[g] * H_2SLSmZZg[g].M)
 
   if (pRperp) {  // for score bootstrap
     pA = cols(*pRperp)? &(*pRperp * invsym(*pRperp ' (*pH) * *pRperp) * *pRperp') : &invH
@@ -401,17 +510,22 @@ void boottestIVGMM::MakeH() {
 }
 
 void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
-  real rowvector val; real matrix vec; real scalar i
+  real rowvector val; real matrix vec; real scalar i, g; real colvector ZXinvXXXy1par; real matrix YPXY
   pragma unset vec; pragma unset val
 pragma unused _jk
   if (cols(R1invR1R1)) {
     y1pary1par = y1y1 - twoy1ZR1 * r1 + r1 ' ZR1ZR1 * r1
     py1par   = &(y1 - *pZR1 * r1)
     py1parY2 = &(y1Y2  - r1 ' ZR1Y2)
-    pX2y1par = &(X2y1 - X2ZR1 * r1)
-    pX1y1par = &(X1y1 - X1ZR1 * r1)
-    pZy1par  = &( Zy1 -  ZZR1 * r1)
-    pXy1par  = &(*pX1y1par \ *pX2y1par)
+    pXy1par  = &(X1y1 - X1ZR1 * r1 \ Zy1 -  ZZR1 * r1)
+
+    if (parent->jk & isDGP)
+      for (g=parent->Nstar; g; g--) {
+        (*py1pary1parg)[g]  = y1y1g[g] - twoy1ZR1g[g].M * r1 + r1 ' ZR1ZR1g[g].M * r1
+        (*py1parY2g)[g].M = y1Y2g[g].M  - r1 ' ZR1Y2g[g].M
+        (*pZy1parg)[g].M  =  Zy1g[g].M -  ZZR1g[g].M * r1
+        (*pXy1parg)[g].M  = X1y1g[g].M - X1ZR1g[g].M * r1 \ X2y1g[g].M - X2ZR1g[g].M * r1
+      }
   }
 
   ZXinvXXXy1par = XZ ' (invXXXy1par = invXX * *pXy1par)
@@ -423,11 +537,27 @@ pragma unused _jk
       eigensystemselecti(invsym(YY) * YPXY, rows(YY)\rows(YY), vec, val)
       kappa = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
       if (Fuller) kappa = kappa - Fuller / (parent->_Nobs - parent->kX)
-      MakeH()
     }
 
     beta.M = invH * (kappa==1?  ZXinvXXXy1par : kappa * (ZXinvXXXy1par - *pZy1par) + *pZy1par)
     t1Y = R1invR1R1Y * r1
+
+    if (parent->jk)
+      for (g=parent->Nstar; g; g--) {
+        ZXinvXXXy1par = XZg[g].M ' (invXXXy1par = invXXg[g].M * (*pXy1parg)[g].M)
+        YYg[g].M = (*py1pary1parg)[g], (*pZy1parg)[g].M' \ (*pZy1parg)[g].M, ZZg[g].M
+        YPXY = invXXXy1par ' (*pXy1parg)[g].M , ZXinvXXXy1par' \ ZXinvXXXy1par , ZXinvXXXZg[g].M
+
+        if (LIML) {
+          eigensystemselecti(invsym(YYg[g].M) * YPXY, rows(YYg[g].M)\rows(YYg[g].M), vec, val)
+          kappag[g] = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
+          if (Fuller) kappag[g] = kappag[g] - Fuller / (_Nobsg[g] - parent->kX)
+        }
+        beta[g+1].M = invHg[g].M * (kappag[g]==1?  ZXinvXXXy1par : kappag[g] * (ZXinvXXXy1par - (*pZy1parg)[g].M) + (*pZy1parg)[g].M)
+      }
+
+    if (LIML) MakeH()
+
   } else if (parent->WREnonARubin) {  // if not score bootstrap of IV/GMM...
     Rt1 = RR1invR1R1 * r1
     
@@ -454,19 +584,37 @@ void boottestOLS::MakeResiduals(real scalar _jk) {
 
 void boottestIVGMM::MakeResiduals(real scalar _jk) {
 pragma unused _jk
-  real matrix Xu; real colvector negXuinvuu, _beta; real scalar uu
+  real matrix Xu; real colvector negXuinvuu, _beta, S; real scalar uu; real scalar g
   
-  u1ddot.M = *py1par - *pZ * beta.M
+  if (parent->jk)
+    for (g=parent->Nstar; g; g--) {
+      S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
+      u1ddot.M[|S|] = *pXS(*py1par,S) - *pXS(*pZ,S) * beta[g+1].M
+    }
+  else
+    u1ddot.M = *py1par - *pZ * beta.M
 
-  if (parent->scoreBS==0) {
-    _beta = 1 \ -beta.M
-    uu = _beta ' YY * _beta
-    Xu = *pXy1par - XZ * beta.M  // after DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
-    negXuinvuu = Xu / -uu
+  if (parent->scoreBS==0)
+    if (parent->jk)
+      for (g=parent->Nstar; g; g--) {
+        S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
+        _beta = 1 \ -beta[g+1].M
+        uu = _beta ' YYg[g].M * _beta
+        Xu = (*pXy1parg)[g].M - XZg[g].M * beta[g+1].M
+        negXuinvuu = Xu / -uu
 
-    U2ddot = Y2 - *pX12B(*pX1, X2, invsym(XX + negXuinvuu * Xu') * (negXuinvuu * (*py1parY2 - beta.M ' ZY2) + XY2))  // large expression is Pihat
-    u1dddot = u1ddot.M + U2ddot * (t1Y + RparY * beta.M)
-  }
+        U2ddot[|S|] = *pXS(Y2,S) - *pX12B(*pXS(*pX1,S), *pXS(X2,S), invsym(XXg[g].M + negXuinvuu * Xu') * (negXuinvuu * ((*py1parY2g)[g].M - beta[g+1].M ' ZY2g[g].M) + XY2g[g].M))  // large expression is Pihat
+        u1dddot[|S|] = u1ddot.M[|S|] + *pXS(U2ddot,S) * (t1Y + RparY * beta[g+1].M)
+      }
+    else {
+      _beta = 1 \ -beta.M
+      uu = _beta ' YY * _beta
+      Xu = *pXy1par - XZ * beta.M  // after DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
+      negXuinvuu = Xu / -uu
+
+      U2ddot = Y2 - *pX12B(*pX1, X2, invsym(XX + negXuinvuu * Xu') * (negXuinvuu * (*py1parY2 - beta.M ' ZY2) + XY2))  // large expression is Pihat
+      u1dddot = u1ddot.M + U2ddot * (t1Y + RparY * beta.M)
+    }
 }
 
 
@@ -1731,7 +1879,7 @@ void boottest::_MakeInterpolables(real colvector r) {
 // compute stuff depending linearly on v, needed to prep for interpolation
 // _jk = 0 for non-jackknife, or for non-jk, full original-sample estimation of test stat for jk
 void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r) {  // called to *prepare* interpolation, or when w>1, in which case there is no interpolation
-  real scalar c, d; real matrix _v; pointer(real matrix) scalar pv; real matrix betadev
+  real scalar c, d; real matrix _v; real matrix betadev
 
   if (jk & !_jk) {
     if ( !ARubin & null) 
