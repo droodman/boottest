@@ -391,11 +391,6 @@ program define _boottest, rclass sortpreserve
 		exit 198
   }
   
-  if `jk' & `IV' & !`ar' {
-		di as err "boottest can't (yet) jackknife IV-based estimates, except with the Anderson-Rubin test."
-		exit 198
-  }
-  
 	if "`boottype'"'=="" local boottype = cond(`ML', "score", "wild")
 	else {
 		local 0, `boottype'

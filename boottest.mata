@@ -289,7 +289,7 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
 void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   real matrix X2X1, ZperpZperp, ZperpX1, ZperpX2, ZperpZ, ZperpZR1, ZperpY2, perpRperpX, parentY2g, parentX2g, _ZperpZperp, _invZperpZperpg, _ZperpX1, _ZperpX2, _ZperpZ, _ZperpZR1, _ZperpY2, _X1, _X2, _Z, _ZR1, _Y2, X1g, X2g, Zg, Zperpg, ZR1g, Y2g, _X2X1, _X1X1, _X2X2, _X1Y2, _X2Y2 
   real colvector Zperpy1, S, wtg, parenty1g, _Zperpy1, _y1, y1g
-  real scalar i,j,g
+  real scalar i, j, g
   pointer (real colvector) scalar puwt
   
   this.pRperp = pRperp
@@ -301,8 +301,8 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   pZ   = pX12B(*parent->pX1, *parent->pY2, Rpar     )  // Zpar
   pZR1 = pX12B(*parent->pX1, *parent->pY2, R1invR1R1)  // Z*R1
   
-  ZperpX1 = cross(*pZperp, *parent->pwt, *pX1)
-  ZperpX2 = cross(*pZperp, *parent->pwt, *parent->pX2)
+  ZperpX1  = cross(*pZperp, *parent->pwt, *pX1)
+  ZperpX2  = cross(*pZperp, *parent->pwt, *parent->pX2)
   ZperpZ   = cross(*pZperp, *parent->pwt,        *pZ  )
   ZperpZR1 = cross(*pZperp, *parent->pwt,        *pZR1)
   ZperpY2  = cross(*pZperp, *parent->pwt, *parent->pY2)
@@ -310,8 +310,11 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   
   if (parent->jk & isDGP) {
     XY2g = ZY2g = XXg = XZg = YYg = Zy1g = X1y1g = X2y1g = y1Y2g = invHg = ZZg = invXXg = H_2SLSg = H_2SLSmZZg = ZR1Y2g = ZR1ZR1g = twoy1ZR1g = ZZR1g = X1ZR1g = X2ZR1g = ZXinvXXXZg = smatrix(parent->Nstar)
+    y1y1g = J(parent->Nstar, 1, 0)
+    if (LIML) kappag = J(parent->Nstar, 1, 0)
     beta = smatrix(parent->Nstar + 1)
     u1ddot.M = u1dddot = U2ddot = J(parent->Nobs, 1, 0)
+
     if (cols(R1invR1R1)) {
       py1pary1parg = &J(parent->Nstar,1,0)
       py1parY2g = &smatrix(parent->Nstar)
@@ -321,32 +324,32 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
 
     for (g=parent->Nstar; g; g--) {
       S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
-      wtg = parent->haswt? ((*parent->pwt)[|S|]) : *parent->pwt
+      wtg = parent->haswt? (*parent->pwt)[|S|] : *parent->pwt
       parentX2g = *pXS(*parent->pX2, S)
       parentY2g = *pXS(*parent->pY2, S)
       parenty1g = *pXS(*parent->py1, S)
-      Zperpg = *pXS(*pZperp, S)
-      X1g = *pXS(*pX1, S)
-      Zg   = *pXS(*pZ, S)
-      ZR1g = *pXS(*pZR1, S)
+      Zperpg    = *pXS(*pZperp, S)
+      X1g       = *pXS(*pX1, S)
+      Zg        = *pXS(*pZ, S)
+      ZR1g      = *pXS(*pZR1, S)
 
+      _ZperpX1    = ZperpX1    - cross(Zperpg, wtg, X1g)
+      _ZperpX2    = ZperpX2    - cross(Zperpg, wtg, parentX2g)
+      _ZperpZ     = ZperpZ     - cross(Zperpg, wtg, Zg)
+      _ZperpZR1   = ZperpZR1   - cross(Zperpg, wtg, ZR1g)
+      _ZperpY2    = ZperpY2    - cross(Zperpg, wtg, parentY2g)
+      _Zperpy1    = Zperpy1    - cross(Zperpg, wtg, parenty1g)
       _ZperpZperp = ZperpZperp - cross(Zperpg, wtg, Zperpg)
       _invZperpZperpg = invsym(_ZperpZperp)
-      _ZperpX1  = ZperpX1 - cross(Zperpg, wtg, X1g)
-      _ZperpX2  = ZperpX2 - cross(Zperpg, wtg, parentX2g)
-      _ZperpZ   = ZperpZ - cross(Zperpg, wtg, Zg)
-      _ZperpZR1 = ZperpZR1 - cross(Zperpg, wtg, ZR1g)
-      _ZperpY2  = ZperpY2 - cross(Zperpg, wtg, parentY2g)
-      _Zperpy1  = Zperpy1 - cross(Zperpg, wtg, parenty1g)
 
-      _X1 = *pX1 - *pZperp * (_invZperpZperpg * _ZperpX1)
-      _X2 = *parent->pX2 - *pZperp * (_invZperpZperpg * _ZperpX2)
-      _Z   =*pZ   - *pZperp * (_invZperpZperpg * _ZperpZ)
-      _ZR1 =*pZR1 - *pZperp * (_invZperpZperpg * _ZperpZR1)
-      _Y2 = *parent->pY2 - *pZperp * (_invZperpZperpg * _ZperpY2)
-      _y1 = *parent->py1 - *pZperp * (_invZperpZperpg * _Zperpy1)
+      _X1  = *pX1         - *pZperp * (_invZperpZperpg * _ZperpX1)  // FWL-process
+      _X2  = *parent->pX2 - *pZperp * (_invZperpZperpg * _ZperpX2)
+      _Z   = *pZ          - *pZperp * (_invZperpZperpg * _ZperpZ)
+      _ZR1 = *pZR1        - *pZperp * (_invZperpZperpg * _ZperpZR1)
+      _Y2  = *parent->pY2 - *pZperp * (_invZperpZperpg * _ZperpY2)
+      _y1  = *parent->py1 - *pZperp * (_invZperpZperpg * _Zperpy1)
 
-      X1g  = *pXS(_X1, S)
+      X1g  = *pXS(_X1 , S)
       X2g  = *pXS(_X2 , S)
       Zg   = *pXS(_Z  , S)
       ZR1g = *pXS(_ZR1, S)
@@ -356,10 +359,8 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
       _X2X1 = cross(_X2, *parent->pwt, _X1) - cross(X2g, wtg, X1g)
       _X1X1 = cross(_X1, *parent->pwt, _X1) - cross(X1g, wtg, X1g)
       _X2X2 = cross(_X2, *parent->pwt, _X2) - cross(X2g, wtg, X2g)
-      invXXg[g].M = invsym((_X1X1, _X2X1' \ _X2X1, _X2X2))
       _X1Y2 = cross(_X1, *parent->pwt, _Y2) - cross(X1g, wtg, Y2g)
       _X2Y2 = cross(_X2, *parent->pwt, _Y2) - cross(X2g, wtg, Y2g)
-      XY2g[g].M = _X1Y2 \ _X2Y2
       y1Y2g[g].M = cross(_y1, *parent->pwt, _Y2) - cross(y1g, wtg, Y2g)
       X2y1g[g].M = cross(_X2, *parent->pwt, _y1) - cross(X2g, wtg, y1g)
       X1y1g[g].M = cross(_X1, *parent->pwt, _y1) - cross(X1g, wtg, y1g)
@@ -370,26 +371,29 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
       ZZg[g].M   = cross(_Z , *parent->pwt, _Z)  - cross(Zg , wtg, Zg)
       if (isDGP & parent->WREnonARubin)
         ZY2g[g].M = cross(_Z, *parent->pwt, _Y2)  - cross(Zg, wtg, Y2g)
+
+      XY2g[g].M = _X1Y2 \ _X2Y2
+      invXXg[g].M = invsym((XXg[g].M = _X1X1, _X2X1' \ _X2X1, _X2X2))
       
       ZXinvXXXZg[g].M = XZg[g].M ' invXXg[g].M * XZg[g].M
 
       if (cols(R1invR1R1)) {
-        X2ZR1g[g].M  = cross(_X2, *parent->pwt, _ZR1) - cross(X2g, wtg, ZR1g)
-        X1ZR1g[g].M  = cross(_X1, *parent->pwt, _ZR1) - cross(X1g, wtg, ZR1g)
-        ZZR1g[g].M   = cross(_Z , *parent->pwt, _ZR1) - cross(Zg, wtg, ZR1g)
-        twoy1ZR1g[g].M  = cross( y1  , *parent->pwt, *pZR1) - cross(y1g, wtg, ZR1g); twoy1ZR1g[g].M = twoy1ZR1g[g].M + twoy1ZR1g[g].M
-        ZR1ZR1g[g].M = cross(*pZR1, *parent->pwt, *pZR1) - cross(ZR1g, wtg, ZR1g)
-        ZR1Y2g[g].M  = cross(*pZR1, *parent->pwt, Y2   ) - cross(ZR1g, wtg, Y2g)
+        X2ZR1g[g].M     = cross(_X2 , *parent->pwt, _ZR1) - cross(X2g , wtg, ZR1g)
+        X1ZR1g[g].M     = cross(_X1 , *parent->pwt, _ZR1) - cross(X1g , wtg, ZR1g)
+        ZZR1g[g].M      = cross(_Z  , *parent->pwt, _ZR1) - cross(Zg  , wtg, ZR1g)
+        twoy1ZR1g[g].M  = cross(_y1 , *parent->pwt, _ZR1) - cross(y1g , wtg, ZR1g); twoy1ZR1g[g].M = twoy1ZR1g[g].M + twoy1ZR1g[g].M
+        ZR1ZR1g[g].M    = cross(_ZR1, *parent->pwt, _ZR1) - cross(ZR1g, wtg, ZR1g)
+        ZR1Y2g[g].M     = cross(_ZR1, *parent->pwt, _Y2 ) - cross(ZR1g, wtg, Y2g)
       }
       H_2SLSg[g].M = XZg[g].M ' invXXg[g].M * XZg[g].M
       if (kappa!=1 | LIML) H_2SLSmZZg[g].M = H_2SLSg[g].M - ZZg[g].M
     }
 
-    if (cols(R1invR1R1)==0) {
-      py1parY2g   = &y1Y2g 
-      pZy1parg    = &Zy1g
+    if (cols(R1invR1R1)==0) {  // DGP not constrained
+      py1parY2g    = &y1Y2g 
+      pZy1parg     = &Zy1g
       py1pary1parg = &y1y1g 
-      pXy1parg = &smatrix(parent->Nstar); for (g=parent->Nstar; g; g--) (*pXy1parg)[g].M = X1y1g[g].M \ X2y1g[g].M
+      pXy1parg = &smatrix(parent->Nstar); for (g=parent->Nstar;g;g--) (*pXy1parg)[g].M = X1y1g[g].M \ X2y1g[g].M
     }
 
 		if (Fuller)  // number of observations outside each bootstrapping cluster
@@ -517,14 +521,15 @@ pragma unused _jk
     y1pary1par = y1y1 - twoy1ZR1 * r1 + r1 ' ZR1ZR1 * r1
     py1par   = &(y1 - *pZR1 * r1)
     py1parY2 = &(y1Y2  - r1 ' ZR1Y2)
-    pXy1par  = &(X1y1 - X1ZR1 * r1 \ Zy1 -  ZZR1 * r1)
+    pZy1par  = &( Zy1 -  ZZR1 * r1)
+    pXy1par  = &(X1y1 - X1ZR1 * r1 \ X2y1 - X2ZR1 * r1)
 
     if (parent->jk & isDGP)
       for (g=parent->Nstar; g; g--) {
-        (*py1pary1parg)[g]  = y1y1g[g] - twoy1ZR1g[g].M * r1 + r1 ' ZR1ZR1g[g].M * r1
-        (*py1parY2g)[g].M = y1Y2g[g].M  - r1 ' ZR1Y2g[g].M
-        (*pZy1parg)[g].M  =  Zy1g[g].M -  ZZR1g[g].M * r1
-        (*pXy1parg)[g].M  = X1y1g[g].M - X1ZR1g[g].M * r1 \ X2y1g[g].M - X2ZR1g[g].M * r1
+        (*py1pary1parg)[g]   = y1y1g[g]   - twoy1ZR1g[g].M * r1 + r1 ' ZR1ZR1g[g].M * r1
+        (*py1parY2g)   [g].M = y1Y2g[g].M - r1 ' ZR1Y2g[g].M
+        (*pZy1parg)    [g].M =  Zy1g[g].M -  ZZR1g[g].M * r1
+        (*pXy1parg)    [g].M = X1y1g[g].M - X1ZR1g[g].M * r1 \ X2y1g[g].M - X2ZR1g[g].M * r1
       }
   }
 
@@ -539,9 +544,6 @@ pragma unused _jk
       if (Fuller) kappa = kappa - Fuller / (parent->_Nobs - parent->kX)
     }
 
-    beta.M = invH * (kappa==1?  ZXinvXXXy1par : kappa * (ZXinvXXXy1par - *pZy1par) + *pZy1par)
-    t1Y = R1invR1R1Y * r1
-
     if (parent->jk)
       for (g=parent->Nstar; g; g--) {
         ZXinvXXXy1par = XZg[g].M ' (invXXXy1par = invXXg[g].M * (*pXy1parg)[g].M)
@@ -550,13 +552,19 @@ pragma unused _jk
 
         if (LIML) {
           eigensystemselecti(invsym(YYg[g].M) * YPXY, rows(YYg[g].M)\rows(YYg[g].M), vec, val)
-          kappag[g] = 1/(1 - Re(val)) // sometimes a tiny imaginary component sneaks into val
+          kappag[g] = 1/(1 - Re(val))
           if (Fuller) kappag[g] = kappag[g] - Fuller / (_Nobsg[g] - parent->kX)
         }
-        beta[g+1].M = invHg[g].M * (kappag[g]==1?  ZXinvXXXy1par : kappag[g] * (ZXinvXXXy1par - (*pZy1parg)[g].M) + (*pZy1parg)[g].M)
       }
 
     if (LIML) MakeH()
+
+    beta.M = invH * (kappa==1?  ZXinvXXXy1par : kappa * (ZXinvXXXy1par - *pZy1par) + *pZy1par)
+    t1Y = R1invR1R1Y * r1
+
+    if (parent->jk)
+      for (g=parent->Nstar; g; g--)
+        beta[g+1].M = invHg[g].M * (kappa==1? ZXinvXXXy1par : kappag[g] * (ZXinvXXXy1par - (*pZy1parg)[g].M) + (*pZy1parg)[g].M)
 
   } else if (parent->WREnonARubin) {  // if not score bootstrap of IV/GMM...
     Rt1 = RR1invR1R1 * r1
@@ -586,12 +594,12 @@ void boottestIVGMM::MakeResiduals(real scalar _jk) {
 pragma unused _jk
   real matrix Xu; real colvector negXuinvuu, _beta, S; real scalar uu; real scalar g
   
-  if (parent->jk)
+  if (parent->jk) {
     for (g=parent->Nstar; g; g--) {
       S = parent->infoBootData[g,1] \ parent->infoBootData[g,2]
       u1ddot.M[|S|] = *pXS(*py1par,S) - *pXS(*pZ,S) * beta[g+1].M
     }
-  else
+  } else
     u1ddot.M = *py1par - *pZ * beta.M
 
   if (parent->scoreBS==0)
@@ -602,8 +610,7 @@ pragma unused _jk
         uu = _beta ' YYg[g].M * _beta
         Xu = (*pXy1parg)[g].M - XZg[g].M * beta[g+1].M
         negXuinvuu = Xu / -uu
-
-        U2ddot[|S|] = *pXS(Y2,S) - *pX12B(*pXS(*pX1,S), *pXS(X2,S), invsym(XXg[g].M + negXuinvuu * Xu') * (negXuinvuu * ((*py1parY2g)[g].M - beta[g+1].M ' ZY2g[g].M) + XY2g[g].M))  // large expression is Pihat
+        U2ddot [|S|] = *pXS(Y2,S) - *pX12B(*pXS(*pX1,S), *pXS(X2,S), invsym(XXg[g].M + negXuinvuu * Xu') * (negXuinvuu * ((*py1parY2g)[g].M - beta[g+1].M ' ZY2g[g].M) + XY2g[g].M))  // large expression is Pihat
         u1dddot[|S|] = u1ddot.M[|S|] + *pXS(U2ddot,S) * (t1Y + RparY * beta[g+1].M)
       }
     else {
@@ -611,7 +618,6 @@ pragma unused _jk
       uu = _beta ' YY * _beta
       Xu = *pXy1par - XZ * beta.M  // after DGP regression, compute Y2 residuals by regressing Y2 on X while controlling for y1 residuals, done through FWL
       negXuinvuu = Xu / -uu
-
       U2ddot = Y2 - *pX12B(*pX1, X2, invsym(XX + negXuinvuu * Xu') * (negXuinvuu * (*py1parY2 - beta.M ' ZY2) + XY2))  // large expression is Pihat
       u1dddot = u1ddot.M + U2ddot * (t1Y + RparY * beta.M)
     }
@@ -970,7 +976,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   if (kappa==.) kappa = kX2>0  // if kappa in kappa-class estimation not specified, it's 0 or 1 for OLS or 2SLS
   WRE = (kappa & scoreBS==0) | ARubin
   WREnonARubin = WRE & ARubin==0
-
+  
   if (haswt = rows(*pwt)>1)
     sumwt = sum(*pwt)
   else
@@ -1361,32 +1367,34 @@ void boottest::UpdateBootstrapcDenom() {
 
 // draw wild weight matrix of width _B. If first=1, insert column of 1s at front. For non-Anderson-Rubin WRE, subtract 1 from all weights
 void boottest::MakeWildWeights(real scalar _B, real scalar first) {
+  real scalar m
+  m = WREnonARubin & jk? sqrt(1 - 1 / Nstar) : 1  // finite-sample adjuster for JK regressions
 
   if (_B) {  // in scoretest or waldtest WRE, still make v a col of 1's
     if (enumerate)
-      v = J(Nstar,1,1), count_binary(Nstar, -1-WREnonARubin, 1-WREnonARubin)  // complete Rademacher set
+      v = J(Nstar,1,1), count_binary(Nstar, -m-WREnonARubin, m-WREnonARubin)  // complete Rademacher set
     else if (auxwttype==3)
-      v = rnormal(Nstar, _B+first, -WREnonARubin, 1)  // normal weights
+      v = rnormal(Nstar, _B+first, -WREnonARubin, m)  // normal weights
     else if (auxwttype==4)
-      v = rgamma(Nstar, _B+first, 4, .5) :- (2 + WREnonARubin)  // Gamma weights
+      v = m * (rgamma(Nstar, _B+first, 4, .5) :- 2) :- WREnonARubin  // Gamma weights
     else if (auxwttype==2)
       if (WREnonARubin)
-        v = sqrt(2 * ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5) :- 1  // Webb weights, minus 1 for WRE
+        v = sqrt((2*m) * ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5) :- 1  // Webb weights, minus 1 for WRE
       else {
         v = sqrt(    ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5)       // Webb weights, divided by sqrt(2)
         v_sd = 1.6a09e667f3bcdX-001 /*sqrt(.5)*/
       }
     else if (auxwttype)
       if (WREnonARubin)
-        v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001\1.1b06d1d200914X-002 /*.5+sqrt(.05)\.5-sqrt(.05)*/) :- 1.5 ) * 1.1e3779b97f4a8X+001 /*sqrt(5)*/ :- .5  // Mammen weights, minus 1 for convenience in WRE
+        v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001 \ 1.1b06d1d200914X-002 /*.5+sqrt(.05) \ .5-sqrt(.05)*/) :- 1.5 ) * (m * 1.1e3779b97f4a8X+001) /*sqrt(5)*/ :- .5  // Mammen weights, minus 1 for convenience in WRE
       else {
-        v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001\1.1b06d1d200914X-002 /*.5+sqrt(.05)\.5-sqrt(.05)*/) :- 1.5 ) :+ 1.c9f25c5bfedd9X-003 /*.5/sqrt(5)*/  // Mammen weights, divided by sqrt(5)
+        v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001 \ 1.1b06d1d200914X-002 /*.5+sqrt(.05) \ .5-sqrt(.05)*/) :- 1.5 ) :+ 1.c9f25c5bfedd9X-003 /*.5/sqrt(5)*/  // Mammen weights, divided by sqrt(5)
         v_sd = 1.c9f25c5bfedd9X-002 /*sqrt(.2)*/
       }
-    else if (WREnonARubin) {
-      v = runiform(Nstar, _B+first) :<  .5; v = (-2) * v  // Rademacher weights, minus 1 for WRE
-    } else {
-      v = runiform(Nstar, _B+first) :>= .5; v = v :- .5   // Rademacher weights, divided by 2
+    else if (WREnonARubin)
+      v = (runiform(Nstar, _B+first) :<  .5) * (-2 * m)  // Rademacher weights, minus 1 for WRE
+    else {
+      v = (runiform(Nstar, _B+first) :>= .5) :- .5   // Rademacher weights, divided by 2
       v_sd = .5
     }
 
