@@ -112,11 +112,11 @@ class boottest {
   real scalar scoreBS, B, small, auxwttype, null, dirty, initialized, ML, Nobs, _Nobs, kZ, kY2, kX1, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
     sqrt, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClustVar, BootClust, FEdfadj, jk, ///
     NFE, granular, purerobust, subcluster, Nstar, BFeas, v_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
-  real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0, YbarYbar, XYbar, invXXXZbar
+  real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0, YbarYbar, XYbar, invXXXZbar, PXZbar
   real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, confpeak, gridmin, gridmax, gridpoints, numersum, anchor, poles, invFEwt
   real rowvector peak, betas, As
   string scalar obswttype, madjtype, seed
-  pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pinfoAllData, pinfoCapData, pIDAll, pnumer, pU2parddot, pustar
+  pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pinfoAllData, pinfoCapData, pIDAll, pnumer, pU2parddot, pustar, pZbar
   pointer (real colvector) scalar pr1, pr, py1, pSc, pwt, pA, pDist, pIDBootData, pIDBootAll
   class boottestOLS scalar DGP, Repl
   pointer(class boottestOLS scalar) scalar pM
@@ -1531,40 +1531,66 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
   if (granular) {  // create pieces of each N x B matrix one at a time rather than whole thing at once
     retval = J(Clust.N, cols(v), 0)
+myretval = J(Clust.N, cols(v), 0)
     SstarUXv = SstarUX[ind1+1].M * v
+mySstarUXv = SstarUX[ind1+1].M * (v:+1)
     for (ind2=0; ind2<=Repl.kZ; ind2++) {
       if (ind2)
         pbetav = &(v :* (_beta = betas[ind2,]))
       else
         pbetav = &v
+if (ind2)
+  mypbetav = &((v:+1) :* (_beta = betas[ind2,]))
+else
+  mypbetav = &(v:+1)
 
       SstarUZperpinvZperpZperp_v = SstarUZperpinvZperpZperp[ind2+1].M * *pbetav
+mySstarUZperpinvZperpZperp_v = SstarUZperpinvZperpZperp[ind2+1].M * *mypbetav
 
       if (NFE)
         CTFEUv = invFEwt :* (CTFEU[ind2+1].M * *pbetav)
+if (NFE)
+  myCTFEUv = invFEwt :* (CTFEU[ind2+1].M * *mypbetav)
 
       for (i=Clust.N;i;i--) {
         S = (*pinfoCapData)[i,]'
         pPXYstar = &Repl.PXZ[|S,(ind1\ind1)|]
+mypPXYstar = &PXZbar[|S,(ind1\ind1)|]
         if (Repl.Yendog[ind1+1])
           pPXYstar = &(*pPXYstar :+ *pXS(Repl.XinvXX,S) * SstarUXv)
+if (Repl.Yendog[ind1+1])
+  mypPXYstar = &(*mypPXYstar :+ *pXS(Repl.XinvXX,S) * mySstarUXv)
 
         SstarUMZperp_ind2_i = *pXS(*Repl.pZperp,S) * SstarUZperpinvZperpZperp_v
+mySstarUMZperp_ind2_i = *pXS(*Repl.pZperp,S) * mySstarUZperpinvZperpZperp_v
         if (ind2)
           for (g=S[2];g>=S[1];g--)
             SstarUMZperp_ind2_i[g-S[1]+1,] = SstarUMZperp_ind2_i[g-S[1]+1,] - (*pU2parddot)[g,ind2] * (*pbetav)[(*pIDBootData)[g],]
         else
           for (g=S[2];g>=S[1];g--)
             SstarUMZperp_ind2_i[g-S[1]+1,] = SstarUMZperp_ind2_i[g-S[1]+1,] - DGP.u1dddot  [g     ] * (*pbetav)[(*pIDBootData)[g],]
+if (ind2)
+  for (g=S[2];g>=S[1];g--)
+    mySstarUMZperp_ind2_i[g-S[1]+1,] = mySstarUMZperp_ind2_i[g-S[1]+1,] - (*pU2parddot)[g,ind2] * (*mypbetav)[(*pIDBootData)[g],]
+else
+  for (g=S[2];g>=S[1];g--)
+    mySstarUMZperp_ind2_i[g-S[1]+1,] = mySstarUMZperp_ind2_i[g-S[1]+1,] - DGP.u1dddot  [g     ] * (*mypbetav)[(*pIDBootData)[g],]
 
-        if (NFE) 
+        if (NFE)
           SstarUMZperp_ind2_i = SstarUMZperp_ind2_i + CTFEUv[(*pFEID)[|S|],]  // CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
+if (NFE)
+  mySstarUMZperp_ind2_i = mySstarUMZperp_ind2_i + myCTFEUv[(*pFEID)[|S|],]  // CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
 
         if (ind2)
           retval[i,] = retval[i,] - colsum(*pPXYstar :* (Repl.Yendog[ind2+1]? (*Repl.pZ)[|S,(ind2\ind2)|] * _beta :- SstarUMZperp_ind2_i :
                                                                               (*Repl.pZ)[|S,(ind2\ind2)|] * _beta                          ))
         else
           retval[i,] =              colsum(*pPXYstar :* (Repl.y1[|S|] :- SstarUMZperp_ind2_i))
+if (ind2)
+  myretval[i,] = myretval[i,] - colsum(*mypPXYstar :* (Repl.Yendog[ind2+1]? (*pZbar)[|S,(ind2\ind2)|] * _beta :- mySstarUMZperp_ind2_i :
+                                                                      (*pZbar)[|S,(ind2\ind2)|] * _beta                          ))
+else
+  myretval[i,] =              colsum(*mypPXYstar :* (DGP.y1bar[|S|] :- mySstarUMZperp_ind2_i))
       }
     }
   } else {  // coarse error clustering
