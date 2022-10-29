@@ -525,12 +525,13 @@ program define _boottest, rclass sortpreserve
     if `partial' local colnames `colnames' `e(partial1)'
     local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
 		local _cons _cons
+    local cons = "`:list colnames & _cons'" != ""
 		local colnames: list colnames - _cons
 
 		if `IV' {
 			local Xnames_endog `e(instd)'
 			local Xnames_exog: list colnames - Xnames_endog
-			local cons = inlist("`cmd'`e(cons)'`e(constant)'", "ivreg21", "ivregress") | e(partialcons)==1
+			local cons = `cons' | e(partialcons)==1
 
 			if inlist("`cmd'", "ivreg2", "xtivreg2", "ivreghdfe") local ZExclnames `e(exexog1)'
 //       else if "`e(cmd)'"=="ivreghdfe" {  // ivreghdfe provides no collinear instrument info
@@ -552,11 +553,8 @@ program define _boottest, rclass sortpreserve
       }
 		}
 		else {
-			local Xnames_exog: colnames e(b)
+			local Xnames_exog `colnames'
       if inlist("`e(cmd)'", "didregress", "xtdidregress") local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
-      local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
-			local cons = "`:list Xnames_exog & _cons'" != ""
-      local Xnames_exog: list Xnames_exog - _cons
 		}
 
 		local cons = `cons' & !0`NFE'  // no constant in FE model
@@ -1139,6 +1137,7 @@ end
 
 
 * Version history
+* 4.3.0 Added jackknife for WRE; fixed failure to detect constant term after ivreg; fixed incorrect computation in "WUE"
 * 4.2.1 jk bug fixes
 * 4.2.0 Added jackknife (WCU/WCR_31) for OLS and Anderson-Rubin
 * 4.1.1 Made margins option honor if/in clause in margins call. Clarifed in help that margins option is only for linear predictions.
