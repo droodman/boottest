@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
   real matrix M
@@ -1387,34 +1387,34 @@ void boottest::MakeWildWeights(real scalar _B, real scalar first) {
 
   if (_B) {  // in scoretest or waldtest WRE, still make v a col of 1's
     if (enumerate)
-      v = J(Nstar,1,0), count_binary(Nstar, -m-WREnonARubin, m-WREnonARubin)  // complete Rademacher set
+      v = J(Nstar,1,1), count_binary(Nstar, -m, m)  // complete Rademacher set
     else if (auxwttype==3)
-      v = rnormal(Nstar, _B+first, -WREnonARubin, m)  // normal weights
+      v = rnormal(Nstar, _B+first, 0, m)  // normal weights
     else if (auxwttype==4)
-      v = m * (rgamma(Nstar, _B+first, 4, .5) :- 2) :- WREnonARubin  // Gamma weights
+      v = m * (rgamma(Nstar, _B+first, 4, .5) :- 2)  // Gamma weights
     else if (auxwttype==2)
       if (WREnonARubin)
-        v = sqrt((2*m) * ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5) :- 1  // Webb weights, minus 1 for WRE
+        v = sqrt((2*m) * ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5)  // Webb weights
       else {
-        v = sqrt(        ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5)       // Webb weights, divided by sqrt(2)
+        v = sqrt(        ceil(runiform(Nstar, _B+first) * 3)) :* ((runiform(Nstar, _B+first):>=.5):-.5)  // Webb weights, divided by sqrt(2)
         v_sd = 1.6a09e667f3bcdX-001 /*sqrt(.5)*/
       }
     else if (auxwttype)
       if (WREnonARubin)
-        v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001 \ 1.1b06d1d200914X-002 /*.5+sqrt(.05) \ .5-sqrt(.05)*/) :- 1.5 ) * (m * 1.1e3779b97f4a8X+001) /*sqrt(5)*/ :- .5  // Mammen weights, minus 1 for convenience in WRE
+        v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001 \ 1.1b06d1d200914X-002 /*.5+sqrt(.05) \ .5-sqrt(.05)*/) :- 1.5 ) * (m * 1.1e3779b97f4a8X+001) /*sqrt(5)*/ :+ .5  // Mammen weights, minus 1 for convenience in WRE
       else {
         v = ( rdiscrete(Nstar, _B+first, 1.727c9716ffb76X-001 \ 1.1b06d1d200914X-002 /*.5+sqrt(.05) \ .5-sqrt(.05)*/) :- 1.5 ) :+ 1.c9f25c5bfedd9X-003 /*.5/sqrt(5)*/  // Mammen weights, divided by sqrt(5)
         v_sd = 1.c9f25c5bfedd9X-002 /*sqrt(.2)*/
       }
     else if (WREnonARubin)
-      v = jk? m-1 :+ (runiform(Nstar, _B+first) :< .5) * (-2 * m) : (runiform(Nstar, _B+first) :<  .5) * -2  // Rademacher weights, minus 1 for WRE; 1st exp simplifies to 2nd when jk=0 but is slower
+      v = jk? m :+ (runiform(Nstar, _B+first) :< .5) * (-2 * m) : (runiform(Nstar, _B+first) :<  .5) * -2 :+ 1  // Rademacher weights, minus 1 for WRE; 1st exp simplifies to 2nd when jk=0 but is slower
     else {
       v = (runiform(Nstar, _B+first) :>= .5) :- .5   // Rademacher weights, divided by 2
       v_sd = .5
     }
 
     if (first)
-      v[,1] = J(Nstar, 1, WREnonARubin? m-WREnonARubin : v_sd)  // keep original residuals in first entry to compute base model stat    
+      v[,1] = J(Nstar, 1, WREnonARubin? m : v_sd)  // keep original residuals in first entry to compute base model stat    
   } else
     v = J(0,1,0)  // in places, cols(v) indicates B -- 1 for classical tests
 }
@@ -1471,12 +1471,12 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
   if (granular) {  // create pieces of each N x B matrix one at a time rather than whole thing at once
     retval = J(Clust.N, cols(v), 0)
-    SstarUXv = SstarUX[ind1+1].M * (v:+1)
+    SstarUXv = SstarUX[ind1+1].M * v
     for (ind2=0; ind2<=Repl.kZ; ind2++) {
       if (ind2)
-        pbetav = &((v:+1) :* (_beta = betas[ind2,]))
+        pbetav = &(v :* (_beta = betas[ind2,]))
       else
-        pbetav = &(v:+1)
+        pbetav = &v
 
       SstarUZperpinvZperpZperp_v = SstarUZperpinvZperpZperp[ind2+1].M * *pbetav
 
@@ -1504,12 +1504,12 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
           retval[i,] = retval[i,] - colsum(*pPXYstar :* (Repl.Yendog[ind2+1]? (*pZbar)[|S,(ind2\ind2)|] * _beta :- SstarUMZperp_ind2_i :
                                                                               (*pZbar)[|S,(ind2\ind2)|] * _beta                          ))
         else
-          retval[i,] =                colsum(*pPXYstar :* (DGP.y1bar[|S|] :- SstarUMZperp_ind2_i))
+          retval[i,] =              colsum(*pPXYstar :* (DGP.y1bar[|S|] :- SstarUMZperp_ind2_i))
       }
     }
   } else {  // coarse error clustering
     for (ind2=0; ind2<=Repl.kZ; ind2++) {
-      pbetav = ind2? &((v:+1) :* (_beta = -betas[ind2,])) : &(v:+1)
+      pbetav = ind2? &(v :* (_beta = -betas[ind2,])) : &v
       // T1 * v will be 1st-order terms
       T1 = Repl.Yendog[ind1+1]? ScapYbarX[ind2+1].M * SstarUXinvXX[ind1+1].M : J(0,0,0) //  S_∩ (Ybar_(∥j)) (X_∥^' X_∥ )^(-1) [S_* (U ̈_(∥i):*X_∥ )]^'
 
@@ -1539,12 +1539,12 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       if (cols(T1))
         retval = retval + T1 * *pbetav  // - x*beta components
     } else
-      retval = FillingT0[ind1+1,1].M :+ T1 * (v:+1)  // y component
+      retval = FillingT0[ind1+1,1].M :+ T1 * v  // y component
 
     if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
       for (i=Clust.N;i;i--) {
         S = (*pinfoCapData)[i,]', (.\.)
-        retval[i,] = retval[i,] - colsum((v:+1) :* cross(SstarUPX[ind1+1].M[|S|], SstarUMZperp[ind2+1].M[|S|]) * *pbetav)
+        retval[i,] = retval[i,] - colsum(v :* cross(SstarUPX[ind1+1].M[|S|], SstarUMZperp[ind2+1].M[|S|]) * *pbetav)
       }
     }
   }

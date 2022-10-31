@@ -38,15 +38,15 @@ foreach julia in "" /*julia*/ {
   use nlsw88
 
   qui regress wage tenure ttl_exp collgrad, cluster(industry)
-  boottest tenure, `julia' svmat nogr        // wild bootstrap test of joint null, Rademacher weights, null imposed, saving  simulated distribution
+  boottest tenure, `julia' svmat nogr  // wild bootstrap test of joint null, Rademacher weights, null imposed, saving  simulated distribution
 
   constraint 1 ttl_exp = .2
   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
-  boottest tenure, `julia' nogr // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 999 replications
+  boottest tenure, `julia' nogr  // wild bootstrap test of tenure=0, conditional on ttl_exp=2, Rademacher weights, null imposed, 999 replications
 
   regress wage tenure ttl_exp collgrad south#union, cluster(industry)
   margins south
-  boottest, `julia' margins nogr // bootstrap CI of average predicted wage for south = 0 and 1
+  boottest, `julia' margins nogr  // bootstrap CI of average predicted wage for south = 0 and 1
   margins, dydx(south)
   boottest, `julia' margins graphopt(xtitle(Average effect of south)) nogr  // bootstrap CI of average impact in sample of changing south from 0 to 1
 
@@ -59,17 +59,17 @@ foreach julia in "" /*julia*/ {
   waldtest tenure, `julia' nogr  // Wald test of same
 
   qui ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
-  boottest tenure, `julia' noci // WRE bootstrap, Rademacher weights, 999 replications
+  boottest tenure, `julia' noci  // WRE bootstrap, Rademacher weights, 999 replications
   qui cmp (wage = tenure) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)
   boottest tenure, `julia'  // reasonable match on test statistic and p value
 
   qui ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
-  boottest tenure, `julia' nograph // Wald test, WRE bootstrap, Rademacher weights, 999 replications
-  boottest, `julia' nograph ar // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid)
+  boottest tenure, `julia' nograph  // Wald test, WRE bootstrap, Rademacher weights, 999 replications
+  boottest, `julia' nograph ar  // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid)
 
   qui ivregress liml wage (collgrad tenure = ttl_exp union), cluster(industry)
-  boottest, `julia' ar nogr // Anderson-Rubin test, with contour plot of p value surface
-  boottest collgrad tenure, `julia' gridpoints(10 10) nogr // WRE boostrap also with contour plot
+  boottest, `julia' ar nogr  // Anderson-Rubin test, with contour plot of p value surface
+  boottest collgrad tenure, `julia' gridpoints(10 10) nogr  // WRE boostrap also with contour plot
 
   qui regress wage tenure ttl_exp collgrad, robust  // no clustering
   boottest tenure, `julia' nogr
