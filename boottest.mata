@@ -122,7 +122,7 @@ class boottest {
   pointer(class boottestOLS scalar) scalar pM
   struct structboottestClust rowvector Clust
   struct smatrix matrix denom, Kcd, denom0, Jcd0, SCTcapuXinvXX, SstarUU, CTUX
-  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, deltadenom, Zyg, SstaruY, SstarUMZperp, SstarUPX, SstarUZperp, YYstar, YPXYstar, CTFEU, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, myFillingT0
+  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, deltadenom, Zyg, SstaruY, SstaruYbar, SstarUMZperp, SstarUPX, SstarUZperp, YYstar, YPXYstar, CTFEU, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, myFillingT0
   struct ssmatrix rowvector ddenomdr, dJcddr
   struct ssmatrix matrix ddenomdr2
   pointer(struct smatrix matrix) scalar pJcd
@@ -1117,7 +1117,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
                                !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
-granular=0
+granular=1
     if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
@@ -1469,11 +1469,11 @@ real matrix boottest::HessianFixedkappa(real rowvector ind1, real scalar ind2, r
 }
 real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, real scalar kappa) {
   real matrix retval, T2; pointer (real colvector) scalar pT1L, pT1R
+
   if (kappa) {
     pT1L = ind1? pcol(Repl.XZ,ind1) : Repl.pXy1par  // X_∥^' Y_(∥i)
 mypT1L = pcol(XYbar,ind1+1)  // X_∥^' Y_(∥i)
-// "*pT1L ; *mypT1L 1"
-//  *pT1L ; *mypT1L
+
     if (Repl.Yendog[ind1+1])
 {
         pT1L = &(*pT1L :+ SstarUX[ind1+1].M * v)
@@ -1491,11 +1491,11 @@ mypT1R = &(*mypT1R :+ SstarUXinvXX[ind2+1].M * (v:+1))  // right-side linear ter
 myretval = colsum(*mypT1L :* *mypT1R)
     retval = colsum(*pT1L :* *pT1R)  // multiply in the left-side linear term
 // "retval\myretval Hessian 1"
-//  retval\myretval
+//  max(abs(retval-myretval))
   }
 
   if (kappa != 1) {
-    if (Repl.Yendog[ind1+1]) {
+    if (Repl.Yendog[ind1+1] | 1) {
       T2 = SstarUZperpinvZperpZperp[ind1+1].M ' SstarUZperp[ind2+1].M  // quadratic term
       _diag(T2, diagonal(T2) - (ind1 <= ind2? SstarUU[ind2+1, ind1+1].M : SstarUU[ind1+1, ind2+1].M))  // minus diagonal crosstab
       if (NFE)
@@ -1503,20 +1503,19 @@ myretval = colsum(*mypT1L :* *mypT1R)
 
       retval = kappa? kappa :* retval  + (1 - kappa) :* (Repl.YY[ind1+1,ind2+1] :+ (*pcol(SstaruY[ind2+1].M, ind1+1) + *pcol(SstaruY[ind1+1].M, ind2+1)) ' v - colsum(v :* T2 * v)) :
                                                          Repl.YY[ind1+1,ind2+1] :+ (*pcol(SstaruY[ind2+1].M, ind1+1) + *pcol(SstaruY[ind1+1].M, ind2+1)) ' v - colsum(v :* T2 * v)
-pu = ind1? pcol(*pU2parddot,ind1) : &DGP.u1dddot
-puwt = pvHadw(*pu, *pwt)
-SstaruYbarind1 = *_panelsum2(y1bar, Ybar2par, *puwt, infoBootData)
-pu = ind2? pcol(*pU2parddot,ind2) : &DGP.u1dddot
-puwt = pvHadw(*pu, *pwt)
-SstaruYbarind2 = *_panelsum2(y1bar, Ybar2par, *puwt, infoBootData)
-myretval = kappa? kappa :* myretval  + (1 - kappa) :* (YbarYbar[ind1+1,ind2+1] :+ (*pcol(SstaruYbarind2/*[ind2+1].M*/, ind1+1) + *pcol(SstaruYbarind1/*[ind1+1].M*/, ind2+1)) ' (v:+1) - colsum((v:+1) :* T2 * (v:+1))) :
-                                                       YbarYbar[ind1+1,ind2+1] :+ (*pcol(SstaruYbarind2/*[ind2+1].M*/, ind1+1) + *pcol(SstaruYbarind1/*[ind1+1].M*/, ind2+1)) ' (v:+1) - colsum((v:+1) :* T2 * (v:+1))
+myretval = kappa? kappa :* retval  + (1 - kappa) :* (YbarYbar[ind1+1,ind2+1] :+ (*pcol(SstaruYbar[ind2+1].M, ind1+1) + *pcol(SstaruYbar[ind1+1].M, ind2+1)) ' (v:+1) - colsum((v:+1) :* T2 * (v:+1))) :
+                                                     YbarYbar[ind1+1,ind2+1] :+ (*pcol(SstaruYbar[ind2+1].M, ind1+1) + *pcol(SstaruYbar[ind1+1].M, ind2+1)) ' (v:+1) - colsum((v:+1) :* T2 * (v:+1))
     } else
+{
       retval = kappa? kappa :* retval :+ (1 - kappa) * Repl.YY[ind1+1,ind2+1] :
                                                        Repl.YY[ind1+1,ind2+1]
+myretval = kappa? kappa :* retval :+ (1 - kappa) * YbarYbar[ind1+1,ind2+1] :
+                                                 YbarYbar[ind1+1,ind2+1]
+}
   }
 // "retval\myretval Hessian 2"
-//  retval\myretval
+//  max(abs(retval-myretval))
+
   return(cols(`my'retval)>1? `my'retval : J(1,cols(v),`my'retval))  // if both vars exogenous, term is same for all b; this duplication is a bit inefficient, but only arises when exog vars involved in null
 }
 
@@ -1661,7 +1660,7 @@ myretval[i,] = myretval[i,] - colsum((v:+1) :* cross(SstarUPX[ind1+1].M[|S|], Ss
     }
   }
 // "retval\myretval Filling"
-//  retval\myretval
+//  max(abs(retval-myretval))
   return(&`my'retval)
 }
 
@@ -1704,6 +1703,7 @@ if (robust & bootstrapt) {  // for WRE replication regression, prepare for CRVE
       ScapYbarX[i+1].M = *_panelsum2(*Repl.pX1, Repl.X2, *pvHadw(*pcol(*pZbar,i), *pwt), *pinfoCapData)  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
     }
   }
+SstaruYbar = SstaruY
 }
 
   for (i=Repl.kZ; i>=0; i--) {  // precompute various clusterwise sums
@@ -1723,6 +1723,7 @@ if (robust & bootstrapt) {  // for WRE replication regression, prepare for CRVE
 
     if (kappa!=1 | LIML | robust==0) {
       SstaruY[i+1].M = *_panelsum2(*Repl.py1par, *Repl.pZ, *puwt, infoBootData)
+SstaruYbar[i+1].M = *_panelsum2(DGP.y1bar, *pZbar, *puwt, infoBootData)
       for (j=i; j>=0; j--)
         SstarUU[i+1,j+1].M = *_panelsum(j? *pcol(*pU2parddot,j) : DGP.u1dddot, *puwt, infoBootData)
     }
