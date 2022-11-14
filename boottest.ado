@@ -491,7 +491,7 @@ program define _boottest, rclass sortpreserve
     }
   }
   else {
-		local N_h0s 1 // number of nulls
+		local N_h0s 1  // number of nulls
 		if "`h0'" == "" {
 			di as txt _n "({cmd:h0(1)} assumed)"
 			local h0 1
@@ -625,7 +625,7 @@ program define _boottest, rclass sortpreserve
 	}
   local NBootClustVar: word count `bootcluster'
 
-	forvalues h=1/`N_h0s' { // loop over multiple independent constraints
+	forvalues h=1/`N_h0s' {  // loop over multiple independent constraints
     if `margins' mat `R' = `marginsH0'[`h', 1...]
     else {
     	_estimates hold `hold', restore
@@ -676,7 +676,7 @@ program define _boottest, rclass sortpreserve
 
 		if `df'>1 & "`ptype'"!="symmetric" di as txt "Note: {cmd:ptype(`ptype')} ignored for multi-constraint null hypotheses."
 
-		if `df'<=2 { // a bit duplicative of code in the if-`ML' block just below...
+		if `df'<=2 {  // a bit duplicative of code in the if-`ML' block just below...
 			if  "`graph'"=="" {  // construct axis label(s)
 				if `margins' local constraintLHS1 "Margins of `:word `h' of `marginsnames''"
         else {
@@ -721,7 +721,7 @@ program define _boottest, rclass sortpreserve
 					exit 198
 				}
 
-				mat `R1R' = `R' \ nullmat(`R1') // add null to model constraints
+				mat `R1R' = `R' \ nullmat(`R1')  // add null to model constraints
 				mat `r1r' = `r' \ nullmat(`r1')
 
 				* get rid of any remaining o. and b. constraints; r(k_autcns) doesn't capture all
@@ -739,7 +739,7 @@ program define _boottest, rclass sortpreserve
 				if `"`cmdline'"'=="" local 0 `e(cmdline)'
 				                else local 0 `cmdline'
 				syntax [anything] [aw pw fw iw] [if] [in], [CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) CLuster(passthru) Robust vce(string) *]
-				if "`e(cmd)'"=="ml" local max max // tack on max option in case ml run in interactive model and cmdline() is missing it
+				if "`e(cmd)'"=="ml" local max max  // tack on max option in case ml run in interactive model and cmdline() is missing it
 
 				cap _estimates drop `hold'
 				_estimates hold `hold', restore
@@ -799,7 +799,7 @@ program define _boottest, rclass sortpreserve
 			}
 
 			unab scnames: `sc'*
-			if `:word count `scnames'' == e(k_eq) { // generate score for each parameter from those for each equation
+			if `:word count `scnames'' == e(k_eq) {  // generate score for each parameter from those for each equation
 				local colnames: colnames `b'
 				tokenize `:coleq `b''
 				local lasteq
@@ -823,7 +823,7 @@ program define _boottest, rclass sortpreserve
 
 			if !`null' {
 				cap _estimates drop `hold'
-				_estimates hold `hold', restore // rename estimation as `hold' instead of generating new sample marker
+				_estimates hold `hold', restore  // rename estimation as `hold' instead of generating new sample marker
 			}
 		}
 		else { // not ML

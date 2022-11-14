@@ -410,17 +410,16 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     3.4743
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0360
+                               z =     2.6040
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0601
 
-95% confidence set for null hypothesis expression: (−∞, ∞)
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: [−.1988, 2.294]
 
 Wild bootstrap-c, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     3.0448
-    2 * min(Prob>|z|, Prob<-|z|) =     0.1662
+                               z =     1.6561
+    2 * min(Prob>|z|, Prob<-|z|) =     0.1361
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -429,8 +428,8 @@ Note: denominator for z statistic computed from the bootstrap replications of th
 Wild bootstrap-c, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     3.0448
-    2 * min(Prob>|z|, Prob<-|z|) =     0.1662
+                               z =     1.6561
+    2 * min(Prob>|z|, Prob<-|z|) =     0.1361
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -463,8 +462,8 @@ Wald test:
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     2.6205
-                        Prob>|z| =     0.0951
+                               z =     7.9375
+                        Prob>|z| =     0.0070
 
 Re-running regression with null imposed.
 
@@ -508,11 +507,10 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by clus
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     7.3489
-                        Prob>|z| =     0.0220
+                               z =     4.0281
+                        Prob>|z| =     0.0260
 
-95% confidence set for null hypothesis expression: (−∞, ∞)
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: [−.9145, −.6017] ∪ [.3028, 1.331]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
@@ -531,8 +529,8 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
 
-                   chi2(2) =   335.1225
-               Prob > chi2 =     0.3053
+                   chi2(2) =    65.9990
+               Prob > chi2 =     0.0030
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
   tenure
@@ -551,8 +549,8 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, Rade
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
   collgrad tenure
 
-                   chi2(2) =  2555.2687
-               Prob > chi2 =     0.3654
+                   chi2(2) =   261.5326
+               Prob > chi2 =     0.0000
 
 Overriding estimator's cluster/robust settings with cluster(industry age)
 
@@ -884,11 +882,10 @@ Consider Webb weights instead, using weight(webb).
 Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     3.4743
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0220
+                               z =     2.6040
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0444
 
-95% confidence set for null hypothesis expression: (−∞, ∞)
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: [.1187, 2.21]
 
 Warning: with 12 bootstrap clusters, the number of replications, 99999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -907,21 +904,10 @@ Consider Webb weights instead, using weight(webb).
 Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     3.4743
-                          Prob>z =     0.0110
+                               z =     2.6040
+                          Prob>z =     0.0222
 
-95% confidence set for null hypothesis expression: [.4473, ∞)
-
-Warning: with 12 bootstrap clusters, the number of replications, 9999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
-Consider Webb weights instead, using weight(webb).
-
-Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
-  tenure
-
-                               z =     3.4743
-                          Prob<z =     0.9890
-
-95% confidence set for null hypothesis expression: (−∞, ∞)
+95% confidence set for null hypothesis expression: [.2769, ∞)
 
 Warning: with 12 bootstrap clusters, the number of replications, 9999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -929,49 +915,59 @@ Consider Webb weights instead, using weight(webb).
 Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     3.4743
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0220
+                               z =     2.6040
+                          Prob<z =     0.9775
 
-95% confidence set for null hypothesis expression: (−∞, ∞)
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: (−∞, 1.794]
+
+Warning: with 12 bootstrap clusters, the number of replications, 9999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
+Consider Webb weights instead, using weight(webb).
+
+Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     2.6040
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0444
+
+95% confidence set for null hypothesis expression: [.1187, 2.21]
 
 Wild bootstrap-t, null imposed, 99 replications, Wald test, Rademacher weights:
   tenure
 
-                               z =     5.0464
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0404
+                               z =     3.5823
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0000
 
 Wild bootstrap-t, null imposed, 99 replications, Wald test, Rademacher weights:
   tenure
 
-                               z =     5.0464
+                               z =     3.5823
     2 * min(Prob>|z|, Prob<-|z|) =     0.0000
 Note: ptype(equaltail) ignored for multi-constraint null hypotheses.
 
 Wild bootstrap-t, null imposed, 99 replications, Wald test, Rademacher weights:
   collgrad tenure
 
-                   chi2(2) =   280.5833
+                   chi2(2) =   139.0793
                Prob > chi2 =     0.0000
 
 Wild bootstrap-t, null imposed, 99 replications, Wald test, Rademacher weights:
   tenure
 
-                               z =   107.4884
-    2 * min(Prob>|z|, Prob<-|z|) =     0.9899
+                               z =   161.8767
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0000
 Note: ptype(equaltail) ignored for multi-constraint null hypotheses.
 
 Wild bootstrap-t, null imposed, 99 replications, Wald test, Rademacher weights:
   tenure collgrad
 
-                   chi2(2) =  1.395e+05
-               Prob > chi2 =     0.5657
+                   chi2(2) =  3.736e+05
+               Prob > chi2 =     0.0000
 
 Wild bootstrap-c, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Webb weights:
   tenure
 
-                               z =     3.0202
-    2 * min(Prob>|z|, Prob<-|z|) =     0.1902
+                               z =     1.6364
+    2 * min(Prob>|z|, Prob<-|z|) =     0.1301
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -980,8 +976,8 @@ Note: denominator for z statistic computed from the bootstrap replications of th
 Wild bootstrap-c, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Webb weights:
   tenure
 
-                               z =     3.0030
-    2 * min(Prob>|z|, Prob<-|z|) =     0.1722
+                               z =     1.6409
+    2 * min(Prob>|z|, Prob<-|z|) =     0.1121
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -990,8 +986,8 @@ Note: denominator for z statistic computed from the bootstrap replications of th
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Webb weights:
   tenure
 
-                               z =     5.0464
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0080
+                               z =     3.5823
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0000
 (391 observations deleted)
 
 Overriding estimator's cluster/robust settings with cluster(id)
@@ -999,8 +995,8 @@ Overriding estimator's cluster/robust settings with cluster(id)
 Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by id, bootstrap clustering by id, Webb weights:
   tenure
 
-                               z =     5.0355
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0080
+                               z =     3.5883
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0000
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
@@ -1037,35 +1033,34 @@ Wald test:
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                               z =     2.6205
-                        Prob>|z| =     0.0851
+                               z =     7.9375
+                        Prob>|z| =     0.0070
 
-95% confidence set for null hypothesis expression: [−.06707, .7745]
+95% confidence set for null hypothesis expression: [.3277, .8435]
 
 Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clustering by industry, Webb weights:
   tenure
 
-                               z =     7.3489
-                        Prob>|z| =     0.0417
+                               z =     4.0281
+                        Prob>|z| =     0.0245
 
-95% confidence set for null hypothesis expression: (−∞, ∞)
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: [−.876, −.34] ∪ [.3142, 1.271]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by individual, Webb weights:
   tenure
 
-                               z =     7.3489
-                        Prob>|z| =     0.0040
+                               z =     4.0281
+                        Prob>|z| =     0.0060
 
 Overriding estimator's cluster/robust settings with cluster(collgrad industry)
+
+Warning: 561 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
 
 Wild bootstrap-t, null imposed, 9999 replications, Wald test, clustering by collgrad industry, bootstrap clustering by collgrad, Webb weights:
   tenure
 
-                               z =          .
-                        Prob>|z| =          .
-
-Test statistic could not be computed. The multiway-clustered variance estimate is not positive.
+                               z =     3.9442
+                        Prob>|z| =     0.2081
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -1099,16 +1094,16 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     1.4898
-                        Prob>|t| =     0.3864
+                           t(11) =     0.8172
+                        Prob>|t| =     0.4535
 
-95% confidence set for null hypothesis expression: [−.0736, .03086]
+95% confidence set for null hypothesis expression: [−.02384, .06714]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   occupation
 
-                           t(11) =     1.3518
-                        Prob>|t| =     0.1942
+                           t(11) =     1.5395
+                        Prob>|t| =     0.2152
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -1116,35 +1111,33 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     1.1573
-                        Prob>|t| =     0.4024
+                           t(11) =     0.6060
+                        Prob>|t| =     0.4815
 
-95% confidence set for null hypothesis expression: (−∞, 2930]
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: [−.04547, .05644]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
 
-                  F(2, 11) =    23.2416
-                  Prob > F =     0.2092
+                  F(2, 11) =     3.5208
+                  Prob > F =     0.1542
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   occupation
 
-                           t(11) =     1.0238
-                        Prob>|t| =     0.1802
+                           t(11) =     1.1085
+                        Prob>|t| =     0.2222
 
-95% confidence set for null hypothesis expression: (−∞, ∞)
+95% confidence set for null hypothesis expression: [−.5726, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     0.5165
-                        Prob>|t| =     0.5866
+                           t(11) =     0.2681
+                        Prob>|t| =     0.7828
 
-95% confidence set for null hypothesis expression: (−∞, 3214]
-(A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
+95% confidence set for null hypothesis expression: [−.0587, .07042]
 
 Overriding estimator's cluster/robust settings with cluster(id year)
 (bootcluster(id year) assumed)

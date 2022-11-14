@@ -75,9 +75,9 @@ class boottestOLS {  // class for performing OLS
   real rowvector y1Y2, Yendog, y1barU2ddot
   real matrix Z, ZZ, invZperpZperp, XZ, XX, PXZ, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparX, RparY, RR1invR1R1, YY, AR, XAR, invXXXZ, XinvXX, Rt1, invXX, Y2, X2, invH, Δdddot, Y2bar, perpRperpX, ZperpZperp, ZperpX1, ZperpX2, ZperpY2, XY2, XU2ddot, X1X, X2X, U2ddotU2ddot, Y2Y2, Piddot, ZY2
   pointer(real colvector) scalar py1par, pXy1par
-  pointer(real matrix) scalar pA, pZperp, pX1, pX1perpRperpX, pX1par
+  pointer(real matrix) scalar pA, pZperp, pX1, pX1perpRperpX, pX1par, pR1AR1
   pointer (class boottest scalar) scalar parent
-  struct smatrix rowvector WXAR, CT_XAR, beta, u1ddot, XinvHg, Xg, XXg, XXt1g, u1dddot, U2ddot
+  struct smatrix rowvector WXAR, CT_XAR, beta, u1ddot, XinvHg, hg, Xg, XXg, u1dddot, U2ddot
 
   private void new(), InitTestDenoms()
   private virtual void InitVars(), SetR(), Estimate(), MakeResiduals()
@@ -109,7 +109,7 @@ class boottestIVGMM extends boottestOLS {
 class boottest {
   real scalar scoreBS, B, small, auxwttype, null, dirty, initialized, ML, Nobs, _Nobs, kZ, kY2, kX1, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
     sqrt, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClustVar, BootClust, FEdfadj, jk, ///
-    NFE, granular, purerobust, subcluster, Nstar, BFeas, v_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
+    NFE, granular, granularjk, purerobust, subcluster, Nstar, BFeas, v_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX
   real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0, YbarYbar, XYbar, invXXXZbar, PXZbar, Zbar
   real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, confpeak, gridmin, gridmax, gridpoints, numersum, anchor, poles, invFEwt
   real rowvector peak, betas, As
@@ -159,7 +159,7 @@ void boottestIVGMM::new() {
 
 
 // do select() but handle case that both args are scalar and second is 0 by interpreting second arg as rowvector and returning J(1,0,0)
-// if v = 0 (so can't tell if row or col vector), returns J(1, 0, 0) 
+// if v = 0 (so can't tell if row or col vector), returns J(1, 0, 0)
 real matrix boottestOLS::_select(real matrix X, real rowvector v)
   return (rows(X)==1 & cols(X)==1 & v==0? J(1,0,0) : select(X,v))
 
@@ -212,9 +212,8 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is for replication regression--no null imposed
-  real matrix H; pointer(real matrix) scalar pR1AR1, _pwt; real scalar g; real colvector S
+  real matrix H, _Xg; pointer(real matrix) scalar _pwt; real scalar g; real colvector S
 
-  Xg = XXg = XXt1g = XinvHg = smatrix(parent->jk? parent->Nstar : 1)
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
 
   py1par = parent->py1
@@ -227,12 +226,23 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is f
 
   if (parent->jk) {
     u1ddot[2].M = J(parent->Nobs, 1, 0)
+    Xg = smatrix(parent->Nstar)
+    if (parent->granularjk)
+      hg = Xg
+    else
+      XXg = XinvHg = smatrix(parent->Nstar)
     for (g=parent->Nstar; g; g--) {
       S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
       _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
       Xg[g].M = *pXS(*parent->pX1,S)
-      XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
-      XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+      if (parent->granularjk) {
+        hg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')  // -h_ii =  Xi * (X'X)^-1 * Xi - I
+        _diag(hg[g].M, diagonal(hg[g].M) :+ 1)
+        hg[g].M  = invsym(hg[g].M)
+      } else {
+        XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
+        XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+      }
     }
   }
 
@@ -244,9 +254,8 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is f
 
 void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   pragma unused pRperp
-  real matrix H, X2X1, _X1, _X2; real colvector S, X1y1, X2y1; pointer(real matrix) scalar pR1AR1; pointer(real colvector) _pwt; real scalar g
+  real matrix H, X2X1, _X1, _X2; real colvector S, X1y1, X2y1; pointer(real colvector) _pwt; real scalar g
 
-  XinvHg = Xg = XXg = smatrix(parent->jk? parent->Nstar : 1)
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
 
   X2X1 = cross(*parent->pX2, *parent->pwt, *parent->pX1)
@@ -260,14 +269,25 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   
   if (parent->jk) {
     u1ddot[2].M = J(parent->Nobs, 1, 0)
+    Xg = smatrix(parent->Nstar)
+    if (parent->granularjk)
+      hg = Xg
+    else
+      XXg = XinvHg = smatrix(parent->Nstar)
     for (g=parent->Nstar; g; g--) {
       S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
       _X1 = *pXS(*parent->pX1, S)
       _X2 = *pXS(*parent->pX2, S)
       _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
       Xg[g].M = _X1, _X2
-      XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
-      XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+      if (parent->granularjk) {
+        hg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')  // -h_ii =  Xi * (X'X)^-1 * Xi - I
+        _diag(hg[g].M, diagonal(hg[g].M) :+ 1)
+        hg[g].M  = invsym(hg[g].M)
+      } else {
+        XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
+        XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+      }
     }
   }
 
@@ -315,7 +335,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   if (isDGP)
     u1ddot = u1dddot = U2ddot = smatrix()
 
-  if (parent->jk & isDGP) {
+  if (parent->jk & isDGP & parent->WREnonARubin) {
     XY2g = ZY2g = XXg = XZg = YYg = Zy1g = X1y1g = X2y1g = y1Y2g = invHg = ZZg = invXXg = H_2SLSg = H_2SLSmZZg = ZR1Y2g = ZR1ZR1g = twoy1ZR1g = ZZR1g = X1ZR1g = X2ZR1g = ZXinvXXXZg = smatrix(parent->Nstar)
     y1y1g = J(parent->Nstar, 1, 0)
     beta = smatrix(parent->Nstar + 1)
@@ -478,7 +498,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   V = invXX * XZ  // in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy1). Also used in kZ-class and LIML robust VCV by Stata convention
 
   if (isDGP) {
-    if (parent->jk & LIML==0)
+    if (parent->jk & LIML==0 & parent->WREnonARubin)
       for (g=parent->Nstar; g; g--)
         invHg[g].M = invsym(kappa==1? H_2SLSg[g].M : ZZg[g].M + kappa * H_2SLSmZZg[g].M)
     H_2SLS = V ' XZ  // Hessian
@@ -490,7 +510,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     Yendog = 1, colsum(RparY :!= 0)  // columns of Y = [y1par Zpar] that are endogenous (normally all)
     if (parent->robust & parent->bootstrapt) {  // for WRE replication regression, prepare for CRVE
       XinvXX = *pX12B(*pX1, X2, invXX); if (parent->haswt) XinvXX = XinvXX :* *parent->pwt
-      if (parent->jk) {
+      if (parent->jk & parent->WREnonARubin) {
         PXZ = *pX12B(*pX1, X2, invXXXZ); if (parent->haswt) PXZ = PXZ :* *parent->pwt
       }
     }
@@ -502,25 +522,16 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
 // inconsistency: for replication regression of Anderson-Rubin, r1 refers to the *null*, not the maintained constraints, because that's what affects the endogenous variables
 // For WRE, should only be called once for the replication regressions, since for them r1 is the unchanging model constraint
 void boottestOLS::Estimate(real scalar _jk, real colvector r1) {
-  real scalar g
   beta.M = beta0 - dbetadr * r1
-  if (_jk & rows(R1perp)) {
+  if (_jk & rows(R1perp))
     t1 = R1invR1R1 * r1
-    for (g=parent->Nstar; g; g--)
-      XXt1g[g].M = XXg[g].M * t1
-  }
 }
 
 void boottestARubin::Estimate(real scalar _jk, real colvector r1) {
-  real scalar g
   beta.M = beta0 - dbetadr * r1
   py1par = &(*parent->py1 - *parent->pY2 * r1)
-
-  if (_jk & rows(R1perp)) {
+  if (_jk & rows(R1perp))
     t1 = R1invR1R1 * r1
-    for (g=parent->Nstar; g; g--)
-      XXt1g[g].M = XXg[g].M * t1
-  }
 }
 
 void boottestIVGMM::MakeH() {
@@ -538,7 +549,7 @@ void boottestIVGMM::MakeH() {
 
 void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
   real rowvector val; real matrix vec; real scalar g, kappag; real colvector ZXinvXXXy1par, invXXXy1parg; real matrix YPXY
-  pragma unset vec; pragma unset val; pragma unused _jk
+  pragma unset vec; pragma unset val
 
   if (cols(R1invR1R1)) {
     py1par = &(y1 - *pZR1 * r1)
@@ -548,7 +559,7 @@ void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
     pZy1par  = &( Zy1 -  ZZR1 * r1)
     pXy1par  = &(X1y1 - X1ZR1 * r1 \ X2y1 - X2ZR1 * r1)
 
-    if (isDGP & parent->jk)
+    if (_jk)
       for (g=parent->Nstar; g; g--) {
         py1parjk = &(y1jk - ZR1jk * r1)
         (*py1pary1parg)[g]   = y1y1g[g]   - twoy1ZR1g[g].M * r1 + r1 ' ZR1ZR1g[g].M * r1
@@ -575,7 +586,7 @@ void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
     }
     beta.M = invH * (kappa==1? ZXinvXXXy1par : kappa * (ZXinvXXXy1par - *pZy1par) + *pZy1par)
 
-    if (parent->jk){
+    if (_jk){
       t1Y = t1[|parent->kX1+1,.\.,.|]
       for (g=parent->Nstar; g; g--) {
         ZXinvXXXy1par = XZg[g].M ' (invXXXy1parg = invXXg[g].M * (*pXy1parg)[g].M)
@@ -598,15 +609,26 @@ void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
 }
 
 void boottestOLS::MakeResiduals(real scalar _jk) {
-  real scalar g, m; real colvector S, u1ddotg
+  real scalar g, m; real colvector S, u1ddotg, Xgt1
   u1ddot.M = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta.M)
+
   if (_jk) {
     m = parent->small? sqrt((parent->Nstar - 1) / parent->Nstar) : 1
-    for (g=parent->Nstar; g; g--) {
-      S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
-      u1ddotg = u1ddot.M[|S|]
-      u1ddot[2].M[|S|] = m * (u1ddotg + XinvHg[g].M * (rows(R1perp)? Xg[g].M'u1ddotg + XXt1g[g].M : Xg[g].M'u1ddotg))
-    }
+    if (parent->granularjk) {
+      for (g=parent->Nstar; g; g--) {
+        S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
+        if (rows(R1perp)) {
+          Xgt1 = Xg[g].M * t1
+          u1ddot[2].M[|S|] = m * (hg[g].M * (u1ddot.M[|S|] + Xgt1) - Xgt1)
+        } else
+          u1ddot[2].M[|S|] = m * (hg[g].M *  u1ddot.M[|S|])
+      }
+    } else
+      for (g=parent->Nstar; g; g--) {
+        S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
+        u1ddotg = u1ddot.M[|S|]
+        u1ddot[2].M[|S|] = m * (u1ddotg + XinvHg[g].M * (rows(R1perp)? Xg[g].M'u1ddotg + XXg[g].M * t1 : Xg[g].M'u1ddotg))
+      }
   }
 }
 
@@ -1107,6 +1129,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
                                !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
+    granularjk = kX1^3 + Nstar * (Nobs/Nstar*kX1^2 + (Nobs/Nstar)^2*kX1 + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kX1^2*Nobs/Nstar + kX2^3 + 2*kX1*(kX1 + Nobs/Nstar))
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
@@ -1253,7 +1276,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       
       DGP.InitVars()
       if (null==0) {  // if not imposing null, then DGP constraints, kappa, Hessian, etc. do not vary with r and can be set now
-        DGP.Estimate(0, *pr1)
+        DGP.Estimate(jk, *pr1)
         DGP.MakeResiduals(0)
       }
 
@@ -1291,7 +1314,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       DGP.InitVars()
       pM = &Repl  // estimator object from which to get A, AR, XAR; DGP follows WRE convention of using FWL, Repl follows OLS convention of not; scoreBS for IV/GMM mixes the two
       if (null==0) {  // if not imposing null, then DGP constraints, kappa, Hessian, etc. do not vary with r and can be set now
-        DGP.Estimate(0, *pr1)
+        DGP.Estimate(jk, *pr1)
         DGP.MakeResiduals(0)
       }
     }
@@ -1592,7 +1615,7 @@ void boottest::PrepWRE() {
   real scalar i, j, g; pointer (real colvector) scalar puwt, pu; real matrix ZU2ddotpar; real rowvector y1barY2bar
 
   if (null) {
-    DGP.Estimate(0, *pr1 \ *pr)
+    DGP.Estimate(jk, *pr1 \ *pr)
     DGP.MakeResiduals(0)
   }
 
@@ -1975,7 +1998,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
   real scalar c, d; real matrix _v; real matrix betadev
 
   if (jk & !_jk) {
-    if ( !ARubin & null) 
+    if (!ARubin & null) 
       (*pnumer)[,1] = v_sd * (  // full original-sample test stat numerator
                           scoreBS?
                              (B? 
@@ -2496,28 +2519,6 @@ mata mlib create lboottest, dir("`c(sysdir_plus)'l") replace
 mata mlib add lboottest *(), dir("`c(sysdir_plus)'l")
 mata mlib index
 end
-//
-//
-// use "D:\OneDrive\Documents\Macros\nlsw88.dta"
-// ivreghdfe wage collgrad (tenure = union ttl_exp), cluster(industry) a(south)
-// boottest {tenure} {collgrad=2.9}, reps(9999) seed(1231) noci
-//
-// Warning: with 12 bootstrap clusters, the number of replications, 9999, exceeds th
-// > e universe of Rademacher draws, 2^12 = 4096. Sampling each once.
-// Consider Webb weights instead, using weight(webb).
-//
-// Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
-//   tenure
-//
-//                            t(11) =    13.1870
-//                         Prob>|t| =     0.0022
-//
-// Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
-//   collgrad=2.9
-//
-//                            t(11) =     0.4253
-//                         Prob>|t| =     0.7207
-//
-// ---
-// ivreg2 wage collgrad (tenure = ttl_exp), cluster(industry)
-// boottest collgrad, noci reps(2) nosmall
+
+// ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
+// boottest tenure, ar jk seed(1231)
