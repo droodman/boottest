@@ -112,17 +112,17 @@ one-dimensional, a confidence set is derived:
 
 {p 2 4 0}* The first significant addition is an option to perform the bootstrap-c,
 which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather t/z/F/chi2 statistics. Standard theory favors the latter, 
-but Young (2022) presents evidence that the bootstrap-c (or "non-studentized" test) is at least as reliable in instrumental variables estimation. And theory and simulation in
+but Young (2022) presents evidence that the bootstrap-c (or "non-studentized" test) is at least as reliable in instrumental variables (IV) estimation. And theory and simulation in
 Wang (2021) favors the non-studentized test when instruments are weak, but strong in at least one cluster. The option 
 {cmdab:stat:istic(c)} invokes the feature.
 
 {p 2 4 0}* The second notable new feature is the ability to jackknife the bootstrap data-generating process, as advocated for OLS by MacKinnon, Nielsen, and
-Webb (2022). (And Young (2022) advocates it for instrumental variable estimation too.) If a single cluster contains extreme observations,
+Webb (2022) and for linear IV estimation by Young (2022). If a single cluster contains extreme observations,
 that will drive the initial model fit toward minimizing their apparent extremity, thus potentially making the bootstrap data-generating process less realistic. To reduce this risk,
-the {help jackknife} computes each bootstrapping cluster's best fit, and associated residuals, using only the data from all the other clusters. {cmd:boottest}'s
+the {help jackknife} computes each bootstrapping cluster's best fit using only the data from all the other clusters. For OLS, {cmd:boottest}'s
 implementation corresponds to what MacKinnon, Nielsen, and Webb (2022) calls the WCU/WCR31.
 
-{p 2 4 0}* The thrid new feature is the {cmdab:marg:ins} option, which allows you to bootstrap results from the {cmd:margins} command when those results are
+{p 2 4 0}* The third new feature is the {cmdab:marg:ins} option, which allows you to bootstrap results from the {cmd:margins} command when those results are
 linear functions of the parameters. To use this feature,
 run {cmd:boottest} immediately after {cmd:margins} and do not include any hypotheses before the comma in the {cmd:boottest} command line. {cmd:boottest} will treat
 each marginal effect separately.
@@ -334,12 +334,11 @@ Webb weights are probably better.
 {phang}{opt boot:type(wild | score)} specifies the bootstrap type. After ML estimation, {it:score} is the default and only option. Otherwise, the wild or wild 
 restricted efficient bootstrap is the default, which {cmd:boottype(score)} overrides in favor of the score bootstrap.
 
-{phang}{opt jack:knife} or {opt jk} requests jackknifing of the bootstrap data-generating process. In the inital model fit, the one subject to the null 
-unless {cmdab:nonul:l} is specified, the fit within each bootstrapping cluster, as well as the associated residuals, are computed using only the data from all
-the other clusters. MacKinnon, Nielsen, and Webb (2022) dubs this process WCU/WCR31. The option is currently available after OLS estimation, as well
-as instrumental variables estimation when the Anderson-Rubin test is requested with the {cmd:ar} option. Implementation for IV without the Anderson-Rubin test,
-i.e., for the Wild Restricted Efficient bootstrap, is pending.
-
+{phang}{opt jack:knife} or {opt jk} requests jackknifing of the bootstrap data-generating process for OLS or linear IV estimates. In the 
+inital model fit, the one subject to the null unless {cmdab:nonul:l} is specified, the fit within each bootstrapping cluster is computed using only the data from all
+the other clusters. For OLS, MacKinnon, Nielsen, and Webb (2022) dubs this process WCU/WCR31. For IV, it corresponds to the jackknifed wild bootstrap described in Young (2002). The 
+Julia implementation (invoked with the {cmd:julia}) option does not offer the jackknife after instrumental variables estimation, unless running the Anderson-Rubin test 
+(invoked with the {cmd:ar} option).
 
 {phang}{opt stat:istic(t | c)} specifies the boostrapped statistic. The default, {it:t}, invokes the bootstrap-t, meaning the bootstrapping of
 distributions for t, z, F, or chi2 statistics. The alternative, {it:c}, requests the bootstrap-c.
@@ -612,9 +611,8 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 
 {phang}. {stata ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)}{p_end}
 {phang}. {stata boottest tenure, ptype(equaltail) seed(987654321)} // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps{p_end}
-{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c)} // same but bootstrap-c{p_end}
-{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) stat(c) gridmin(-2) gridmax(2)} // same but limit graphing range{p_end}
-{phang}. {stata boottest, ar} // same bootstrap, but Anderson-Rubin test (much faster){p_end}
+{phang}. {stata boottest tenure, ptype(equaltail) seed(987654321) jk} // same but using jackknife to construct residuals for bootstrap{p_end}
+{phang}. {stata boottest, ar} // Anderson-Rubin test (much faster){p_end}
 {phang}. {stata scoretest tenure} // Rao/LM test of same{p_end}
 {phang}. {stata waldtest tenure} // Wald test of same{p_end}
 
