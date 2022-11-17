@@ -16,9 +16,9 @@
   7.   boottest post_self=.04, `julia' weight(webb) jk nogr nonull
   8.   scoretest post_self=.04, `julia' nogr
   9. 
-.   boottest post_self post, `julia' reps(999) weight(webb) nogr // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
- 10.   boottest (post_self) (post), `julia' reps(999) weight(webb) nogr // same
- 11.   boottest {post_self=.04} {post}, `julia' nogr // separate tests, no correction for multiple hypotheses
+.   boottest post_self post, `julia' reps(999) weight(webb) nogr  // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
+ 10.   boottest (post_self) (post), `julia' reps(999) weight(webb) nogr  // same
+ 11.   boottest {post_self=.04} {post}, `julia' nogr  // separate tests, no correction for multiple hypotheses
  12.   boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, `julia' madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
  13. 
 .   use nlsw88

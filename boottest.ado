@@ -108,7 +108,8 @@ program define _boottest, rclass sortpreserve
   
   local jk = "`jk'`jackknife'" != ""
 
-  if "`julia'" != "" & !0$boottest_julia_loaded {
+  local julia = "`julia'" != "" 
+  if `julia' & !0$boottest_julia_loaded {
     if c(stata_version) < 16 {
       di as err "The {cmd:julia} option requires Stata 16 or higher."
       exit 198
@@ -388,6 +389,11 @@ program define _boottest, rclass sortpreserve
 
   if `jk' & `ML' {
 		di as err "boottest can't jackknife ML-based estimates."
+		exit 198
+  }
+  
+  if `jk' & `IV' & !`ar' & `julia'{
+		di as err "The Julia implementation can't (yet) jackknife IV-based estimates, except with the Anderson-Rubin test."
 		exit 198
   }
   
@@ -859,7 +865,7 @@ program define _boottest, rclass sortpreserve
 
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
-    if "`julia'"=="" {
+    if `julia' {
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', `jk', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///

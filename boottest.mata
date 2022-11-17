@@ -65,9 +65,11 @@ pointer(real matrix) scalar pXS(real matrix X, real colvector S)
 // do X[|S|] = Y while allowing X to have no cols and S to be a colvector
 void setXS(real matrix X, real colvector S, real matrix Y) if (cols(X)) X[|S,(.\.)|] = Y;;
 
-// :* operation, handling case that either argument is just 1 without duplicating data
+// Hadamard :* operation, handling case that either argument is just 1 without duplicating data
 pointer (real colvector) scalar pvHadw(real matrix v, real matrix w)
   return(w==1? &v : (v==1? &w : &(v :* w)))
+
+matrix fold(matrix X) return(uppertriangle(X) + lowertriangle(X,0)')  // fold matrix diagonally; returns same values as a quad form, but runs faster because of all the 0's
 
 class boottestOLS {  // class for performing OLS
   real scalar y1y1, LIML, Fuller, kappa, isDGP, kZ, kX1, y1bary1bar
@@ -77,7 +79,7 @@ class boottestOLS {  // class for performing OLS
   pointer(real colvector) scalar py1par, pXy1par
   pointer(real matrix) scalar pA, pZperp, pX1, pX1perpRperpX, pX1par, pR1AR1
   pointer (class boottest scalar) scalar parent
-  struct smatrix rowvector WXAR, CT_XAR, beta, u1ddot, XinvHg, hg, Xg, XXg, u1dddot, U2ddot
+  struct smatrix rowvector WXAR, CT_XAR, beta, u1ddot, XinvHg, invMg, Xg, XXg, u1dddot, U2ddot
 
   private void new(), InitTestDenoms()
   private virtual void InitVars(), SetR(), Estimate(), MakeResiduals()
@@ -212,7 +214,7 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
 
 // stuff that can be done before r set, and depends only on exogenous variables, which are fixed throughout all bootstrap methods
 void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is for replication regression--no null imposed
-  real matrix H, _Xg; pointer(real matrix) scalar _pwt; real scalar g; real colvector S
+  real matrix H; pointer(real matrix) scalar _pwt; real scalar g; real colvector S
 
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
 
@@ -224,27 +226,31 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is f
   beta0  = *pR1AR1 * X1y1
   dbetadr = *pR1AR1 * H * R1invR1R1 - R1invR1R1
 
-  if (parent->jk) {
-    u1ddot[2].M = J(parent->Nobs, 1, 0)
-    Xg = smatrix(parent->Nstar)
-    if (parent->granularjk)
-      hg = Xg
-    else
-      XXg = XinvHg = smatrix(parent->Nstar)
-    for (g=parent->Nstar; g; g--) {
-      S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
-      _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
-      Xg[g].M = *pXS(*parent->pX1,S)
-      if (parent->granularjk) {
-        hg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')  // -h_ii =  Xi * (X'X)^-1 * Xi - I
-        _diag(hg[g].M, diagonal(hg[g].M) :+ 1)
-        hg[g].M  = invsym(hg[g].M)
-      } else {
-        XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
-        XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+  if (parent->jk)
+    if (parent->purerobust)  // set up for optimized "robust" jk
+      (invMg = smatrix()).M = (parent->haswt? *parent->pwt : 1) :/ (1 :- rowsum(*parent->pX1 * fold(*pR1AR1) :* *parent->pX1))  // standard hc3 multipliers
+    else {
+      u1ddot[2].M = J(parent->Nobs, 1, 0)
+      Xg = smatrix(parent->Nstar)
+      if (parent->granularjk)
+        invMg = Xg
+      else
+        XXg = XinvHg = smatrix(parent->Nstar)
+
+      for (g=parent->Nstar; g; g--) {
+        S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
+        _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
+        Xg[g].M = *pXS(*parent->pX1,S)
+        if (parent->granularjk) {  // for many small clusters, faster to compute jackknife errors vaia hc3-like formula
+          invMg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')
+          _diag(invMg[g].M, diagonal(invMg[g].M) :+ 1)
+          invMg[g].M  = invsym(invMg[g].M)
+        } else {
+          XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
+          XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+        }
       }
     }
-  }
 
   pA = rows(*pRperp)? &(*pRperp * invsym(*pRperp ' H * *pRperp) * *pRperp') : &invH  // for replication regression
   AR = *pA * *parent->pR'
@@ -254,7 +260,7 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is f
 
 void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   pragma unused pRperp
-  real matrix H, X2X1, _X1, _X2; real colvector S, X1y1, X2y1; pointer(real colvector) _pwt; real scalar g
+  real matrix H, X2X1, _X2X1, _X1, _X2; real colvector S, X1y1, X2y1; pointer(real colvector) _pwt; real scalar g
 
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
 
@@ -271,7 +277,7 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
     u1ddot[2].M = J(parent->Nobs, 1, 0)
     Xg = smatrix(parent->Nstar)
     if (parent->granularjk)
-      hg = Xg
+      invMg = Xg
     else
       XXg = XinvHg = smatrix(parent->Nstar)
     for (g=parent->Nstar; g; g--) {
@@ -280,12 +286,13 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
       _X2 = *pXS(*parent->pX2, S)
       _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
       Xg[g].M = _X1, _X2
-      if (parent->granularjk) {
-        hg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')  // -h_ii =  Xi * (X'X)^-1 * Xi - I
-        _diag(hg[g].M, diagonal(hg[g].M) :+ 1)
-        hg[g].M  = invsym(hg[g].M)
+      if (parent->granularjk) {  // for many small clusters, faster to compute jackknife errors vaia hc3-like formula
+        invMg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')
+        _diag(invMg[g].M, diagonal(invMg[g].M) :+ 1)
+        invMg[g].M  = invsym(invMg[g].M)
       } else {
-        XXg[g].M = cross(Xg[g].M, *_pwt, Xg[g].M)
+        _X2X1 = cross(_X2, _pwt, _X1)
+        XXg[g].M = cross(_X1, _pwt, _X1), _X2X1' \ _X2X1, cross(_X2, _pwt, _X2)
         XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
       }
     }
@@ -294,7 +301,6 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   AR = *pA * *parent->pR'  // for replication regression
   if (parent->scoreBS | parent->robust)
     XAR = *pX12B(*parent->pX1, *parent->pX2, AR)
-
 }
 
 void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
@@ -609,25 +615,35 @@ void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
 }
 
 void boottestOLS::MakeResiduals(real scalar _jk) {
-  real scalar g, m; real colvector S, u1ddotg, Xgt1
+  real scalar g, m; real colvector S, u1ddotg, Xt1; pointer(real colvector) scalar _pwt
+
   u1ddot.M = *py1par - *pX12B(*parent->pX1, *parent->pX2, beta.M)
 
   if (_jk) {
     m = parent->small? sqrt((parent->Nstar - 1) / parent->Nstar) : 1
-    if (parent->granularjk) {
+    
+    if (parent->purerobust)  // somwhat faster handling classic hc3
+      if (rows(R1perp)) {
+        Xt1 = *pX12B(*parent->pX1, *parent->pX2, t1)
+        u1ddot[2].M = m * ((invMg.M :* (u1ddot.M + Xt1)) - Xt1)
+      } else
+        u1ddot[2].M = m * invMg.M :* u1ddot.M
+    else if (parent->granularjk) {
       for (g=parent->Nstar; g; g--) {
-        S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
+        S = parent->NClustVar? parent->infoBootData[g,]' : g\g
+        _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
         if (rows(R1perp)) {
-          Xgt1 = Xg[g].M * t1
-          u1ddot[2].M[|S|] = m * (hg[g].M * (u1ddot.M[|S|] + Xgt1) - Xgt1)
+          Xt1 = Xg[g].M * t1
+          u1ddot[2].M[|S|] = m * (cross(invMg[g].M, *_pwt, u1ddot.M[|S|] + Xt1) - Xt1)
         } else
-          u1ddot[2].M[|S|] = m * (hg[g].M *  u1ddot.M[|S|])
+          u1ddot[2].M[|S|] = m * cross(invMg[g].M, *_pwt,  u1ddot.M[|S|])
       }
     } else
       for (g=parent->Nstar; g; g--) {
-        S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
+        S = parent->infoBootData[g,]'
         u1ddotg = u1ddot.M[|S|]
-        u1ddot[2].M[|S|] = m * (u1ddotg + XinvHg[g].M * (rows(R1perp)? Xg[g].M'u1ddotg + XXg[g].M * t1 : Xg[g].M'u1ddotg))
+        _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
+        u1ddot[2].M[|S|] = m * (u1ddotg + XinvHg[g].M * (rows(R1perp)? cross(Xg[g].M, *_pwt, u1ddotg) + XXg[g].M * t1 : cross(Xg[g].M, *_pwt, u1ddotg)))
       }
   }
 }
@@ -1129,7 +1145,8 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
     granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
                                !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
-    granularjk = kX1^3 + Nstar * (Nobs/Nstar*kX1^2 + (Nobs/Nstar)^2*kX1 + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kX1^2*Nobs/Nstar + kX2^3 + 2*kX1*(kX1 + Nobs/Nstar))
+    if (jk)
+      granularjk = kX1^3 + Nstar * (Nobs/Nstar*kX1^2 + (Nobs/Nstar)^2*kX1 + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kX1^2*Nobs/Nstar + kX2^3 + 2*kX1*(kX1 + Nobs/Nstar))
 
     if (robust & purerobust==0) {
       if (subcluster | granular)
@@ -2521,4 +2538,4 @@ mata mlib index
 end
 
 // ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
-// boottest tenure, ar jk seed(1231)
+// version 13: boottest tenure,  ptype(equaltail) seed(987654321) nogr

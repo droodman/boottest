@@ -30,9 +30,9 @@ foreach julia in "" /*julia*/ {
   boottest post_self=.04, `julia' weight(webb) jk nogr nonull
   scoretest post_self=.04, `julia' nogr
 
-  boottest post_self post, `julia' reps(999) weight(webb) nogr // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
-  boottest (post_self) (post), `julia' reps(999) weight(webb) nogr // same
-  boottest {post_self=.04} {post}, `julia' nogr // separate tests, no correction for multiple hypotheses
+  boottest post_self post, `julia' reps(999) weight(webb) nogr  // wild bootstrap test of joint null, Webb weights, null imposed, 9,999 replications
+  boottest (post_self) (post), `julia' reps(999) weight(webb) nogr  // same
+  boottest {post_self=.04} {post}, `julia' nogr  // separate tests, no correction for multiple hypotheses
   boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, `julia' madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
 
   use nlsw88
