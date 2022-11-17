@@ -865,7 +865,7 @@ program define _boottest, rclass sortpreserve
 
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
-    if `julia' {
+    if !`julia' {
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', `jk', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///

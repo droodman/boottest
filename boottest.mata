@@ -260,7 +260,7 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is f
 
 void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   pragma unused pRperp
-  real matrix H, X2X1, _X2X1, _X1, _X2; real colvector S, X1y1, X2y1; pointer(real colvector) _pwt; real scalar g
+  real matrix H, X2X1, _X2X1, _X1, _X2, tmp; real colvector S, X1y1, X2y1; pointer(real colvector) _pwt; real scalar g
 
   u1ddot = smatrix(1 + parent->jk)  // for jackknife, need jk'd residuals but also non-jk'd residuals for original test stat
 
@@ -273,30 +273,39 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   beta0   = *pR1AR1 * (X1y1 \ X2y1)
   dbetadr = *pR1AR1 * (cross(*parent->pX1, *parent->pwt, *parent->pY2) \ cross(*parent->pX2, *parent->pwt, *parent->pY2))
   
-  if (parent->jk) {
-    u1ddot[2].M = J(parent->Nobs, 1, 0)
-    Xg = smatrix(parent->Nstar)
-    if (parent->granularjk)
-      invMg = Xg
-    else
-      XXg = XinvHg = smatrix(parent->Nstar)
-    for (g=parent->Nstar; g; g--) {
-      S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
-      _X1 = *pXS(*parent->pX1, S)
-      _X2 = *pXS(*parent->pX2, S)
-      _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
-      Xg[g].M = _X1, _X2
-      if (parent->granularjk) {  // for many small clusters, faster to compute jackknife errors vaia hc3-like formula
-        invMg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')
-        _diag(invMg[g].M, diagonal(invMg[g].M) :+ 1)
-        invMg[g].M  = invsym(invMg[g].M)
-      } else {
-        _X2X1 = cross(_X2, _pwt, _X1)
-        XXg[g].M = cross(_X1, _pwt, _X1), _X2X1' \ _X2X1, cross(_X2, _pwt, _X2)
-        XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+  if (parent->jk)
+    if (parent->purerobust) {  // set up for optimized "robust" jk
+      tmp = fold(*pR1AR1)
+      (invMg=smatrix()).M = parent->kX1? rowsum(*parent->pX1 * tmp[|.,.\parent->kX1,parent->kX1|] :* *parent->pX1) +
+                             rowsum(*parent->pX1 * tmp[|.,parent->kX1+1\parent->kX1,.|] :* *parent->pX2) +
+                             rowsum(*parent->pX2 * tmp[|parent->kX1+1,parent->kX1+1\.,.|] :* *parent->pX2) :
+                             rowsum(*parent->pX2 * tmp                                    :* *parent->pX2)
+      invMg.M = (parent->haswt? *parent->pwt : 1) :/ (1 :- invMg.M)  // standard hc3 multipliers
+    } else {
+      u1ddot[2].M = J(parent->Nobs, 1, 0)
+      Xg = smatrix(parent->Nstar)
+      if (parent->granularjk)
+        invMg = Xg
+      else
+        XXg = XinvHg = smatrix(parent->Nstar)
+
+      for (g=parent->Nstar; g; g--) {
+        S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
+        _X1 = *pXS(*parent->pX1, S)
+        _X2 = *pXS(*parent->pX2, S)
+        _pwt = parent->haswt? pXS(*parent->pwt,S) : parent->pwt
+        Xg[g].M = _X1, _X2
+        if (parent->granularjk) {  // for many small clusters, faster to compute jackknife errors vaia hc3-like formula
+          invMg[g].M = -(Xg[g].M * *pR1AR1 * Xg[g].M')
+          _diag(invMg[g].M, diagonal(invMg[g].M) :+ 1)
+          invMg[g].M  = invsym(invMg[g].M)
+        } else {
+          _X2X1 = cross(_X2, *_pwt, _X1)
+          XXg[g].M = cross(_X1, *_pwt, _X1), _X2X1' \ _X2X1, cross(_X2, *_pwt, _X2)
+          XinvHg[g].M = Xg[g].M * (rows(R1perp)? R1perp * invsym(R1perp ' (H - XXg[g].M) *  R1perp) *  R1perp' : invsym(H - XXg[g].M))
+        }
       }
     }
-  }
 
   AR = *pA * *parent->pR'  // for replication regression
   if (parent->scoreBS | parent->robust)

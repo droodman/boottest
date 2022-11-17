@@ -46,182 +46,188 @@
  31. 
 .   qui ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
  32.   boottest tenure, `julia' noci  // WRE bootstrap, Rademacher weights, 999 replications
- 33.   qui cmp (wage = tenure) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)
- 34.   boottest tenure, `julia'  // reasonable match on test statistic and p value
- 35. 
+ 33.   boottest tenure, `julia' noci jk // WRE bootstrap, Rademacher weights, 999 replications
+ 34.   qui cmp (wage = tenure) (tenure = collgrad ttl_exp), ind(1 1) qui nolr cluster(industry)
+ 35.   boottest tenure, `julia'  // reasonable match on test statistic and p value
+ 36. 
 .   qui ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
- 36.   boottest tenure, `julia' nograph  // Wald test, WRE bootstrap, Rademacher weights, 999 replications
- 37.   boottest, `julia' nograph ar  // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid)
- 38. 
+ 37.   boottest tenure, `julia' nograph  // Wald test, WRE bootstrap, Rademacher weights, 999 replications
+ 38.   boottest tenure, `julia' nograph jk // Wald test, WRE bootstrap, Rademacher weights, 999 replications
+ 39.   boottest, `julia' nograph ar  // same, but Anderson-Rubin (faster, but CI misleading if instruments invalid)
+ 40. 
 .   qui ivregress liml wage (collgrad tenure = ttl_exp union), cluster(industry)
- 39.   boottest, `julia' ar nogr  // Anderson-Rubin test, with contour plot of p value surface
- 40.   boottest collgrad tenure, `julia' gridpoints(10 10) nogr  // WRE boostrap also with contour plot
- 41. 
+ 41.   boottest, `julia' ar nogr  // Anderson-Rubin test, with contour plot of p value surface
+ 42.   boottest, `julia' ar nogr jk  // Anderson-Rubin test, with contour plot of p value surface
+ 43.   boottest collgrad tenure, `julia' gridpoints(10 10) nogr  // WRE boostrap also with contour plot
+ 44. 
 .   qui regress wage tenure ttl_exp collgrad, robust  // no clustering
- 42.   boottest tenure, `julia' nogr
- 43. 
+ 45.   boottest tenure, `julia' nogr
+ 46.   boottest tenure, `julia' nogr jk
+ 47. 
 .   qui ivregress liml wage (collgrad tenure = ttl_exp union), robust  // no clustering
- 44.   boottest, `julia' ar nogr
- 45.   boottest collgrad tenure, `julia' gridpoints(10 10) nogr
- 46. 
+ 48.   boottest, `julia' ar nogr
+ 49.   boottest collgrad tenure, `julia' gridpoints(10 10) nogr
+ 50. 
 .   qui regress wage ttl_exp collgrad tenure, cluster(industry)
- 47.   waldtest collgrad tenure, cluster(industry age) nogr // multi-way-clustered tests after estimation command not offering such
- 48.   boottest tenure, `julia' cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2) nogr
- 49. 
-.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
- 50.   boottest tenure, `julia' cluster(age occupation) bootcluster(occupation) seed(999) nograph  // override estimate's clustering
- 51.   qui reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)
- 52.   boottest tenure, `julia' cluster(age occupation) bootcluster(occupation) seed(999) nograph  // should match previous result
+ 51.   waldtest collgrad tenure, cluster(industry age) nogr // multi-way-clustered tests after estimation command not offering such
+ 52.   boottest tenure, `julia' cluster(industry age) bootcluster(industry) gridmin(-.2) gridmax(.2) nogr
  53. 
-.   qui probit c_city tenure wage ttl_exp collgrad, cluster(industry)
- 54.   boottest tenure, `julia' nogr                          // score bootstrap, Rademacher weights, null imposed, 999 replications
- 55.   boottest tenure, `julia' cluster(industry age) bootcluster(industry) small nogr  // multi-way-clustered, finite-sample-corrected test with score bootstrap
- 56. 
-.   qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit  // same probit estimate as previous
- 57.   boottest tenure, `julia'                                                              // requires Stata 14.0 or later
- 58.   boottest tenure, `julia' cluster(industry age) bootcluster(industry) small          // requires Stata 14.0 or later
+.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<., cluster(age) absorb(industry)
+ 54.   boottest tenure, `julia' cluster(age occupation) bootcluster(occupation) seed(999) nograph  // override estimate's clustering
+ 55.   boottest tenure, `julia' cluster(age occupation) bootcluster(occupation) seed(999) nograph jk // override estimate's clustering
+ 56.   qui reg wage ttl_exp collgrad tenure i.industry [aw=hours] if occupation<., cluster(age)
+ 57.   boottest tenure, `julia' cluster(age occupation) bootcluster(occupation) seed(999) nograph  // should match previous result
+ 58.   boottest tenure, `julia' cluster(age occupation) bootcluster(occupation) seed(999) nograph jk // should match previous result
  59. 
+.   qui probit c_city tenure wage ttl_exp collgrad, cluster(industry)
+ 60.   boottest tenure, `julia' nogr                          // score bootstrap, Rademacher weights, null imposed, 999 replications
+ 61.   boottest tenure, `julia' cluster(industry age) bootcluster(industry) small nogr  // multi-way-clustered, finite-sample-corrected test with score bootstrap
+ 62. 
+.   qui gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit  // same probit estimate as previous
+ 63.   boottest tenure, `julia'                                                              // requires Stata 14.0 or later
+ 64.   boottest tenure, `julia' cluster(industry age) bootcluster(industry) small          // requires Stata 14.0 or later
+ 65. 
 .   sysuse auto, clear
- 60.   ml model lf myprobit (foreign = mpg weight)  // define model
- 61.   qui ml max // estimate
- 62.   boottest mpg, `julia' cmdline(ml model lf myprobit (foreign = mpg weight)) 
- 63. 
+ 66.   ml model lf myprobit (foreign = mpg weight)  // define model
+ 67.   qui ml max // estimate
+ 68.   boottest mpg, `julia' cmdline(ml model lf myprobit (foreign = mpg weight)) 
+ 69. 
 .   use collapsed, clear
- 64. 
+ 70. 
 .   qui regress hasinsurance selfemployed post post_self, cluster(year)
- 65.   boottest post_self=.04, `julia' weight(webb) nogr
- 66.   boottest post_self=.04, `julia' weight(webb) reps(9999999) noci
- 67.   boottest post_self=.04, `julia' weight(normal) reps(9999) noci
- 68.   boottest post_self=.04, `julia' weight(gamma) reps(9999) noci svv
- 69.   boottest post_self=.04, `julia' weight(mammen) reps(9999) noci
- 70.   boottest post_self=.04, `julia' weight(mammen) reps(9999) boottype(score) nogr
- 71. 
+ 71.   boottest post_self=.04, `julia' weight(webb) nogr
+ 72.   boottest post_self=.04, `julia' weight(webb) reps(9999999) noci
+ 73.   boottest post_self=.04, `julia' weight(normal) reps(9999) noci
+ 74.   boottest post_self=.04, `julia' weight(gamma) reps(9999) noci svv
+ 75.   boottest post_self=.04, `julia' weight(mammen) reps(9999) noci
+ 76.   boottest post_self=.04, `julia' weight(mammen) reps(9999) boottype(score) nogr
+ 77. 
 .   qui regress hasinsurance selfemployed post post_self, robust
- 72.   boottest post_self=.04, `julia' weight(webb) nogr
- 73. 
+ 78.   boottest post_self=.04, `julia' weight(webb) nogr
+ 79. 
 .   qui regress hasinsurance selfemployed post post_self, cluster(year)
- 74.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
- 75.   boottest (post_self=.05) (post=-.02) (selfemployed=-.15), `julia' reps(9999) weight(webb) nogr
- 76. 
+ 80.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
+ 81.   boottest (post_self=.05) (post=-.02) (selfemployed=-.15), `julia' reps(9999) weight(webb) nogr
+ 82. 
 .   qui regress hasinsurance selfemployed post post_self
- 77.   boottest post_self=.04, `julia' weight(webb) nogr
- 78.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
- 79.   scoretest (post_self=.05), `julia' nogr
- 80.   scoretest (post_self=.05) (post=-.02), `julia' nogr
- 81.   boottest (post_self=.08), `julia' boottype(score) reps(9999) nogr
- 82.   boottest (post_self=.05) (post=-.02), `julia' boottype(score) reps(9999) nogr
- 83. 
+ 83.   boottest post_self=.04, `julia' weight(webb) nogr
+ 84.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
+ 85.   scoretest (post_self=.05), `julia' nogr
+ 86.   scoretest (post_self=.05) (post=-.02), `julia' nogr
+ 87.   boottest (post_self=.08), `julia' boottype(score) reps(9999) nogr
+ 88.   boottest (post_self=.05) (post=-.02), `julia' boottype(score) reps(9999) nogr
+ 89. 
 .   use nlsw88, clear
- 84.   constraint 1 ttl_exp = .2
- 85.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
- 86.   boottest tenure, `julia' nogr
- 87. 
-.   keep if e(sample)
- 88.   gen id = _n - cond(_n>1000, 1000, 0)
- 89.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(id)  // granular but not pure robust
- 90.   boottest tenure, `julia' reps(9999) nogr
- 91. 
-.   qui areg wage tenure ttl_exp collgrad, cluster(id) a(industry)
- 92.   boottest tenure, `julia' reps(9999) nogr
+ 90.   constraint 1 ttl_exp = .2
+ 91.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
+ 92.   boottest tenure, `julia' nogr
  93. 
-.   use d:\OneDrive\Documents\Macros\nlsw88, clear
- 94.   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
- 95.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
- 96.   boottest tenure, `julia' nonull reps(99999) matsize(.1) nogr
- 97.   boottest tenure, `julia' ptype(upper) svmat(t) reps(9999) nogr
- 98.   boottest tenure, `julia' ptype(lower) svmat(numer) reps(9999) nogr
+.   keep if e(sample)
+ 94.   gen id = _n - cond(_n>1000, 1000, 0)
+ 95.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(id)  // granular but not pure robust
+ 96.   boottest tenure, `julia' reps(9999) nogr
+ 97. 
+.   qui areg wage tenure ttl_exp collgrad, cluster(id) a(industry)
+ 98.   boottest tenure, `julia' reps(9999) nogr
  99. 
+.   use d:\OneDrive\Documents\Macros\nlsw88, clear
+100.   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
+101.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
+102.   boottest tenure, `julia' nonull reps(99999) matsize(.1) nogr
+103.   boottest tenure, `julia' ptype(upper) svmat(t) reps(9999) nogr
+104.   boottest tenure, `julia' ptype(lower) svmat(numer) reps(9999) nogr
+105. 
 .   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
-100.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
-101. 
+106.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
+107. 
 .   qui ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
-102.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
-103. 
-.   qui ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
-104.   boottest tenure, ptype(equaltail) reps(99) noci
-105.   boottest collgrad tenure, `julia' ptype(equaltail) reps(99) noci
-106. 
-.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<.
-107.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
-108.   boottest tenure collgrad, `julia' ptype(equaltail) reps(99) noci
+108.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
 109. 
-.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
-110.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) nogr
-111.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01) nogr
+.   qui ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
+110.   boottest tenure, ptype(equaltail) reps(99) noci
+111.   boottest collgrad tenure, `julia' ptype(equaltail) reps(99) noci
 112. 
-.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
-113.   boottest tenure, `julia' ptype(equaltail) matsize(.005) noci weight(webb)
-114. 
-.   preserve
-115.   keep if e(sample)
-116.   gen id = _n - cond(_n>1000, 1000, 0)
-117.   boottest tenure, `julia' cluster(id) ptype(equaltail) matsize(.005) noci weight(webb)
-118.   restore
-119. 
+.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<.
+113.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
+114.   boottest tenure collgrad, `julia' ptype(equaltail) reps(99) noci
+115. 
 .   qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
-120.   boottest, `julia' ar nogr
-121.   boottest, `julia' ar nonull nogr
-122.   scoretest tenure, `julia' nogr
-123.   waldtest tenure, `julia' ptype(upper) nogr
-124. 
+116.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) nogr
+117.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01) nogr
+118. 
+.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
+119.   boottest tenure, `julia' ptype(equaltail) matsize(.005) noci weight(webb)
+120. 
+.   preserve
+121.   keep if e(sample)
+122.   gen id = _n - cond(_n>1000, 1000, 0)
+123.   boottest tenure, `julia' cluster(id) ptype(equaltail) matsize(.005) noci weight(webb)
+124.   restore
+125. 
+.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
+126.   boottest, `julia' ar nogr
+127.   boottest, `julia' ar nonull nogr
+128.   scoretest tenure, `julia' nogr
+129.   waldtest tenure, `julia' ptype(upper) nogr
+130. 
 .   qui ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
-125.   boottest tenure, `julia' nogr
-126. 
+131.   boottest tenure, `julia' nogr
+132. 
 .   qui ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
-127.   boottest tenure, `julia' nograph weight(webb) reps(9999)
-128.   qui gen individual = _n
-129.   boottest tenure, `julia' noci bootcluster(individual) weight(webb)
-130.   boottest tenure, `julia' nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
-131. 
-.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., cluster(age) absorb(industry)
-132.   boottest tenure, `julia' nograph cluster(age occupation) bootcluster(occupation)
-133. 
-.   qui areg wage ttl_exp collgrad tenure if occupation<. & grade<. & union<. & hours<., robust absorb(industry)
-134.   boottest tenure, `julia' nograph
-135. 
-.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., robust absorb(industry)
-136.   boottest tenure, `julia' nograph 
+133.   boottest tenure, `julia' nograph weight(webb) reps(9999)
+134.   qui gen individual = _n
+135.   boottest tenure, `julia' noci bootcluster(individual) weight(webb)
+136.   boottest tenure, `julia' nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 137. 
+.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., cluster(age) absorb(industry)
+138.   boottest tenure, `julia' nograph cluster(age occupation) bootcluster(occupation)
+139. 
+.   qui areg wage ttl_exp collgrad tenure if occupation<. & grade<. & union<. & hours<., robust absorb(industry)
+140.   boottest tenure, `julia' nograph
+141. 
+.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., robust absorb(industry)
+142.   boottest tenure, `julia' nograph 
+143. 
 .   qui ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(industry)
-138.   boottest tenure, `julia' nograph
-139.   boottest occupation, `julia' nograph
-140. 
+144.   boottest tenure, `julia' nograph
+145.   boottest occupation, `julia' nograph
+146. 
 .   qui ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)
-141.   boottest tenure, `julia' nograph
-142.   boottest collgrad tenure, `julia' nograph
-143.   boottest occupation, `julia' gridmin(-1) gridmax(1) nograph
-144. 
+147.   boottest tenure, `julia' nograph
+148.   boottest collgrad tenure, `julia' nograph
+149.   boottest occupation, `julia' gridmin(-1) gridmax(1) nograph
+150. 
 .   constraint 1 [wage]collgrad
-145.   qui ivreghdfe wage ttl_exp /*collgrad*/ tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(age)  // approximate contrained LIML with ivreghdfe
-146.   boottest tenure, `julia' nograph
-147. 
+151.   qui ivreghdfe wage ttl_exp /*collgrad*/ tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(age)  // approximate contrained LIML with ivreghdfe
+152.   boottest tenure, `julia' nograph
+153. 
 .   use d:\OneDrive\Documents\Macros\abdata, clear
-148.   qui areg n w k, absorb(ind)
-149.   boottest k, `julia' cluster(id year) nograph
-150.   qui areg n w k [aw=ys], absorb(ind)
-151.   boottest k, `julia' cluster(id year) nograph
-152. 
+154.   qui areg n w k, absorb(ind)
+155.   boottest k, `julia' cluster(id year) nograph
+156.   qui areg n w k [aw=ys], absorb(ind)
+157.   boottest k, `julia' cluster(id year) nograph
+158. 
 .   use pixel-level-baseline-final, clear
-153.   global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
-154.   global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
-155.   global poly capdistance1 seadist1 borderdist1
-156.   qui encode pixwbcode, gen(ccode)  // make numerical country identifier
-157.   qui areg lnl0708s centr_tribe lnpd0 \$pix \$geo \$poly, absorb(ccode)
-158.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode)
-159.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(pixcluster)
-160.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-161. 
+159.   global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
+160.   global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
+161.   global poly capdistance1 seadist1 borderdist1
+162.   qui encode pixwbcode, gen(ccode)  // make numerical country identifier
+163.   qui areg lnl0708s centr_tribe lnpd0 \$pix \$geo \$poly, absorb(ccode)
+164.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode)
+165.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(pixcluster)
+166.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
+167. 
 .   infile coll merit male black asian year state chst using regm.raw, clear
-162.   qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)   
-163.   generate individual = _n  // unique ID for each observation
-164.   boottest merit, `julia' nogr reps(999) gridpoints(10)  // defaults to bootcluster(state)
-165.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull
-166.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(state year)
-167.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(state year)
-168.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(individual)
-169.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual)
-170.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual) matsize(.1)
-171. }
+168.   qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)   
+169.   generate individual = _n  // unique ID for each observation
+170.   boottest merit, `julia' nogr reps(999) gridpoints(10)  // defaults to bootcluster(state)
+171.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull
+172.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(state year)
+173.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(state year)
+174.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(individual)
+175.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual)
+176.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual) matsize(.1)
+177. }
 
 Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -465,6 +471,12 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
                                z =     7.9375
                         Prob>|z| =     0.0070
 
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     7.5847
+                        Prob>|z| =     0.0020
+
 Re-running regression with null imposed.
 
 
@@ -508,9 +520,17 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   tenure
 
                                z =     4.0281
-                        Prob>|z| =     0.0260
+                        Prob>|z| =     0.0300
 
-95% confidence set for null hypothesis expression: [−.9145, −.6017] ∪ [.3028, 1.331]
+95% confidence set for null hypothesis expression: [−.8321, −.6017] ∪ [.2067, 1.203]
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+  tenure
+
+                               z =     4.0267
+                        Prob>|z| =     0.0170
+
+95% confidence set for null hypothesis expression: [.2672, .9756]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
@@ -518,7 +538,13 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
                    chi2(2) =    18.4337
                Prob > chi2 =     0.0000
 
-95% confidence set for null hypothesis expression: [.1677, 4.839]
+95% confidence set for null hypothesis expression: [.1677, 5.426]
+
+Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
+  collgrad tenure
+
+                   chi2(2) =   477.2687
+               Prob > chi2 =     0.0000
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
@@ -530,15 +556,23 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   collgrad tenure
 
                    chi2(2) =    65.9990
-               Prob > chi2 =     0.0030
+               Prob > chi2 =     0.0040
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
   tenure
 
                          t(2227) =     1.2941
-                        Prob>|t| =     0.1852
+                        Prob>|t| =     0.2002
 
-95% confidence set for null hypothesis expression: [−.01528, .07978]
+95% confidence set for null hypothesis expression: [−.0196, .0829]
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
+  tenure
+
+                         t(2227) =     1.2925
+                        Prob>|t| =     0.1892
+
+95% confidence set for null hypothesis expression: [−.01311, .07753]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, Rademacher weights:
   collgrad tenure
@@ -566,9 +600,29 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by indus
   tenure
 
                            t(11) =     1.0951
-                        Prob>|t| =     0.2603
+                        Prob>|t| =     0.2663
 
-95% confidence set for null hypothesis expression: [−.04167, .1327]
+95% confidence set for null hypothesis expression: [−.05202, .1275]
+
+Overriding estimator's cluster/robust settings with cluster(age occupation)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
+  tenure
+
+                           t(12) =     0.4874
+                        Prob>|t| =     0.6266
+
+95% confidence set for null hypothesis expression: [−.04579, .1122]
+
+Overriding estimator's cluster/robust settings with cluster(age occupation)
+
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
+  tenure
+
+                           t(12) =     0.4874
+                        Prob>|t| =     0.6216
+
+95% confidence set for null hypothesis expression: [−.04623, .1143]
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
@@ -586,9 +640,9 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age o
   tenure
 
                            t(12) =     0.4874
-                        Prob>|t| =     0.6266
+                        Prob>|t| =     0.6186
 
-95% confidence set for null hypothesis expression: [−.04579, .1122]
+95% confidence set for null hypothesis expression: [−.04341, .1151]
 
 Re-running regression with null imposed.
 
