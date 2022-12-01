@@ -1053,10 +1053,12 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   if (kX2 == 0) pX2 = &J(Nobs,0,0)
   if ((kY2 = cols(*pY2)) == 0) pY2 = &J(Nobs,0,0)
   kZ = kX1 + kY2
+
   if (LIML & kX2 == kY2) {  // exactly identified LIML = 2SLS
     kappa = 1
     LIML = 0
   }
+
   if ((REst = rows(*pR1)) == 0) {  // base model contains no restrictions?
     pR1 = &J(0,kZ,0)
     pr1 = &J(0,1 ,0)
@@ -1202,7 +1204,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
         j = i
         
-        if (FEboot) {  // are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT_WE in 2nd term of (62) orthogonal to v = col of 1's)
+        if (!WREnonARubin & FEboot) {  // are all of this FE's obs in same bootstrapping cluster? (But no need to check if B=0 for then CT_WE in 2nd term of (62) orthogonal to v = col of 1's)
           tmp = (*pID)[FEs[i_FE].is, 1..NBootClustVar]
           FEboot = all(tmp :== tmp[1,])
         }
@@ -1513,7 +1515,7 @@ real matrix boottest::HessianFixedkappa(real rowvector ind1, real scalar ind2, r
   return(_HessianFixedkappa(ind1, ind2, kappa, _jk))
 }
 real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, real scalar kappa, real scalar _jk) {
-  real matrix retval, T2; pointer (real colvector) scalar pT1L, pT1R
+  real matrix retval, _retval; pointer (real colvector) scalar pT1L, pT1R
 
   if (kappa) {
     pT1L = pcol(XYbar,ind1+1)  // X_∥^' Y_(∥i)
@@ -1527,13 +1529,14 @@ real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, 
   }
 
   if (kappa != 1) {
-    T2 = SstarUZperpinvZperpZperp[ind1+1].M ' SstarUZperp[ind2+1].M  // quadratic term
-    _diag(T2, diagonal(T2) - (ind1 <= ind2? SstarUU[ind2+1, ind1+1].M : SstarUU[ind1+1, ind2+1].M))  // minus diagonal crosstab
+    _retval = YbarYbar[ind1+1,ind2+1] :+ 
+           (*pcol(SstarUYbar[ind2+1].M, ind1+1) + *pcol(SstarUYbar[ind1+1].M, ind2+1)) ' v + 
+           colsum(v :* (ind1 <= ind2? SstarUU[ind2+1, ind1+1].M : SstarUU[ind1+1, ind2+1].M) :* v) - 
+           colsum((SstarUZperpinvZperpZperp[ind1+1].M * v) :* (SstarUZperp[ind2+1].M * v))
     if (NFE)
-      T2 = T2 + CTFEU[ind1+1].M ' (invFEwt :* CTFEU[ind2+1].M)
+      _retval = _retval - colsum(CTFEU[ind1+1].M * v :* (invFEwt :* CTFEU[ind2+1].M) * v)
 
-    retval = kappa? kappa :* retval  + (1 - kappa) :* (YbarYbar[ind1+1,ind2+1] :+ (*pcol(SstarUYbar[ind2+1].M, ind1+1) + *pcol(SstarUYbar[ind1+1].M, ind2+1)) ' (v:+1) - colsum(v :* T2 * v)) :
-                                                       YbarYbar[ind1+1,ind2+1] :+ (*pcol(SstarUYbar[ind2+1].M, ind1+1) + *pcol(SstarUYbar[ind1+1].M, ind2+1)) ' (v:+1) - colsum(v :* T2 * v)
+    retval = kappa? kappa*retval:+(1-kappa)*_retval : _retval
   }
 
   if (_jk) {
@@ -2075,7 +2078,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
           } else {
             _v = v[*pIDBootAll,]
             for (d=df;d;d--)
-              (*pJcd)[1,d].M = *_panelsum(*_panelsum(DGP.u1ddot, pM->WXAR[d].M, *pinfoAllData) :* _v, infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
+              (*pJcd)[1,d].M = *_panelsum(*_panelsum(DGP.u1ddot[1+_jk].M, pM->WXAR[d].M, *pinfoAllData) :* _v, infoErrAll) - *_panelsum2(*pX1, *pX2, pM->WXAR[d].M, *pinfoCapData) * betadev
           }
         }
       for (c=NErrClustCombs; c>granular; c--)
