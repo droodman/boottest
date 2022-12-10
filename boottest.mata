@@ -762,7 +762,7 @@ void boottest::new() {
   pIDBootData = pIDBootAll = &.
 }
 
-// important to call this when done: break loops in data structure topology to enable garbage collection
+// break loops in data structure topology to enable garbage collection
 void boottest::close() {
   DGP.parent = Repl.parent = NULL
 }
@@ -1531,8 +1531,11 @@ real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, 
   if (kappa != 1) {
     _retval = YbarYbar[ind1+1,ind2+1] :+ 
            (*pcol(SstarUYbar[ind2+1].M, ind1+1) + *pcol(SstarUYbar[ind1+1].M, ind2+1)) ' v + 
-           colsum(v :* (ind1 <= ind2? SstarUU[ind2+1, ind1+1].M : SstarUU[ind1+1, ind2+1].M) :* v) - 
-           colsum((SstarUZperpinvZperpZperp[ind1+1].M * v) :* (SstarUZperp[ind2+1].M * v))
+           colsum(v :* (ind1 <= ind2? SstarUU[ind2+1, ind1+1].M : SstarUU[ind1+1, ind2+1].M) :* v)
+
+    if (Repl.Yendog[ind1+1] & Repl.Yendog[ind2+1])
+      _retval = _retval - colsum((SstarUZperpinvZperpZperp[ind1+1].M * v) :* (SstarUZperp[ind2+1].M * v))
+
     if (NFE)
       _retval = _retval - colsum(CTFEU[ind1+1].M * v :* (invFEwt :* CTFEU[ind2+1].M) * v)
 
@@ -1569,7 +1572,8 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       } else
         pbetav = &v
 
-      SstarUZperpinvZperpZperp_v = SstarUZperpinvZperpZperp[ind2+1].M * *pbetav
+      if (Repl.Yendog[ind2+1])
+        SstarUZperpinvZperpZperp_v = SstarUZperpinvZperpZperp[ind2+1].M * *pbetav
 
       if (NFE)
         CTFEUv = invFEwt :* (CTFEU[ind2+1].M * *pbetav)
@@ -1696,8 +1700,9 @@ void boottest::PrepWRE() {
     SstarUX                   [i+1].M = *_panelsum2(*Repl.pX1, Repl.X2, *puwt, infoBootData)'
     SstarUXinvXX              [i+1].M = Repl.invXX * SstarUX[i+1].M
     if (kappa!=1 | LIML | bootstrapt) {
-      SstarUZperp             [i+1].M = *_panelsum(*Repl.pZperp, *puwt, infoBootData)'
-      SstarUZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * SstarUZperp[i+1].M
+      if (Repl.Yendog[i+1])
+        SstarUZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * (SstarUZperp[i+1].M = *_panelsum(*Repl.pZperp, *puwt, infoBootData)')
+
       if (NFE)
         CTFEU[i+1].M = crosstabFE(*puwt, infoBootData)
     }

@@ -115,10 +115,16 @@ program define _boottest, rclass sortpreserve
       exit 198
     }
 
-    qui python query
     if `"`c(python_exec)'"' == "" {
       di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
       di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
+      exit 198
+    }
+
+    qui python query
+    if "`r(version)'" < "3" {
+      di as err "Stata is currently configured to use Python " `r(version)' ". The {cmd:julia} option requires Python 3."
+      di as err `"See {help python}."'
       exit 198
     }
 
@@ -237,6 +243,8 @@ program define _boottest, rclass sortpreserve
     python: from julia import WildBootTests, StableRNGs
     python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
     global boottest_julia_loaded 1
+    
+    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
   }
 
   if "`small'" != "" & "`nosmall'" != "" {
