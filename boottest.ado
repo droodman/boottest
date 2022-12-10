@@ -199,7 +199,7 @@ program define _boottest, rclass sortpreserve
       local needsysimage 1
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.8.4"')))  // hard-coded version requirement
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.8.3"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")
@@ -1169,7 +1169,7 @@ end
 
 
 * Version history
-* 4.3.1 Bumped Julia version to 0.8.4. Check for Python 2. Restored code path of memory-intensive granular WRE computation of denominator.
+* 4.3.1 Bumped Julia version to 0.8.3. Check for Python 2. Restored code path of memory-intensive granular WRE computation of denominator.
 * 4.3.0 Added jackknife for WRE; fixed failure to detect constant term after ivreg; fixed incorrect computation in "WUE"
 * 4.2.1 jk bug fixes
 * 4.2.0 Added jackknife (WCU/WCR_31) for OLS and Anderson-Rubin
