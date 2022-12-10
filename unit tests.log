@@ -1166,32 +1166,32 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   tenure
 
                            t(11) =     0.6068
-                        Prob>|t| =     0.4775
+                        Prob>|t| =     0.4705
 
-95% confidence set for null hypothesis expression: [−.04893, .05461]
+95% confidence set for null hypothesis expression: [−.04784, .05399]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
 
                   F(2, 11) =     3.5295
-                  Prob > F =     0.1612
+                  Prob > F =     0.1552
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   occupation
 
                            t(11) =     1.1091
-                        Prob>|t| =     0.2222
+                        Prob>|t| =     0.2242
 
-95% confidence set for null hypothesis expression: [−.5697, ∞)
+95% confidence set for null hypothesis expression: [−.5626, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                            t(11) =     0.2684
-                        Prob>|t| =     0.7858
+                        Prob>|t| =     0.7808
 
-95% confidence set for null hypothesis expression: [−.05976, .0675]
+95% confidence set for null hypothesis expression: [−.05993, .06703]
 
 Overriding estimator's cluster/robust settings with cluster(id year)
 (bootcluster(id year) assumed)
