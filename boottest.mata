@@ -118,7 +118,7 @@ class boottest {
   pointer(class boottestOLS scalar) scalar pM
   struct structboottestClust rowvector Clust
   struct smatrix matrix denom, Kcd, denom0, Jcd0, CTUX, FillingT0, SstarUU
-  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapYbarX0, ScapPXYbarZperp, ScapPXYbarZperp0, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, ScapXZperp, ScapX1parReplX
+  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, ScapXZperp, ScapX1parReplX
   struct ssmatrix rowvector ddenomdr, dJcddr
   
   struct ssmatrix matrix ddenomdr2
@@ -1647,7 +1647,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
           T1 = T1 :- CT_FEcapYbar[ind1+1].M ' CTFEU[ind2+1].M
       }
       if (ind2) {
-        retval = retval + FillingT0[ind1+1,ind2+1].M * _beta
+        retval = retval + FillingT0[max((ind1,ind2))+1,min((ind1,ind2))+1].M * _beta
         if (cols(T1))
           retval = retval + T1 * *pbetav  // - x*beta components
       } else
@@ -1668,6 +1668,17 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 void boottest::InitWRE() {  // stuff done only once that knits together results from DGP and Repl regression prep
   real scalar i, g, j; real matrix X1g, X2g, Zperpg, X1parg, S
   if (granular==0 & bootstrapt & robust) {
+    CT_FEcapYbar = ScapYbarX = ScapPXYbarZperp = smatrix(Repl.kZ+1)
+    FillingT0 = smatrix(Repl.kZ+1, Repl.kZ+1)  // fixed component of groupwise term in sandwich filling
+    ScapYbarX.M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
+    invXXXX1par = DGP.invXX * (cross(*DGP.pX1, *Repl.pX1par) \ cross(DGP.X2, *Repl.pX1par))
+    for (i=Repl.kZ; i; i--) {
+      ScapYbarX[i+1].M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
+      ScapPXYbarZperp[i+1].M = J(Ncap, cols(*DGP.pZperp), 0)
+      for (j=i; j>=0; j--)
+        FillingT0[i+1,j+1].M = J(Ncap,1,0)
+    }
+
     ScapXX = ScapXZperp = ScapX1parReplX = smatrix(Ncap)
     for (g=Ncap;g;g--) {
       S = (*pinfoCapData)[g,]'
@@ -1678,20 +1689,6 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
       ScapXX[g].M = cross(X1g, X2g); ScapXX[g].M = cross(X1g, X1g), ScapXX[g].M \ ScapXX[g].M', cross(X2g, X2g)
       ScapXZperp[g].M = cross(X1g,Zperpg) \ cross(X2g,Zperpg)
       ScapX1parReplX[g].M = cross(X1parg, X1g) , cross(X1parg, X2g)
-    }
-
-    CT_FEcapYbar = ScapYbarX = ScapYbarX0 = ScapPXYbarZperp = ScapPXYbarZperp0 = smatrix(Repl.kZ+1)
-    FillingT0 = smatrix(Repl.kZ+1, Repl.kZ+1)  // fixed component of groupwise term in sandwich filling
-    ScapYbarX.M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
-    invXXXX1par = DGP.invXX * (cross(*DGP.pX1, *Repl.pX1par) \ cross(DGP.X2, *Repl.pX1par))
-    for (i=Repl.kZ; i; i--) {
-      ScapYbarX[i+1].M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
-      ScapYbarX0[i+1].M = *_panelsum2(*DGP.pX1, DGP.X2, (*Repl.pX1par)[,i], *pinfoCapData)
-      ScapPXYbarZperp[i+1].M = J(Ncap, cols(*DGP.pZperp), 0)
-      ScapPXYbarZperp0[i+1].M = *_panelsum(*DGP.pZperp, (*DGP.pX1, DGP.X2) * invXXXX1par[,i], *pinfoCapData)  // XXX inefficient
-
-      for (j=Repl.kZ; j>=0; j--)
-        FillingT0[i+1,j+1].M = J(Ncap,1,0)
     }
   }
 }
@@ -1725,11 +1722,11 @@ void boottest::PrepWRE() {
         tmp = invXXXX1par[,i] + PiddotRparYi
 
         for (g=Ncap;g;g--) {
-          ScapPXYbarZperp[i+1].M[g,] = ScapPXYbarZperp0[i+1].M[g,] + PiddotRparYi ' ScapXZperp[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
-          ScapYbarX      [i+1].M[g,] = ScapYbarX0      [i+1].M[g,] + PiddotRparYi ' ScapXX    [g].M  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
+          ScapPXYbarZperp[i+1].M[g,] = tmp ' ScapXZperp[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
+          ScapYbarX      [i+1].M[g,] = ScapX1parReplX[g].M[i,] + PiddotRparYi ' ScapXX    [g].M  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
 
           ScapXXi = ScapXX[g].M  * tmp
-          for (j=Repl.kZ; j; j--)
+          for (j=i; j; j--)
             FillingT0[i+1,j+1].M[g] = ScapX1parReplX[g].M[j,] * tmp + PiddotRparY[,j] ' ScapXXi
           FillingT0  [i+1,  1].M[g] =                                  DGP.deltadddot ' ScapXXi
         }
