@@ -1148,10 +1148,10 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     0.2886
-                        Prob>|t| =     0.3343
+                           t(11) =     0.8177
+                        Prob>|t| =     0.4535
 
-95% confidence set for null hypothesis expression: [−.07193, .05272]
+95% confidence set for null hypothesis expression: [−.02484, .06616]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   occupation
@@ -1165,16 +1165,16 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     0.2762
-                        Prob>|t| =     0.3063
+                           t(11) =     0.6068
+                        Prob>|t| =     0.4705
 
-95% confidence set for null hypothesis expression: [−.07245, .04376]
+95% confidence set for null hypothesis expression: [−.04784, .05399]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
 
-                  F(2, 11) =     0.8474
-                  Prob > F =     0.1491
+                  F(2, 11) =     3.5295
+                  Prob > F =     0.1552
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   occupation
@@ -1188,10 +1188,10 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
-                           t(11) =     0.2059
-                        Prob>|t| =     0.7728
+                           t(11) =     0.2684
+                        Prob>|t| =     0.7808
 
-95% confidence set for null hypothesis expression: [−.004945, .0424]
+95% confidence set for null hypothesis expression: [−.05993, .06703]
 
 Overriding estimator's cluster/robust settings with cluster(id year)
 (bootcluster(id year) assumed)

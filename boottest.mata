@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
   real matrix M
@@ -1646,7 +1646,6 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
         if (NFE)
           T1 = T1 :- CT_FEcapYbar[ind1+1].M ' CTFEU[ind2+1].M
       }
-
       if (ind2) {
         retval = retval + FillingT0[ind1+1,ind2+1].M * _beta
         if (cols(T1))
@@ -1659,6 +1658,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
           S = (*pinfoCapData)[i,]', (.\.)
           retval[i,] = retval[i,] - colsum(v :* cross(SstarUPX[ind1+1].M[|S|], SstarUMZperp[ind2+1].M[|S|]) * *pbetav)
         }
+
     }
   }
   if (_jk) retval[,1] = *_panelsum(*pcol(Repl.PXZ, ind1), Repl.y1 - Repl.Z * betas[,1], *pinfoCapData)
@@ -1666,17 +1666,18 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 }
 
 void boottest::InitWRE() {  // stuff done only once that knits together results from DGP and Repl regression prep
-  real scalar i, g, j; real matrix X1g, X2g, Zperpg, S
+  real scalar i, g, j; real matrix X1g, X2g, Zperpg, X1parg, S
   if (granular==0 & bootstrapt & robust) {
     ScapXX = ScapXZperp = ScapX1parReplX = smatrix(Ncap)
     for (g=Ncap;g;g--) {
       S = (*pinfoCapData)[g,]'
       X1g = *pXS(*DGP.pX1,S)
+      X1parg = *pXS(*Repl.pX1par,S)
       X2g = *pXS( DGP.X2 ,S)
       Zperpg = *pXS(*DGP.pZperp,S)
       ScapXX[g].M = cross(X1g, X2g); ScapXX[g].M = cross(X1g, X1g), ScapXX[g].M \ ScapXX[g].M', cross(X2g, X2g)
       ScapXZperp[g].M = cross(X1g,Zperpg) \ cross(X2g,Zperpg)
-      ScapX1parReplX[g].M = cross(*Repl.pX1par, *DGP.pX1) , cross(*Repl.pX1par, DGP.X2)
+      ScapX1parReplX[g].M = cross(X1parg, X1g) , cross(X1parg, X2g)
     }
 
     CT_FEcapYbar = ScapYbarX = ScapYbarX0 = ScapPXYbarZperp = ScapPXYbarZperp0 = smatrix(Repl.kZ+1)
@@ -1896,7 +1897,7 @@ void boottest::MakeWREStats(real scalar w) {
             J_b = *_panelsum(Jcap, Clust[c].info)
             _clustAccum(denom.M, c, cross(J_b,J_b))
           }
-        } else {  // non-robust
+       } else {  // non-robust
           for (i=Repl.kZ;i>=0;i--)
             YYstar_b[|i+1,i+1\Repl.kZ+1,i+1|] = YYstar[i+1].M[,b]  // fill lower triangle for makesymmetric()
           denom.M = (Repl.RRpar * A[b].M * Repl.RRpar') * ((-1 \ betas[,b]) ' makesymmetric(YYstar_b) * (-1 \ betas[,b]) / _Nobs)  // 2nd half is sig2 of errors
