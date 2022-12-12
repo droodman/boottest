@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
   real matrix M
@@ -75,7 +75,7 @@ class boottestOLS {  // class for performing OLS
   pointer(real colvector) scalar py1par, pXy1par
   pointer(real matrix) scalar pA, pZperp, pX1, pX1perpRperpX, pX1par, pR1AR1
   pointer (class boottest scalar) scalar parent
-  struct smatrix rowvector WXAR, CT_XAR, beta, u1ddot, XinvHg, invMg, Xg, XXg, u1dddot, U2ddot, ScapX1X1, ScapX1X2, ScapX2X2, ScapXX, ScapXZperp
+  struct smatrix rowvector WXAR, CT_XAR, beta, u1ddot, XinvHg, invMg, Xg, XXg, u1dddot, U2ddot
 
   private void new(), InitTestDenoms()
   private virtual void InitVars(), SetR(), Estimate(), MakeResiduals()
@@ -108,7 +108,7 @@ class boottest {
   real scalar scoreBS, B, small, auxwttype, null, dirty, initialized, ML, Nobs, _Nobs, kZ, kY2, kX1, sumwt, NClustVar, haswt, REst, multiplier, smallsample, quietly, FEboot, NErrClustCombs, ///
     sqrt, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClustVar, BootClust, FEdfadj, jk, ///
     NFE, granular, granularjk, purerobust, subcluster, Nstar, BFeas, v_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX, Ncap
-  real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0, YbarYbar, XYbar, invXXXZbar, PXZbar, Zbar
+  real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0, YbarYbar, XYbar, invXXXZbar, PXZbar, Zbar, invXXXX1par
   real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, confpeak, gridmin, gridmax, gridpoints, numersum, anchor, poles, invFEwt, sqrtwt
   real rowvector peak, betas, As
   string scalar obswttype, madjtype, seed
@@ -118,7 +118,7 @@ class boottest {
   pointer(class boottestOLS scalar) scalar pM
   struct structboottestClust rowvector Clust
   struct smatrix matrix denom, Kcd, denom0, Jcd0, CTUX, FillingT0, SstarUU
-  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapYbarX0, ScapPXYbarZperp, ScapPXYbarZperp0, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp
+  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapYbarX0, ScapPXYbarZperp, ScapPXYbarZperp0, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, ScapXZperp, ScapX1parReplX
   struct ssmatrix rowvector ddenomdr, dJcddr
   
   struct ssmatrix matrix ddenomdr2
@@ -504,21 +504,6 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     py1par     = &y1
     t1  = J(parent->kZ,1,0)
     t1Y = J(parent->kY2,1,0)
-  }
-
-  if (parent->granular==0 & isDGP & parent->WREnonARubin & parent->robust & parent->bootstrapt) {
-    ScapX1X1 = ScapX1X2 = ScapX2X2 = ScapXX = ScapXZperp = smatrix(parent->Ncap)
-    for (g=parent->Ncap;g;g--) {
-      S = (*parent->pinfoCapData)[g,]'
-      X1g = *pXS(*pX1,S)
-      X2g = *pXS(  X2,S)
-      Zperpg = *pXS(*pZperp,S)
-      ScapX1X1[g].M = cross(X1g, X1g)
-      ScapX1X2[g].M = cross(X1g, X2g)
-      ScapX2X2[g].M = cross(X2g, X2g)
-      ScapXX[g].M = ScapX1X1[g].M, ScapX1X2[g].M \ ScapX1X2[g].M', ScapX2X2[g].M
-      ScapXZperp[g].M = cross(X1g,Zperpg) \ cross(X2g,Zperpg)
-    }
   }
 
   V = invXX * XZ  // in 2SLS case, estimator is (V' XZ)^-1 * (V'Xy1). Also used in kZ-class and LIML robust VCV by Stata convention
@@ -1592,7 +1577,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       for (ind2=Repl.kZ;ind2;ind2--) {
         _beta = betas[ind2,]
         retval = retval - *_panelsum(*pPXYstar :* (Repl.Yendog[ind2+1]? *pcol(Zbar,ind2) * _beta :- SstarUMZperp[ind2+1].M * (v :* _beta) :
-                                                                       *pcol(Zbar,ind2) * _beta                                           ), *pinfoCapData)
+                                                                        *pcol(Zbar,ind2) * _beta                                           ), *pinfoCapData)
       }
     } else { // create pieces of each N x B matrix one at a time rather than whole thing at once--slower, but less memory-intensive
       retval = J(Clust.N, cols(v), 0)
@@ -1681,22 +1666,37 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 }
 
 void boottest::InitWRE() {  // stuff done only once that knits together results from DGP and Repl regression prep
-  real scalar i
+  real scalar i, g, j; real matrix X1g, X2g, Zperpg, S
   if (granular==0 & bootstrapt & robust) {
+    ScapXX = ScapXZperp = ScapX1parReplX = smatrix(Ncap)
+    for (g=Ncap;g;g--) {
+      S = (*pinfoCapData)[g,]'
+      X1g = *pXS(*DGP.pX1,S)
+      X2g = *pXS( DGP.X2 ,S)
+      Zperpg = *pXS(*DGP.pZperp,S)
+      ScapXX[g].M = cross(X1g, X2g); ScapXX[g].M = cross(X1g, X1g), ScapXX[g].M \ ScapXX[g].M', cross(X2g, X2g)
+      ScapXZperp[g].M = cross(X1g,Zperpg) \ cross(X2g,Zperpg)
+      ScapX1parReplX[g].M = cross(*Repl.pX1par, *DGP.pX1) , cross(*Repl.pX1par, DGP.X2)
+    }
+
     CT_FEcapYbar = ScapYbarX = ScapYbarX0 = ScapPXYbarZperp = ScapPXYbarZperp0 = smatrix(Repl.kZ+1)
     FillingT0 = smatrix(Repl.kZ+1, Repl.kZ+1)  // fixed component of groupwise term in sandwich filling
     ScapYbarX.M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
+    invXXXX1par = DGP.invXX * cross(*DGP.pX1, *Repl.pX1par) \ cross(DGP.X2, *Repl.pX1par)
     for (i=Repl.kZ; i; i--) {
       ScapYbarX[i+1].M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
       ScapYbarX0[i+1].M = *_panelsum2(*DGP.pX1, DGP.X2, (*Repl.pX1par)[,i], *pinfoCapData)
       ScapPXYbarZperp[i+1].M = J(Ncap, cols(*DGP.pZperp), 0)
-      ScapPXYbarZperp0[i+1].M = *_panelsum(*DGP.pZperp, (*DGP.pX1, DGP.X2)*DGP.invXX * (Repl.XZ[,i] - DGP.XY2 * Repl.RparY[,i]), *pinfoCapData)
+      ScapPXYbarZperp0[i+1].M = *_panelsum(*DGP.pZperp, (*DGP.pX1, DGP.X2) * invXXXX1par[,i], *pinfoCapData)  // XXX inefficient
+
+      for (j=Repl.kZ; j>=0; j--)
+        FillingT0[i+1,j+1].M = J(Ncap,1,0)
     }
   }
 }
 
 void boottest::PrepWRE() {
-  real scalar i, j, g; pointer (real colvector) scalar pu, pPXZbari; real matrix ZU2ddotpar, Pidddot; real rowvector y1barY2bar; real colvector PiddotRparYi
+  real scalar i, j, g; pointer (real colvector) scalar pu; real matrix ZU2ddotpar, PiddotRparY, Pidddot; real rowvector y1barY2bar; real colvector PiddotRparYi, tmp
 
   if (null) {
     DGP.Estimate(jk, *pr1 \ *pr)
@@ -1710,7 +1710,8 @@ void boottest::PrepWRE() {
   y1barY2bar = DGP.deltadddot'Repl.XZ - DGP.y1barU2ddot * Repl.RparY
   YbarYbar = DGP.y1bary1bar, y1barY2bar \ 
              y1barY2bar', (Repl.ZZ - ZU2ddotpar' - ZU2ddotpar + Repl.RparY ' DGP.U2ddotU2ddot * Repl.RparY)
-  Zbar = *Repl.pX1par + DGP.Y2bar * Repl.RparY
+
+  PiddotRparY = DGP.Piddot * Repl.RparY
 
   if (robust & bootstrapt) {  // for WRE replication regression, prepare for CRVE
     PXZbar = *pX12B(*Repl.pX1, Repl.X2, invXXXZbar)
@@ -1718,21 +1719,25 @@ void boottest::PrepWRE() {
     if (granular==0) {
       Pidddot = (DGP.perpRperpX'DGP.deltaX \ J(kX2, 1, 0)) + DGP.Piddot * DGP.deltaY
       for (g=Ncap;g;g--)
-        ScapYbarX.M[g,] = Pidddot'DGP.ScapXX[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
+        ScapYbarX.M[g,] = Pidddot'ScapXX[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
 
       for (i=Repl.kZ; i; i--) {
-        PiddotRparYi = DGP.Piddot * Repl.RparY[,i]
+        PiddotRparYi = PiddotRparY[,i]
+
         for (g=Ncap;g;g--) {
-          ScapPXYbarZperp[i+1].M[g,] = ScapPXYbarZperp0[i+1].M[g,] + PiddotRparYi'DGP.ScapXZperp[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
-          ScapYbarX[i+1].M[g,]       = ScapYbarX0[i+1].M[g,]       + PiddotRparYi'DGP.ScapXX[g].M      // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
+          ScapPXYbarZperp[i+1].M[g,] = ScapPXYbarZperp0[i+1].M[g,] + PiddotRparYi ' ScapXZperp[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
+          ScapYbarX      [i+1].M[g,] = ScapYbarX0      [i+1].M[g,] + PiddotRparYi ' ScapXX    [g].M  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
         }
 
-        pPXZbari = pcol(PXZbar,i)
-        for (j=Repl.kZ; j; j--)
-          FillingT0[i+1,j+1].M = *_panelsum(*pcol(Zbar,j), *pPXZbari, *pinfoCapData)
+        tmp = invXXXX1par[,i] + PiddotRparYi
+        for (g=Ncap;g;g--)
+          for (j=Repl.kZ; j; j--) {
+            FillingT0[i+1,j+1].M[g] = (ScapX1parReplX[g].M[j,] + PiddotRparY[,j] ' ScapXX[g].M) * tmp
+            FillingT0[i+1,  1].M[g] =  DGP.deltadddot                            ' ScapXX[g].M  * tmp
+          }
+
         if (NFE)
-          CT_FEcapYbar[i+1].M = crosstabFE(*pPXZbari, *pinfoCapData) :* invFEwt
-        FillingT0[i+1,1].M = *_panelsum(*pPXZbari, DGP.y1bar, *pinfoCapData)
+          CT_FEcapYbar[i+1].M = crosstabFE(*pcol(PXZbar,i), *pinfoCapData) :* invFEwt
       }
     }
   }
@@ -1754,6 +1759,9 @@ void boottest::PrepWRE() {
       if (NFE)
         CTFEU[i+1].M = crosstabFE(*pu, infoBootData)
     }
+
+    if (kappa!=1 | LIML | robust==0 | granular)
+      Zbar = *Repl.pX1par + DGP.Y2bar * Repl.RparY
 
     if (kappa!=1 | LIML | robust==0) {
       SstarUYbar[i+1].M = *_panelsum2(DGP.y1bar, Zbar, *pu, infoBootData)
