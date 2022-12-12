@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum off
+mata set matalnum on
 
 struct smatrix {
   real matrix M
@@ -1682,7 +1682,7 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
     CT_FEcapYbar = ScapYbarX = ScapYbarX0 = ScapPXYbarZperp = ScapPXYbarZperp0 = smatrix(Repl.kZ+1)
     FillingT0 = smatrix(Repl.kZ+1, Repl.kZ+1)  // fixed component of groupwise term in sandwich filling
     ScapYbarX.M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
-    invXXXX1par = DGP.invXX * cross(*DGP.pX1, *Repl.pX1par) \ cross(DGP.X2, *Repl.pX1par)
+    invXXXX1par = DGP.invXX * (cross(*DGP.pX1, *Repl.pX1par) \ cross(DGP.X2, *Repl.pX1par))
     for (i=Repl.kZ; i; i--) {
       ScapYbarX[i+1].M = J(Ncap, cols(*DGP.pX1)+kX2, 0)
       ScapYbarX0[i+1].M = *_panelsum2(*DGP.pX1, DGP.X2, (*Repl.pX1par)[,i], *pinfoCapData)
@@ -1696,7 +1696,7 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
 }
 
 void boottest::PrepWRE() {
-  real scalar i, j, g; pointer (real colvector) scalar pu; real matrix ZU2ddotpar, PiddotRparY, Pidddot; real rowvector y1barY2bar; real colvector PiddotRparYi, tmp
+  real scalar i, j, g; pointer (real colvector) scalar pu; real matrix ZU2ddotpar, PiddotRparY, Pidddot; real colvector PiddotRparYi, tmp, ScapXXi
 
   if (null) {
     DGP.Estimate(jk, *pr1 \ *pr)
@@ -1705,36 +1705,33 @@ void boottest::PrepWRE() {
 
   XYbar = DGP.Xy1bar, (invXXXZbar = Repl.XZ - DGP.XU2ddot * Repl.RparY)
   invXXXZbar = Repl.invXX * invXXXZbar
-
   ZU2ddotpar = (Repl.ZY2 - Repl.XZ'DGP.Piddot) * Repl.RparY
-  y1barY2bar = DGP.deltadddot'Repl.XZ - DGP.y1barU2ddot * Repl.RparY
-  YbarYbar = DGP.y1bary1bar, y1barY2bar \ 
-             y1barY2bar', (Repl.ZZ - ZU2ddotpar' - ZU2ddotpar + Repl.RparY ' DGP.U2ddotU2ddot * Repl.RparY)
-
-  PiddotRparY = DGP.Piddot * Repl.RparY
+  YbarYbar = DGP.deltadddot'Repl.XZ - DGP.y1barU2ddot * Repl.RparY
+  YbarYbar = DGP.y1bary1bar, YbarYbar \ 
+             YbarYbar'     , (Repl.ZZ - ZU2ddotpar' - ZU2ddotpar + Repl.RparY ' DGP.U2ddotU2ddot * Repl.RparY)
 
   if (robust & bootstrapt) {  // for WRE replication regression, prepare for CRVE
-    PXZbar = *pX12B(*Repl.pX1, Repl.X2, invXXXZbar)
+    if (granular | NFE) PXZbar = *pX12B(*Repl.pX1, Repl.X2, invXXXZbar)
 
     if (granular==0) {
       Pidddot = (DGP.perpRperpX'DGP.deltaX \ J(kX2, 1, 0)) + DGP.Piddot * DGP.deltaY
       for (g=Ncap;g;g--)
         ScapYbarX.M[g,] = Pidddot'ScapXX[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
 
+      PiddotRparY = DGP.Piddot * Repl.RparY
       for (i=Repl.kZ; i; i--) {
         PiddotRparYi = PiddotRparY[,i]
+        tmp = invXXXX1par[,i] + PiddotRparYi
 
         for (g=Ncap;g;g--) {
           ScapPXYbarZperp[i+1].M[g,] = ScapPXYbarZperp0[i+1].M[g,] + PiddotRparYi ' ScapXZperp[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
           ScapYbarX      [i+1].M[g,] = ScapYbarX0      [i+1].M[g,] + PiddotRparYi ' ScapXX    [g].M  // S_cap(M_Zperp[Z or y1] :* P_(MZperpX)])
-        }
 
-        tmp = invXXXX1par[,i] + PiddotRparYi
-        for (g=Ncap;g;g--)
-          for (j=Repl.kZ; j; j--) {
-            FillingT0[i+1,j+1].M[g] = (ScapX1parReplX[g].M[j,] + PiddotRparY[,j] ' ScapXX[g].M) * tmp
-            FillingT0[i+1,  1].M[g] =  DGP.deltadddot                            ' ScapXX[g].M  * tmp
-          }
+          ScapXXi = ScapXX[g].M  * tmp
+          for (j=Repl.kZ; j; j--)
+            FillingT0[i+1,j+1].M[g] = ScapX1parReplX[g].M[j,] * tmp + PiddotRparY[,j] ' ScapXXi
+          FillingT0  [i+1,  1].M[g] =                                  DGP.deltadddot ' ScapXXi
+        }
 
         if (NFE)
           CT_FEcapYbar[i+1].M = crosstabFE(*pcol(PXZbar,i), *pinfoCapData) :* invFEwt
