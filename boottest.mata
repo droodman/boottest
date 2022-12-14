@@ -17,7 +17,7 @@ mata
 mata clear
 mata set matastrict on
 mata set mataoptimize on
-mata set matalnum on
+mata set matalnum off
 
 struct smatrix {
   real matrix M
@@ -118,8 +118,8 @@ class boottest {
   pointer(class boottestOLS scalar) scalar pM
   struct structboottestClust rowvector Clust
   struct smatrix matrix denom, Kcd, denom0, Jcd0, CTUX, FillingT0, SstarUU
-  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, SbootY2X, SbootY2parX, ScapXZperp, ScapX1parReplX, SbootZR1X, Sbooty1X, SbootZX
-  pointer(struct smatrix rowvector) pSbootXX
+  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, SbootY2X, SbootXY2par, ScapXZperp, ScapX1parReplX, SbootZR1X, SbootXy1, SbootZX, SbootZR1Zperp, SbootZperpy1, SbootZZperp, SbootZperpY2par, SbootY2Zperp
+  pointer(struct smatrix rowvector) pSbootXX, pSbootXZperp
   struct ssmatrix rowvector ddenomdr, dJcddr
   
   struct ssmatrix matrix ddenomdr2
@@ -1671,10 +1671,18 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
   real scalar i, g, j; real matrix X1g, X2g, Zperpg, X1parg, Zg, ZR1g, Y2g, Y2parg, S; real colvector y1g
   if (granular==0) {
     if (jk==0) {
-      SbootZR1X = Sbooty1X = SbootZX = SbootY2X = SbootY2parX = smatrix(Nstar)
-      if (!bootneqcap) pSbootXX = &ScapXX
+      SbootZR1X = SbootXy1 = SbootZX = SbootY2X = SbootXY2par = smatrix(Nstar)
+      if (kappa!=1 | LIML | bootstrapt) SbootZR1Zperp = SbootZperpy1 = SbootZZperp = SbootZperpY2par = SbootY2Zperp = smatrix(Nstar)
+
+      if (!bootneqcap) {
+        pSbootXX = &ScapXX
+        pSbootXZperp = &ScapXZperp
+      }
       for (i=Repl.kZ; i>=0; i--)
         SstarUX[i+1].M = J(DGP.kX, Nstar, 0)
+      if (kappa!=1 | LIML | bootstrapt)
+        for (i=Repl.kZ; i>=0; i--)
+          SstarUZperp[i+1].M = J(cols(*DGP.pZperp), Nstar, 0)
     }
 
     if (robust & bootstrapt) {
@@ -1691,7 +1699,7 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
       }
 
       ScapXX = ScapXZperp = ScapX1parReplX = smatrix(Ncap)
-      
+
       for (g=Ncap;g;g--) {
         S = (*pinfoCapData)[g,]'
         X1g = *pXS(*DGP.pX1,S)
@@ -1708,9 +1716,16 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
           ZR1g = *pXS(*DGP.pZR1,S)
           Y2g = *pXS( DGP.Y2 ,S)
           SbootZR1X[g].M = cross(ZR1g, X1g) , cross(ZR1g, X2g)
-          Sbooty1X[g].M = cross(y1g, X1g) , cross(y1g, X2g)
+          SbootXy1[g].M = cross(X1g, y1g) \ cross(X2g, y1g)
           SbootZX[g].M = cross(Zg, X1g) , cross(Zg, X2g)
-          SbootY2parX[g].M = Repl.RparY ' (SbootY2X[g].M = cross(Y2g, X1g) , cross(Y2g, X2g))
+          SbootXY2par[g].M = (SbootY2X[g].M = cross(Y2g, X1g) , cross(Y2g, X2g)) ' Repl.RparY
+
+          if (kappa!=1 | LIML | bootstrapt) {
+            SbootZR1Zperp[g].M = cross(ZR1g, Zperpg)
+            SbootZperpy1[g].M = cross(Zperpg, y1g)
+            SbootZZperp[g].M = cross(Zg, Zperpg)
+            SbootZperpY2par[g].M = (SbootY2Zperp[g].M = cross(Y2g, Zperpg)) ' Repl.RparY
+          }
         }
       }
     }
@@ -1729,9 +1744,18 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
         ZR1g = *pXS(*DGP.pZR1,S)
         Y2g = *pXS( DGP.Y2 ,S)
         SbootZR1X[g].M = cross(ZR1g, X1g) , cross(ZR1g, X2g)
-        Sbooty1X[g].M = cross(y1g, X1g) , cross(y1g, X2g)
+        SbootXy1[g].M = cross(X1g, y1g) \ cross(X2g, y1g)
         SbootZX[g].M = cross(Zg, X1g) , cross(Zg, X2g)
-        SbootY2parX[g].M = Repl.RparY ' (SbootY2X[g].M = cross(Y2g, X1g) , cross(Y2g, X2g))
+        SbootXY2par[g].M = (SbootY2X[g].M = cross(Y2g, X1g) , cross(Y2g, X2g)) ' Repl.RparY
+
+        if (kappa!=1 | LIML | bootstrapt) {
+          Zperpg = *pXS( *DGP.pZperp ,S)
+          (*pSbootXZperp)[g].M = cross(X1g, Zperpg), cross(X2g, Zperpg)
+          SbootZR1Zperp[g].M = cross(ZR1g, Zperpg)
+          SbootZperpy1[g].M = cross(Zperpg, y1g)
+          SbootZZperp[g].M = cross(Zg, Zperpg)
+          SbootZperpY2par[g].M = (SbootY2Zperp[g].M = cross(Y2g, Zperpg)) ' Repl.RparY
+        }
       }
     }
   }
@@ -1788,7 +1812,7 @@ void boottest::PrepWRE() {
     SstarUYbar = smatrix(Repl.kZ+1)
   pU2parddot = pXB(DGP.U2ddot.M, Repl.RparY)
 
-  if (granular | jk) {  // construct objects in a way that involves explicitly constructing residuals
+  if (granular | jk | NFE) {  // construct objects in a way that computes residuals in intermediate step (O(N))
     if (kappa!=1 | LIML | robust==0 | granular)
       Zbar = *Repl.pX1par + DGP.Y2bar * Repl.RparY
 
@@ -1844,18 +1868,22 @@ void boottest::PrepWRE() {
       if (i) {
         PiddotRparYi = PiddotRparY[,i]
         for (g=Nstar;g;g--)
-          SstarUX[i+1].M[,g] = SbootY2parX[g].M[i,]' - (*pSbootXX)[g].M * PiddotRparYi
+          SstarUX[i+1].M[,g] = SbootXY2par[g].M[,i] - (*pSbootXX)[g].M * PiddotRparYi
       } else
         for (g=Nstar;g;g--)
-          SstarUX.M[,g] = (Sbooty1X[g].M - _r ' SbootZR1X[g].M - DGP.beta.M ' SbootZX[g].M + DGP.deltaY ' (SbootY2X[g].M - DGP.Piddot ' (*pSbootXX)[g].M))'
+          SstarUX.M[,g] = SbootXy1[g].M - SbootZR1X[g].M ' _r - SbootZX[g].M ' DGP.beta.M +  (SbootY2X[g].M - DGP.Piddot ' (*pSbootXX)[g].M) ' DGP.deltaY
 
       SstarUXinvXX[i+1].M = Repl.invXX * SstarUX[i+1].M
       if (kappa!=1 | LIML | bootstrapt) {
-        if (Repl.Yendog[i+1])
-          SstarUZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * (SstarUZperp[i+1].M = *_panelsum(*Repl.pZperp, *pu, infoBootData)')
+        if (i) {
+          if (Repl.Yendog[i+1])
+            for (g=Nstar;g;g--)
+              SstarUZperp[i+1].M[,g] = SbootZperpY2par[g].M[,i] - (*pSbootXZperp)[g].M ' PiddotRparYi
+        } else
+          for (g=Nstar;g;g--)
+            SstarUZperp.M[,g] = SbootZperpy1[g].M - SbootZR1Zperp[g].M ' _r - SbootZZperp[g].M ' DGP.beta.M +  (SbootY2Zperp[g].M - DGP.Piddot ' (*pSbootXZperp)[g].M) ' DGP.deltaY //  = *_panelsum(*Repl.pZperp, *pu, infoBootData)'
 
-        if (NFE)
-          CTFEU[i+1].M = crosstabFE(*pu, infoBootData)
+        SstarUZperpinvZperpZperp[i+1].M = Repl.invZperpZperp * SstarUZperp[i+1].M
       }
 
       if (kappa!=1 | LIML | robust==0) {
@@ -1864,7 +1892,7 @@ void boottest::PrepWRE() {
           SstarUU[i+1,j+1].M = *_panelsum(j? *pcol(*pU2parddot,j) : DGP.u1dddot.M, *pu, infoBootData)
       }
 
-      if (robust & bootstrapt & (granular==0 | Nw==1) & Repl.Yendog[i+1]) {
+      if (robust & bootstrapt & Nw==1 & Repl.Yendog[i+1]) {
         SstarUPX[i+1].M = Repl.XinvXX * SstarUX[i+1].M
         SstarUMZperp[i+1].M = *Repl.pZperp * SstarUZperpinvZperpZperp[i+1].M
         if (Nobs == Nstar)  // subtract "crosstab" of observation by cap-group of u
@@ -1876,12 +1904,9 @@ void boottest::PrepWRE() {
           else
             for (g=Nobs;g;g--)
               SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] = SstarUMZperp[i+1].M[g,(*pIDBootData)[g]] - DGP.u1dddot.M[g]
-
-        if (NFE)
-          SstarUMZperp[i+1].M = SstarUMZperp[i+1].M + (invFEwt :* CTFEU[i+1].M)[*pFEID,]  // CT_(*,FE) (U ̈_(∥j) ) (S_FE S_FE^' )^(-1) S_FE
       }
 
-      if (robust & bootstrapt & granular==0 & Repl.Yendog[i+1] & !(NClustVar == NBootClustVar & !subcluster))  // Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
+      if (robust & bootstrapt & Repl.Yendog[i+1] & !(NClustVar == NBootClustVar & !subcluster))  // Within each bootstrap cluster, groupwise sum by all-error-cluster-intersections of u:*X and u:*Zperp (and times invXX or invZperpZperp)
         for (g=Nstar;g;g--)
           SCTcapUXinvXX[i+1,g].M = *_panelsum(Repl.XinvXX, *pu, infoCTCapstar[g].M)
     }
