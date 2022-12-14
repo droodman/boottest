@@ -937,9 +937,9 @@ Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clusteri
   tenure
 
                                z =     2.6040
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0449
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0444
 
-95% confidence set for null hypothesis expression: [.1195, 2.216]
+95% confidence set for null hypothesis expression: [.1181, 2.21]
 
 Warning: with 12 bootstrap clusters, the number of replications, 99999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -959,9 +959,9 @@ Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clusteri
   tenure
 
                                z =     2.6040
-                          Prob>z =     0.0225
+                          Prob>z =     0.0222
 
-95% confidence set for null hypothesis expression: [.2769, ∞)
+95% confidence set for null hypothesis expression: [.277, ∞)
 
 Warning: with 12 bootstrap clusters, the number of replications, 9999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -972,7 +972,7 @@ Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clusteri
                                z =     2.6040
                           Prob<z =     0.9775
 
-95% confidence set for null hypothesis expression: (−∞, 1.793]
+95% confidence set for null hypothesis expression: (−∞, 1.795]
 
 Warning: with 12 bootstrap clusters, the number of replications, 9999, exceeds the universe of Rademacher draws, 2^12 = 4096. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -981,9 +981,9 @@ Wild bootstrap-t, null imposed, 4096 replications, Wald test, bootstrap clusteri
   tenure
 
                                z =     2.6040
-    2 * min(Prob>|z|, Prob<-|z|) =     0.0449
+    2 * min(Prob>|z|, Prob<-|z|) =     0.0444
 
-95% confidence set for null hypothesis expression: [.1195, 2.216]
+95% confidence set for null hypothesis expression: [.1181, 2.21]
 
 Wild bootstrap-t, null imposed, 99 replications, Wald test, Rademacher weights:
   tenure
