@@ -109,7 +109,7 @@ class boottest {
     sqrt, LIML, Fuller, kappa, WRE, WREnonARubin, ptype, twotailed, df, df_r, ARubin, willplot, notplotted, NumH0s, p, NBootClustVar, NErrClustVar, BootClust, FEdfadj, jk, ///
     NFE, granular, granularjk, purerobust, subcluster, Nstar, BFeas, v_sd, level, ptol, MaxMatSize, Nw, enumerate, bootstrapt, q, interpolable, interpolating, interpolate_u, robust, kX2, kX, Ncap, bootneqcap
   real matrix AR, v, CI, CT_WE, infoBootData, infoErrAll, JNcapNstar, statDenom, SuwtXA, numer0, deltadenom_b, _Jcap, YYstar_b, YPXYstar_b, numerw, ustar0, YbarYbar, XYbar, invXXXZbar, PXZbar, Zbar, invXXXX1par
-  real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, confpeak, gridmin, gridmax, gridpoints, numersum, anchor, poles, invFEwt, sqrtwt
+  real colvector DistCDR, plotX, plotY, beta, ClustShare, WeightGrpStart, WeightGrpStop, confpeak, gridmin, gridmax, gridpoints, numersum, anchor, poles, invFEwt, sqrtwt, Sbooty1y1
   real rowvector peak, betas, As
   string scalar obswttype, madjtype, seed
   pointer (real matrix) scalar pX2, pR1, pR, pID, pFEID, pY2, pX1, pinfoAllData, pinfoCapData, pIDAll, pnumer, pustar, pU2parddot
@@ -118,7 +118,7 @@ class boottest {
   pointer(class boottestOLS scalar) scalar pM
   struct structboottestClust rowvector Clust
   struct smatrix matrix denom, Kcd, denom0, Jcd0, CTUX, FillingT0, SstarUU
-  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, SbootY2X, SbootXY2par, ScapXZperp, ScapX1parReplX, SbootZR1X, SbootXy1, SbootZX, SbootZR1Zperp, SbootZperpy1, SbootZZperp, SbootZperpY2par, SbootY2Zperp, SbootX1parY2par, SbootXX1par, SbootX1pary1, SbootY2X1par, SbootZR1X1par, SbootZX1par
+  struct smatrix rowvector Kd, dudr, dnumerdr, IDCTCapstar, infoCTCapstar, deltadenom, Zyi, SstarUPX, YYstar, YPXYstar, ScapYbarX, ScapPXYbarZperp, CT_FEcapYbar, SstarUX, SstarUXinvXX, SstarUZperpinvZperpZperp, SstarUZperp, CTFEU, SstarUYbar, SCTcapUXinvXX, SstarUMZperp, ScapXX, SbootY2X, SbootXY2par, ScapXZperp, ScapX1parReplX, SbootZR1X, SbootXy1, SbootZX, SbootZZ, SbootZR1Zperp, SbootZperpy1, SbootZZperp, SbootZperpY2par, SbootY2Zperp, SbootX1parY2par, SbootXX1par, SbootX1pary1, SbootY2X1par, SbootZR1X1par, SbootZX1par, SbootY2parY2par, Sbooty1Y2par, Sbooty1Y2, SbootZR1Y2par, SbootZR1Y2, SbootZY2par, SbootZY2, SbootY2Y2par, SbootZR1y1, SbootZy1, SbootZR1ZR1, SbootZR1Z, SbootY2Y2
   pointer(struct smatrix rowvector) pSbootXX, pSbootXZperp
   struct ssmatrix rowvector ddenomdr, dJcddr
   
@@ -1317,25 +1317,6 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
         DGP.MakeResiduals(0)
       }
 
-      if (LIML & Repl.kZ==1 & Nw==1) As = betas = J(1, B+1, 0)
-
-      SstarUZperpinvZperpZperp = SstarUZperp = SstarUXinvXX = SstarUX = smatrix(Repl.kZ+1)
-      SstarUU = smatrix(Repl.kZ+1, Repl.kZ+1)
-
-      if (bootstrapt) {
-        deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
-        Zyi = deltadenom = smatrix(Repl.kZ+1)
-        SstarUMZperp = SstarUPX = SstarUX
-        _Jcap = J(Clust.N, Repl.kZ, 0)
-        if (granular==0)
-          SCTcapUXinvXX = smatrix(Repl.kZ+1, Nstar)
-        if (LIML | robust==0) {
-          YYstar = YPXYstar = SstarUX
-          YYstar_b = YPXYstar_b = J(Repl.kZ+1, Repl.kZ+1, 0)
-        }
-        if (NFE & (bootstrapt | kappa != 1 | LIML))
-          CTFEU = SstarUX
-      }
       InitWRE()
 
     } else {  // the score bootstrap for IV/GMM uses a IV/GMM DGP but then masquerades as an OLS test because most factors are fixed during the bootstrap. To conform, need DGP and Repl objects with different R, R1, one with FWL, one not
@@ -1669,11 +1650,39 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
 void boottest::InitWRE() {  // stuff done only once that knits together results from DGP and Repl regression prep
   real scalar i, g, j; real matrix X1g, X2g, Zperpg, X1parg, Zg, ZR1g, Y2g, Y2parg, S; real colvector y1g
+      if (LIML & Repl.kZ==1 & Nw==1) As = betas = J(1, B+1, 0)
+
+  SstarUYbar = SstarUZperpinvZperpZperp = SstarUZperp = SstarUXinvXX = SstarUX = smatrix(Repl.kZ+1)
+  SstarUU = smatrix(Repl.kZ+1, Repl.kZ+1)
+
+  if (bootstrapt) {
+    deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
+    Zyi = deltadenom = smatrix(Repl.kZ+1)
+    SstarUMZperp = SstarUPX = SstarUX
+    _Jcap = J(Clust.N, Repl.kZ, 0)
+    if (granular==0)
+      SCTcapUXinvXX = smatrix(Repl.kZ+1, Nstar)
+    if (LIML | robust==0) {
+      YYstar = YPXYstar = SstarUX
+      YYstar_b = YPXYstar_b = J(Repl.kZ+1, Repl.kZ+1, 0)
+    }
+    if (NFE & (bootstrapt | kappa != 1 | LIML))
+      CTFEU = SstarUX
+  }
+
   if (granular==0) {
     if (jk==0) {
       SbootZR1X = SbootXy1 = SbootZX = SbootY2X = SbootXY2par = smatrix(Nstar)
       if (kappa!=1 | LIML | bootstrapt) SbootZR1Zperp = SbootZperpy1 = SbootZZperp = SbootZperpY2par = SbootY2Zperp = smatrix(Nstar)
-      if (kappa!=1 | LIML | robust==0 ) SbootX1parY2par = SbootXX1par = SbootX1pary1 = SbootY2X1par = SbootZR1X1par = SbootZX1par = smatrix(Nstar)
+      if (kappa!=1 | LIML | robust==0 ) {
+        SbootZR1Z = SbootZR1ZR1 = SbootX1parY2par = SbootXX1par = SbootX1pary1 = SbootY2X1par = SbootY2Y2 = SbootZR1X1par = SbootZX1par = SbootY2parY2par = Sbooty1Y2par = Sbooty1Y2 = SbootZR1Y2par = SbootZR1Y2 = SbootZY2par = SbootZY2 = SbootY2Y2par = SbootZR1y1 = SbootZy1 = SbootZZ = smatrix(Nstar)
+        Sbooty1y1 = J(Nstar, 1, 0)
+        for (i=Repl.kZ; i>=0; i--) {
+          SstarUYbar[i+1].M = J(Nstar, 1+Repl.kZ, 0)
+          for (j=i; j>=0; j--)
+            SstarUU[i+1,j+1].M = J(Nstar, 1, 0)
+        }
+      }
           
       if (!bootneqcap) {
         pSbootXX = &ScapXX
@@ -1735,6 +1744,18 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
             SbootZR1X1par[g].M = cross(ZR1g, X1parg)
             SbootXX1par[g].M = cross(X1g, X1parg) \ cross(X2g, X1parg)
             SbootX1pary1[g].M = cross(X1parg, y1g)
+            SbootY2parY2par[g].M = Repl.RparY ' cross(Y2g, Y2g) * Repl.RparY
+            Sbooty1Y2par[g].M = (Sbooty1Y2[g].M = cross(y1g, Y2g)) * Repl.RparY
+            SbootZR1Y2par[g].M = (SbootZR1Y2[g].M = cross(ZR1g, Y2g)) * Repl.RparY
+            SbootZY2par[g].M = (SbootZY2[g].M = cross(Zg, Y2g)) * Repl.RparY
+            SbootY2Y2par[g].M = cross(Y2g, Y2g) * Repl.RparY
+            Sbooty1y1[g] = cross(y1g, y1g)
+            SbootZR1y1[g].M = cross(ZR1g, y1g)
+            SbootZy1[g].M = cross(Zg, y1g)
+            SbootZR1ZR1[g].M = cross(ZR1g, ZR1g)
+            SbootZR1Z[g].M = cross(ZR1g, Zg)
+            SbootZZ[g].M = cross(Zg, Zg)
+            SbootY2Y2[g].M = cross(Y2g, Y2g)
           }
         }
       }
@@ -1776,6 +1797,18 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
           SbootZR1X1par[g].M = cross(ZR1g, X1parg)
           SbootXX1par[g].M = cross(X1g, X1parg) \ cross(X2g, X1parg)
           SbootX1pary1[g].M = cross(X1parg, y1g)
+          SbootY2parY2par[g].M = cross(Y2g, Y2g)
+          Sbooty1Y2par[g].M = (Sbooty1Y2[g].M = cross(y1g, Y2g)) * Repl.RparY
+          SbootZR1Y2par[g].M = (SbootZR1Y2[g].M = cross(ZR1g, Y2g)) * Repl.RparY
+          SbootZY2par[g].M = (SbootZY2[g].M = cross(Zg, Y2g)) * Repl.RparY
+          SbootY2Y2par[g].M = cross(Y2g, Y2g) * Repl.RparY
+          Sbooty1y1[g] = cross(y1g, y1g)
+          SbootZR1y1[g].M = cross(ZR1g, y1g)
+          SbootZy1[g].M = cross(Zg, y1g)
+          SbootZR1ZR1[g].M = cross(ZR1g, ZR1g)
+          SbootZR1Z[g].M = cross(ZR1g, Zg)
+          SbootZZ[g].M = cross(Zg, Zg)
+          SbootY2Y2[g].M = cross(Y2g, Y2g)
         }
       }
     }
@@ -1798,14 +1831,16 @@ void boottest::PrepWRE() {
   YbarYbar = DGP.y1bary1bar, YbarYbar \ 
              YbarYbar'     , (Repl.ZZ - ZU2ddotpar' - ZU2ddotpar + Repl.RparY ' DGP.U2ddotU2ddot * Repl.RparY)
 
-  if (granular==0)
+  if (granular==0) {
     PiddotRparY = DGP.Piddot * Repl.RparY
+    PiddotdeltaY = DGP.Piddot * DGP.deltaY
+  }
 
   if (robust & bootstrapt) {  // for WRE replication regression, prepare for CRVE
     if (granular | NFE) PXZbar = *pX12B(*Repl.pX1, Repl.X2, invXXXZbar)
 
     if (granular==0) {
-      deltadddot = (DGP.perpRperpX'DGP.deltaX \ J(kX2, 1, 0)) + DGP.Piddot * DGP.deltaY
+      deltadddot = (DGP.perpRperpX'DGP.deltaX \ J(kX2, 1, 0)) + PiddotdeltaY
       for (g=Ncap;g;g--)
         ScapYbarX.M[g,] = deltadddot'ScapXX[g].M  // S_cap(M_Zperp*y1 :* P_(MZperpX)])
 
@@ -1829,11 +1864,9 @@ void boottest::PrepWRE() {
     }
   }
 
-  if (kappa!=1 | LIML | robust==0)
-    SstarUYbar = smatrix(Repl.kZ+1)
   pU2parddot = pXB(DGP.U2ddot.M, Repl.RparY)
 
-  if (granular | jk | NFE) {  // construct objects in a way that computes residuals in intermediate step (O(N))
+  if (granular | jk /*| NFE*/) {  // construct objects in a way that computes residuals in intermediate step (O(N))
     if (kappa!=1 | LIML | robust==0 | granular)
       Zbar = *Repl.pX1par + DGP.Y2bar * Repl.RparY
 
@@ -1883,10 +1916,9 @@ void boottest::PrepWRE() {
       Zbar = *Repl.pX1par + DGP.Y2bar * Repl.RparY
 
     if (kappa!=1 | LIML | robust==0) 
-      Pidddot = (DGP.perpRperpX'DGP.deltaX \ J(kX2, 1, 0)) + (PiddotdeltaY = DGP.Piddot * DGP.deltaY)
+      Pidddot = (DGP.perpRperpX'DGP.deltaX \ J(kX2, 1, 0)) + PiddotdeltaY
 
     for (i=Repl.kZ; i>=0; i--) {  // precompute various clusterwise sums
-      pu = i? pcol(*pU2parddot,i) : &DGP.u1dddot.M
 
       // S_star(u :* X), S_star(u :* Zperp) for residuals u for each endog var; store transposed
       if (i) {
@@ -1897,6 +1929,8 @@ void boottest::PrepWRE() {
         for (g=Nstar;g;g--)
           SstarUX.M[,g] = SbootXy1[g].M - SbootZR1X[g].M ' _r - SbootZX[g].M ' DGP.beta.M +  (SbootY2X[g].M - DGP.Piddot ' (*pSbootXX)[g].M) ' DGP.deltaY
       SstarUXinvXX[i+1].M = Repl.invXX * SstarUX[i+1].M
+
+      pu = i? pcol(*pU2parddot,i) : &DGP.u1dddot.M
 
       if (kappa!=1 | LIML | bootstrapt) {
         if (i) {
@@ -1914,7 +1948,6 @@ void boottest::PrepWRE() {
       }
 
       if (kappa!=1 | LIML | robust==0) {
-        SstarUYbar[i+1].M = J(Nstar, 1+Repl.kZ, 0)
         if (i)
           for (g=Nstar;g;g--) {
             SstarUYbar[i+1].M[ g,1     ] = (SbootXY2par[g].M[,i] - (*pSbootXX)[g].M ' PiddotRparYi) ' Pidddot
@@ -1923,15 +1956,39 @@ void boottest::PrepWRE() {
         else
           for (g=Nstar;g;g--) {
             SstarUYbar[i+1].M[g,1] = (SbootXy1[g].M - SbootZR1X[g].M ' _r - SbootZX[g].M ' DGP.beta.M + SbootY2X[g].M ' DGP.deltaY - (*pSbootXX)[g].M ' PiddotdeltaY) ' Pidddot
-            SstarUYbar[i+1].M[|g,2\g,.|] = SbootX1pary1[g].M + SbootXy1[g].M ' PiddotRparY -
+            SstarUYbar[i+1].M[|g,2\g,.|] = SbootX1pary1[g].M' + SbootXy1[g].M ' PiddotRparY -
                                            _r ' (SbootZR1X1par[g].M + SbootZR1X[g].M * PiddotRparY) -
                                            DGP.beta.M   ' (SbootZX1par[g].M  +  SbootZX[g].M * PiddotRparY) +
-                                           DGP.deltaY   ' (SbootY2X1par[g].M +  SbootXY2par[g].M ' PiddotRparY) -
+                                           DGP.deltaY   ' (SbootY2X1par[g].M +  SbootY2X[g].M * PiddotRparY) -
                                            PiddotdeltaY ' (SbootXX1par[g].M   + (*pSbootXX)[g].M * PiddotRparY)
           }
 
-        for (j=i; j>=0; j--)
-          SstarUU[i+1,j+1].M = *_panelsum(j? *pcol(*pU2parddot,j) : DGP.u1dddot.M, *pu, infoBootData)
+        if (i)
+          for (j=i; j>=0; j--)
+            if (j)
+              for (g=Nstar;g;g--)
+                SstarUU[i+1,j+1].M[g] = SbootY2parY2par[g].M[i,j] - (2 * SbootXY2par[g].M[,i] - (*pSbootXX)[g].M * PiddotRparYi) ' PiddotRparY[,j]
+            else
+              for (g=Nstar;g;g--)
+                SstarUU[i+1,1].M[g] = Sbooty1Y2par[g].M[,i] - _r ' SbootZR1Y2par[g].M[,i] - DGP.beta.M ' SbootZY2par[g].M[,i] + DGP.deltaY ' SbootY2Y2par[g].M[,i] - PiddotdeltaY ' SbootXY2par[g].M[,i] -
+                                      (SbootXy1[g].M - SbootZR1X[g].M ' _r - SbootZX[g].M ' DGP.beta.M + SbootY2X[g].M ' DGP.deltaY - (*pSbootXX)[g].M ' PiddotdeltaY) ' PiddotRparYi
+        else
+          for (g=Nstar;g;g--)
+            SstarUU.M[g] = Sbooty1y1[g] + 
+                           _r ' SbootZR1ZR1[g].M * _r + 
+                           DGP.beta.M ' SbootZZ[g].M * DGP.beta.M + 
+                           DGP.deltaY ' SbootY2Y2[g].M * DGP.deltaY + 
+                           PiddotdeltaY ' (*pSbootXX)[g].M * PiddotdeltaY + 
+                           2 * (_r ' (SbootZR1Z[g].M * DGP.beta.M -
+                                      SbootZR1y1[g].M - 
+                                      SbootZR1Y2[g].M * DGP.deltaY + 
+                                      SbootZR1X[g].M * PiddotdeltaY) + 
+                                Sbooty1Y2[g].M * DGP.deltaY - 
+                                PiddotdeltaY ' SbootXy1[g].M + 
+                                DGP.beta.M ' (SbootZX[g].M * PiddotdeltaY - 
+                                              SbootZy1[g].M - 
+                                              SbootZY2[g].M * DGP.deltaY) - 
+                                DGP.deltaY ' SbootY2X[g].M * PiddotdeltaY)
       }
 
       if (robust & bootstrapt & Repl.Yendog[i+1]) {
