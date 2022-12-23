@@ -1,4 +1,4 @@
-*! boottest 4.3.1 10 December 2022
+*! boottest 4.4.0 23 December 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1169,6 +1169,7 @@ end
 
 
 * Version history
+* 4.4.0 Minimized O(N) operations in non-jk WRE when clustering is coarse. Skip FE code in WRE if FE = cluster grouping. Bumped Julia version to 0.8.5.
 * 4.3.1 Bumped Julia version to 0.8.3. Check for Python 2. Restored code path of memory-intensive granular WRE computation of denominator.
 * 4.3.0 Added jackknife for WRE; fixed failure to detect constant term after ivreg; fixed incorrect computation in "WUE"
 * 4.2.1 jk bug fixes

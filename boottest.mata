@@ -1,4 +1,4 @@
-*! boottest 4.3.1 10 December 2022
+*! boottest 4.4.0 23 December 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1555,7 +1555,7 @@ real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, 
 // for all groups in the intersection of all error clusterings
 // return value has one row per cap cluster, one col per bootstrap replication
 pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix betas, real scalar _jk) {
-  real scalar i, ind2; real matrix retval, CTstarFEUv, T1, F1, F1beta, F2, SstarUXv, SstarUZperpinvZperpZperp_v; pointer (real matrix) scalar pbetav; pointer (real colvector) pPXYstar; real rowvector _beta, SstarUMZperp_ind2_i; real colvector S, PiddotRparYind2
+  real scalar i, ind2; real matrix retval, CTstarFEUv, T1, F1, F1beta, F2, SstarUXv, SstarUZperpinvZperpZperp_v; pointer (real matrix) scalar pbetav; pointer (real colvector) pPXYstar; real rowvector _beta, SstarUMZperp_ind2_i; real colvector S
   pragma unset retval
 
   if (granular) {  // create pieces of each N x B matrix one at a time rather than whole thing at once
@@ -1655,7 +1655,6 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
     for (ind2=Repl.kZ; ind2; ind2--) {
       F1beta = cols(F1)==1? F1 * betas[ind2,] : F1 :* betas[ind2,]
-      PiddotRparYind2 = PiddotRparY[,ind2]
 
       for (i=Clust.N;i;i--) {
         F2 = ScapXYbar[ind2+1].M[,i]; if (Repl.Yendog[ind2+1]) F2 = F2 :- negSstarUMZperpX[ind2+1,i].M * v
@@ -2940,6 +2939,3 @@ mata mlib create lboottest, dir("`c(sysdir_plus)'l") replace
 mata mlib add lboottest *(), dir("`c(sysdir_plus)'l")
 mata mlib index
 end
-
-// ivreg2 wage collgrad smsa race age (tenure = union married), cluster(collgrad industry) fuller(1)
-// boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
