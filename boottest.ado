@@ -199,7 +199,7 @@ program define _boottest, rclass sortpreserve
       local needsysimage 1
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.8.3"')))  // hard-coded version requirement
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.8.5"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")
