@@ -1357,7 +1357,6 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     }
   }
 
-
   if (df==1) setsqrt(1)  // work with t/z stats instead of F/chi2
 
   if (small) {
@@ -1521,6 +1520,7 @@ real rowvector boottest::_HessianFixedkappa(real scalar ind1, real scalar ind2, 
     pT1R = ind2? pcol(invXXXZbar,ind2) : &DGP.deltadddot
     if (Repl.Yendog[ind2+1])
       pT1R = &(*pT1R :+ SstarUXinvXX[ind2+1].M * v)  // right-side linear term
+
     retval = colsum(*pT1L :* *pT1R)  // multiply in the left-side linear term
   }
 
@@ -1563,7 +1563,6 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
       pPXYstar = pcol(PXZbar, ind1)
       if (Repl.Yendog[ind1+1])
         pPXYstar = &(*pPXYstar :+ SstarUPX[ind1+1].M * v)
-
       retval = *_panelsum(*pPXYstar :* (DGP.y1bar :- SstarUMZperp.M * v), *pinfoCapData)
 
       for (ind2=Repl.kZ;ind2;ind2--) {
@@ -1650,7 +1649,6 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
     }
   else {  // coarse error clustering without O(N) operations
     F1 = invXXXX1par[,ind1] + PiddotRparY[,ind1]; if (Repl.Yendog[ind1+1]) F1 = F1 :+ SstarUXinvXX[ind1+1].M * v
-
     retval = J(Clust.N, cols(v), 0)
     for (i=Clust.N;i;i--)
       retval[i,] = colsum(F1 :* (ScapXYbar.M[,i] :- negSstarUMZperpX[1,i].M * v))
@@ -1671,7 +1669,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
 
 void boottest::InitWRE() {  // stuff done only once that knits together results from DGP and Repl regression prep
   real scalar i, g, j; real matrix X1g, X2g, Zperpg, X1parg, Zg, ZR1g, Y2g, S, Y2gi; real colvector y1g; real rowvector X1pargi
-  
+
   if (LIML & Repl.kZ==1 & Nw==1) As = betas = J(1, B+1, 0)
 
   SstarUYbar = SstarinvZperpZperpZperpU = SstarZperpU = SstarUXinvXX = SstarUX = smatrix(Repl.kZ+1)
@@ -1762,7 +1760,7 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
           ScapYX[i+1].M[g,] = cross(Y2gi, X1g) , cross(Y2gi, X2g)
         }
 
-        if (jk==0 & !bootneqcap) {  // if bootstrapping and intersection-of-error clusterings same, and using optimized non-jk code, then integrate by-boot and by-cap constructions for speed
+        if (jk==0 & bootneqcap==0) {  // if bootstrapping and intersection-of-error clusterings same, and using optimized non-jk code, then integrate by-boot and by-cap constructions for speed
           y1g = *pXS(DGP.y1,S)
           Zg = *pXS(DGP.Z,S)
           ZR1g = *pXS(*DGP.pZR1,S)
@@ -1909,7 +1907,7 @@ void boottest::PrepWRE() {
   XYbar = DGP.Xy1bar, (invXXXZbar = Repl.XZ - DGP.XU2ddot * Repl.RparY)
   invXXXZbar = Repl.invXX * invXXXZbar
   ZU2ddotpar = (Repl.ZY2 - Repl.XZ'DGP.Piddot) * Repl.RparY
-  YbarYbar = DGP.deltadddot'Repl.XZ - DGP.y1barU2ddot * Repl.RparY
+  YbarYbar = DGP.deltadddot'Repl.XZ - DGP.y1barU2ddot * Repl.RparY 
   YbarYbar = DGP.y1bary1bar, YbarYbar \ 
              YbarYbar'     , (Repl.ZZ - ZU2ddotpar' - ZU2ddotpar + Repl.RparY ' DGP.U2ddotU2ddot * Repl.RparY)
 
@@ -2083,7 +2081,7 @@ void boottest::PrepWRE() {
         else  // crosstab c,c* is tall
           for (h=Nstar;h;h--)
             for (g=Clust[BootClust].info[h,1]; g<=Clust[BootClust].info[h,2]; g++)
-              negSstarUMZperpX[i+1,g].M[,h] = negSstarUMZperpX[i+1,g].M[,h] - (i? SallXU2RparY[h].M[,i] : SallXu1ddot[h].M)
+              negSstarUMZperpX[i+1,g].M[,h] = negSstarUMZperpX[i+1,g].M[,h] - (i? SallXU2RparY[g].M[,i] : SallXu1ddot[g].M)
 
 				if (NFE & FEboot==0)
           for (h=DGP.kX;h;h--) {
@@ -2150,7 +2148,7 @@ void boottest::MakeWREStats(real scalar w) {
       storeWtGrpResults(pDist, w, sqrt? numerw:/sqrt(denom.M) : numerw :* numerw :/ denom.M)
       denom.M = Repl.RRpar * Repl.RRpar * denom.M[1]  // not a bug
     }
-  } else {  // WRE bootstrap for more than 1 coefficeint in bootstrap regression
+  } else {  // WRE for >1 coefficient in bootstrap regression
 
     betas = J(Repl.kZ, cols(v), 0)
     A = smatrix(cols(v))
@@ -2943,15 +2941,5 @@ mata mlib add lboottest *(), dir("`c(sysdir_plus)'l")
 mata mlib index
 end
 
-// ivregress liml wage ttl_exp collgrad (tenure = union south), cluster(industry)
-// boottest tenure, seed(1231) nogr
-//   tenure
-//
-//                                z =     2.5275
-//                         Prob>|z| =     0.0120
-//
-// 95% confidence set for null hypothesis expression: [.1216, 2.577]
-
-
-// xtivreg2 lhwage (yeduc = _IyouXninne_1) _Ibirthyr_* _IbirXch7* [pw=wt] if inlist(year,1995), cluster(birthplnew) partial(_IbirXch7*) small fe
-// boottest _Ibirthyr_1971, noci seed(1231)
+// ivreg2 wage collgrad smsa race age (tenure = union married), cluster(collgrad industry) fuller(1)
+// boottest tenure, nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)

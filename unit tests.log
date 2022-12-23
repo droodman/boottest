@@ -1108,11 +1108,13 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 
 Overriding estimator's cluster/robust settings with cluster(collgrad industry)
 
+Warning: 561 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+
 Wild bootstrap-t, null imposed, 9999 replications, Wald test, clustering by collgrad industry, bootstrap clustering by collgrad, Webb weights:
   tenure
 
-                               z =     1.9792
-                        Prob>|z| =     0.2692
+                               z =     3.9420
+                        Prob>|z| =     0.2081
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
