@@ -1,4 +1,4 @@
-*! boottest 4.4.0 23 December 2022
+*! boottest 4.4.1 28 December 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1001,7 +1001,11 @@ program define _boottest, rclass sortpreserve
 		}
 
 		di
-		if `reps' di as txt strproper("`boottype'") " bootstrap-`statistic', null " cond(0`null', "", "not ") "imposed, " as txt `reps' as txt " replications, " _c
+		if `reps' {
+      di as txt strproper("`boottype'") " bootstrap-`statistic', null " cond(0`null', "", "not ") "imposed, " _c
+      if `jk' di "jackknifed residuals, " _c
+      di as txt `reps' as txt " replications, " _c
+    }
 		di as txt cond(`ar', "Anderson-Rubin ", "") cond(!`reps' & `null' & "`boottype'"=="score", "Rao score (Lagrange multiplier)", "Wald") " test" _c
 		if "`cluster'"!="" di ", clustering by " as res "`cluster'" _c
 		if ("`bootcluster'"!="" | `NErrClustVar' > 1) & `reps' di as txt ", bootstrap clustering by " as res "`bootcluster'" _c
@@ -1169,6 +1173,7 @@ end
 
 
 * Version history
+* 4.4.1 Fixed crash in AR test after over-ID'd regression; added mention of jackknifing to output
 * 4.4.0 Minimized O(N) operations in non-jk WRE when clustering is coarse. Skip FE code in WRE if FE = cluster grouping. Bumped Julia version to 0.8.5.
 * 4.3.1 Bumped Julia version to 0.8.3. Check for Python 2. Restored code path of memory-intensive granular WRE computation of denominator.
 * 4.3.0 Added jackknife for WRE; fixed failure to detect constant term after ivreg; fixed incorrect computation in "WUE"
