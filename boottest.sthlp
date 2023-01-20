@@ -120,7 +120,7 @@ Wang (2021) favors the non-studentized test when instruments are weak, but stron
 Webb (2022) and for linear IV estimation by Young (2022). If a single cluster contains extreme observations,
 that will drive the initial model fit toward minimizing their apparent extremity, thus potentially making the bootstrap data-generating process less realistic. To reduce this risk,
 the {help jackknife} computes each bootstrapping cluster's best fit using only the data from all the other clusters. For OLS, {cmd:boottest}'s
-implementation corresponds to what MacKinnon, Nielsen, and Webb (2022) calls the WCU/WCR31.
+implementation corresponds to what MacKinnon, Nielsen, and Webb (2023) calls the WCU/WCR-S.
 
 {p 2 4 0}* The third new feature is the {cmdab:marg:ins} option, which allows you to bootstrap results from the {cmd:margins} command when those results are
 linear functions of the parameters. To use this feature,
@@ -336,7 +336,7 @@ restricted efficient bootstrap is the default, which {cmd:boottype(score)} overr
 
 {phang}{opt jack:knife} or {opt jk} requests jackknifing of the bootstrap data-generating process for OLS or linear IV estimates. In the 
 inital model fit, the one subject to the null unless {cmdab:nonul:l} is specified, the fit within each bootstrapping cluster is computed using only the data from all
-the other clusters. For OLS, MacKinnon, Nielsen, and Webb (2022) dubs this process WCU/WCR31. For IV, it corresponds to the jackknifed wild bootstrap described in Young (2002). The 
+the other clusters. For OLS, MacKinnon, Nielsen, and Webb (2023) dubs this process WCU/WCR-S. For IV, it corresponds to the jackknifed wild bootstrap described in Young (2002). The 
 Julia implementation (invoked with the {cmd:julia}) option does not offer the jackknife after instrumental variables estimation, unless running the Anderson-Rubin test 
 (invoked with the {cmd:ar} option).
 
@@ -683,7 +683,7 @@ inference in cluster-IV models. DOI: 10.1002/jae.2710.{p_end}
 inference. {it:Journal of Econometric Methods} 1(1): 23-41.{p_end}
 {p 4 8 2}Liu, R. Y. 1988. Bootstrap procedures under some non-I.I.D. models. {it:Annals of Statistics} 16: 1696-1708.{p_end}
 {p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2017. Bootstrap and asymptotic inference with multiway clustering. Queen's Economics Department Working Paper No. 1386.{p_end}
-{p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2022. Fast and Reliable Jackknife and Bootstrap Methods for Cluster-Robust Inference. Queen's Economics Department Working Paper No. 1485.{p_end}
+{p 4 8 2}MacKinnon, J.G., M.O. Nielsen, and M.D. Webb. 2023. Fast and Reliable Jackknife and Bootstrap Methods for Cluster-Robust Inference. Queen's Economics Department Working Paper No. 1485.{p_end}
 {p 4 8 2}MacKinnon, J.G., and M.D. Webb. 2018. The wild bootstrap for few (treated) clusters. {it:Econometrics Journal} 21: 114-35.{p_end}
 {p 4 8 2}Mammen, E. 1993. Bootstrap and wild bootstrap for high dimensional linear models. {it:Annals of Statistics} 21: 255-85.{p_end}
 {p 4 8 2}Rao, C.R. 1948. Large sample tests of statistical hypotheses concerning several parameters with applications to problems of

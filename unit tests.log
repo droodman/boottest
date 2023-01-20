@@ -246,7 +246,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
                             t(7) =     2.0194
                         Prob>|t| =     0.0921
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.04
 
                             t(7) =     2.0194
@@ -254,7 +254,7 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
 
 95% confidence set for null hypothesis expression: [.03593, .07168]
 
-Wild bootstrap-t, null not imposed, jackknifed residuals, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
+Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.04
 
                             t(7) =     2.0194
@@ -471,7 +471,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
                                z =     7.5847
                         Prob>|z| =     0.0070
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                                z =     7.5847
@@ -524,7 +524,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 
 95% confidence set for null hypothesis expression: [−.8324, −.602] ∪ [.2065, 1.205]
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                                z =     4.0267
@@ -546,7 +546,7 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
                    chi2(2) =   477.2687
                Prob > chi2 =     0.0000
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
+Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
 
                    chi2(2) =   477.2687
@@ -566,7 +566,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
 
 95% confidence set for null hypothesis expression: [−.0196, .0829]
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald test, Rademacher weights:
+Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
   tenure
 
                          t(2227) =     1.2925
@@ -616,7 +616,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age o
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
   tenure
 
                            t(12) =     0.4874
@@ -636,7 +636,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age o
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
-Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
+Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by age occupation, bootstrap clustering by occupation, Rademacher weights:
   tenure
 
                            t(12) =     0.4874
