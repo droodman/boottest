@@ -1,5 +1,5 @@
-*! boottest 4.4.1 28 December 2022
-*! Copyright (C) 2015-22 David Roodman
+*! boottest 4.4.2 5 January 2023
+*! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -1173,6 +1173,7 @@ end
 
 
 * Version history
+* 4.4.2 Fixed wrong "robust" CI's after OLS
 * 4.4.1 Fixed crash in AR test after over-ID'd regression; added mention of jackknifing to output
 * 4.4.0 Minimized O(N) operations in non-jk WRE when clustering is coarse. Skip FE code in WRE if FE = cluster grouping. Bumped Julia version to 0.8.5.
 * 4.3.1 Bumped Julia version to 0.8.3. Check for Python 2. Restored code path of memory-intensive granular WRE computation of denominator.

@@ -1,4 +1,4 @@
-*! boottest 4.4.2 28 December 2022
+*! boottest 4.4.1 28 December 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -2394,7 +2394,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                              (B? 
                                colsum(SuwtXA)' : 
                                SuwtXA         ) :
-                             (robust==0 | granular | (purerobust & !interpolable) ?
+                             (robust==0 | granular | purerobust ?
                                *pR * (betadev = rowsum(SuwtXA)) :
                                rowsum(*pR * SuwtXA)))
   } else {
@@ -2402,7 +2402,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                (B? 
                  cross(SuwtXA, v) : 
                  SuwtXA * v_sd    ) :
-               (robust==0 | granular | (purerobust & !interpolable)?
+               (robust==0 | granular | purerobust?
                   *pR * (betadev = SuwtXA * v) :
                  (*pR * SuwtXA) * v)
 
