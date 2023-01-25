@@ -564,15 +564,15 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
                          t(2227) =     1.2941
                         Prob>|t| =     0.2002
 
-95% confidence set for null hypothesis expression: [−.0196, .0829]
+95% confidence set for null hypothesis expression: [−.01912, .08308]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
   tenure
 
-                         t(2227) =     1.2925
+                         t(2227) =     1.2941
                         Prob>|t| =     0.1892
 
-95% confidence set for null hypothesis expression: [−.01311, .07753]
+95% confidence set for null hypothesis expression: [−.01224, .07775]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, Rademacher weights:
   collgrad tenure
@@ -841,7 +841,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Webb weights:
                            t(12) =     1.5097
                         Prob>|t| =     0.1642
 
-95% confidence set for null hypothesis expression: [.03283, .07845]
+95% confidence set for null hypothesis expression: [.03499, .0772]
 
 Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.05
@@ -1135,7 +1135,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
                          t(1833) =     1.6602
                         Prob>|t| =     0.0811
 
-95% confidence set for null hypothesis expression: [−.004636, .07465]
+95% confidence set for null hypothesis expression: [−.004636, .07433]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
   tenure
@@ -1143,7 +1143,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights:
                          t(1833) =     1.6265
                         Prob>|t| =     0.1231
 
-95% confidence set for null hypothesis expression: [−.009574, .07814]
+95% confidence set for null hypothesis expression: [−.009512, .07794]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
@@ -1204,7 +1204,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by id ye
                             t(8) =    28.5012
                         Prob>|t| =     0.0010
 
-95% confidence set for null hypothesis expression: [.844, .8847]
+95% confidence set for null hypothesis expression: [.788, .9367]
 
 Overriding estimator's cluster/robust settings with cluster(id year)
 (bootcluster(id year) assumed)
@@ -1217,7 +1217,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by id ye
                             t(8) =    28.4248
                         Prob>|t| =     0.0000
 
-95% confidence set for null hypothesis expression: [.8449, .8833]
+95% confidence set for null hypothesis expression: [.7899, .9431]
 
 Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
 

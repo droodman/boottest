@@ -1,4 +1,4 @@
-*! boottest 4.4.1 28 December 2022
+*! boottest 4.4.2 28 December 2022
 *! Copyright (C) 2015-22 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -68,7 +68,7 @@ void setXS(real matrix X, real colvector S, real matrix Y) if (cols(X)) X[|S,(.\
 matrix fold(matrix X) return(uppertriangle(X) + lowertriangle(X,0)')  // fold matrix diagonally; returns same values as a quad form, but runs faster because of all the 0's
 
 class boottestOLS {  // class for performing OLS
-  real scalar y1y1, LIML, Fuller, kappa, isDGP, kZ, kX1, kX, y1bary1bar
+  real scalar y1y1, LIML, Fuller, kappa, isDGP, kZ, kX1, kX, y1bary1bar, restricted
   real colvector invXXXy1par, X1y1, dbetadr, beta0, y1bar, Zperpy1, t1, t1Y, deltadddot, X2y1, Xy1bar, deltaX, deltaY
   real rowvector y1Y2, Yendog, y1barU2ddot
   real matrix Z, ZZ, XZ, XX, PXZ, R1invR1R1, R1perp, Rpar, RperpX, RRpar, RparX, RparY, RR1invR1R1, YY, AR, XAR, XinvXX, Rt1, invXX, invH, Deltadddot, Y2bar, perpRperpX, XY2, XU2ddot, U2ddotU2ddot, Y2Y2, Piddot, ZY2, V
@@ -96,7 +96,7 @@ class boottestIVGMM extends boottestOLS {
   pointer(real matrix) scalar pRperp
 
   pointer(struct smatrix rowvector) scalar py1parY2g, pZy1parg, pXy1parg  // jk stuff
-  struct smatrix rowvector XY2g, ZY2g, XXg, XZg, YYg, Zy1g, X1y1g, X2y1g, y1Y2g, ZZg, invXXg, H_2SLSg, H_2SLSmZZg, ZR1Y2g, ZR1ZR1g, twoy1ZR1g, ZZR1g, X1ZR1g, X2ZR1g, ZXinvXXXZg, invHg
+  struct smatrix rowvector XY2g, ZY2g, XXg, XZg, YYg, Zy1g, X1y1g, X2y1g, y1Y2g, ZZg, invXXg, H_2SLSg, H_2SLSmZZg, ZR1Y2g, ZR1ZR1g, twoy1ZR1g, ZZR1g, X1ZR1g, X2ZR1g, invHg
   real colvector _Nobsg, y1pary1parg, y1y1g
   pointer(real colvector) scalar py1pary1parg, py1parjk
 
@@ -179,8 +179,10 @@ real matrix boottestOLS::perp(real matrix A) {
 void boottestOLS::SetR(real matrix R1, | real matrix R) {
   real matrix _R, vec; real rowvector val
   pragma unset vec; pragma unset val
+  
+  restricted = rows(R1) > 0
 
-  if (rows(R1)) {
+  if (restricted) {
     R1invR1R1 = invsym(R1 * R1')
     if (all(diagonal(R1invR1R1))==0)
       _error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
@@ -193,14 +195,14 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
   if (kappa) {
     // prepare to reduce regression via FWL
     _R = R \ J(parent->kY2, parent->kX1, 0), I(parent->kY2)  // rows to prevent partialling out of endogenous regressors
-    if (rows(R1))
+    if (restricted)
       _R = _R * R1perp 
     symeigensystem(_R ' invsym(_R * _R') * _R, vec, val); _edittozero(val, 1000)
-    Rpar = _select(vec, val); if (rows(R1)) Rpar = R1perp * Rpar  // par of RR₁perp
+    Rpar = _select(vec, val); if (restricted) Rpar = R1perp * Rpar  // par of RR₁perp
 
     if (isDGP | !parent->WREnonARubin) {  // in WRE, Rperp is same DGP and Repl; might not be in WUE, but is arranged so by call to SetR()
       RperpX = _select(vec, !val)
-      if (rows(R1)) RperpX = R1perp * RperpX
+      if (restricted) RperpX = R1perp * RperpX
       RperpX = *pXS(RperpX, .\parent->kX1)
     }
 
@@ -343,12 +345,12 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   ZperpZR1 = cross(*pZperp, *pZR1)
 
   if (parent->jk & isDGP & parent->WREnonARubin) {
-    XY2g = ZY2g = XXg = XZg = YYg = Zy1g = X1y1g = X2y1g = y1Y2g = invHg = ZZg = invXXg = H_2SLSg = H_2SLSmZZg = ZR1Y2g = ZR1ZR1g = twoy1ZR1g = ZZR1g = X1ZR1g = X2ZR1g = ZXinvXXXZg = smatrix(parent->Nstar)
+    XY2g = ZY2g = XXg = XZg = YYg = Zy1g = X1y1g = X2y1g = y1Y2g = invHg = ZZg = invXXg = H_2SLSg = H_2SLSmZZg = ZR1Y2g = ZR1ZR1g = twoy1ZR1g = ZZR1g = X1ZR1g = X2ZR1g = smatrix(parent->Nstar)
     y1y1g = J(parent->Nstar, 1, 0)
     beta = smatrix(parent->Nstar + 1)
     u1ddot.M = u1dddot.M = J(parent->Nobs, 1, 0); U2ddot.M = J(parent->Nobs, parent->kY2, 0)
 
-    if (cols(R1invR1R1)) {
+    if (restricted) {
       py1pary1parg = &J(parent->Nstar,1,0)
       py1parY2g = &smatrix(parent->Nstar)
       pZy1parg  = &smatrix(parent->Nstar)
@@ -439,9 +441,10 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
 
       XY2g[g].M = _X1Y2 \ _X2Y2
       invXXg[g].M = invsym((XXg[g].M = _X1X1, _X2X1' \ _X2X1, _X2X2))
-      ZXinvXXXZg[g].M = XZg[g].M ' invXXg[g].M * XZg[g].M
+      H_2SLSg[g].M    = XZg[g].M ' invXXg[g].M * XZg[g].M
+      if (kappa!=1 | LIML) H_2SLSmZZg[g].M = H_2SLSg[g].M - ZZg[g].M
 
-      if (cols(R1invR1R1)) {
+      if (restricted) {
         tZR1 = ZperpZR1 - (*pZperpZperp) * _invZperpZperpZperpZR1
         X1ZR1g[g].M     = X1ZR1  - ZperpX1  ' _invZperpZperpZperpZR1 - _invZperpZperpZperpX1  ' tZR1 - cross(X1g , ZR1g)
         X2ZR1g[g].M     = X2ZR1  - ZperpX2  ' _invZperpZperpZperpZR1 - _invZperpZperpZperpX2  ' tZR1 - cross(X2g , ZR1g)
@@ -451,11 +454,9 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
         ZR1ZR1g[g].M    = ZR1ZR1 - ZperpZR1 ' _invZperpZperpZperpZR1 - _invZperpZperpZperpZR1 ' tZR1 - cross(ZR1g, ZR1g)
         ZR1Y2g[g].M     = ZR1Y2  - ZperpZR1 ' _invZperpZperpZperpY2  - _invZperpZperpZperpZR1 ' tY2 - cross(ZR1g, Y2g )
       }
-      H_2SLSg[g].M = XZg[g].M ' invXXg[g].M * XZg[g].M
-      if (kappa!=1 | LIML) H_2SLSmZZg[g].M = H_2SLSg[g].M - ZZg[g].M
     }
-
-    if (cols(R1invR1R1)==0) {  // DGP not constrained
+    
+    if (!restricted) {
       py1parY2g    = &y1Y2g 
       pZy1parg     = &Zy1g
       py1pary1parg = &y1y1g 
@@ -500,7 +501,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
   ZZ  =  cross(Z,Z)
   if (parent->WREnonARubin) ZY2 = cross(Z, *pY2)
 
-  if (cols(R1invR1R1)) {
+  if (restricted) {
     X2ZR1    = cross(*pX2   , *pZR1)
     X1ZR1    = cross(*pX1 , *pZR1)
     ZZR1     = cross(Z    , *pZR1)
@@ -571,7 +572,7 @@ void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
   real rowvector val; real matrix vec; real scalar g, kappag; real colvector ZXinvXXXy1par, invXXXy1parg; real matrix YPXY
   pragma unset vec; pragma unset val
 
-  if (cols(R1invR1R1)) {
+  if (restricted) {
     t1 = R1invR1R1 * r1
 
     if (isDGP)
@@ -615,7 +616,7 @@ void boottestIVGMM::Estimate(real scalar _jk, real colvector r1) {
         YYg[g].M = (*py1pary1parg)[g], (*pZy1parg)[g].M' \ (*pZy1parg)[g].M, ZZg[g].M
 
         if (LIML) {
-          YPXY = invXXXy1parg ' (*pXy1parg)[g].M , ZXinvXXXy1par' \ ZXinvXXXy1par , ZXinvXXXZg[g].M
+          YPXY = invXXXy1parg ' (*pXy1parg)[g].M , ZXinvXXXy1par' \ ZXinvXXXy1par , H_2SLSg[g].M
           eigensystemselecti(invsym(YYg[g].M) * YPXY, rows(YYg[g].M)\rows(YYg[g].M), vec, val)
           kappag = 1/(1 - Re(val))
           if (Fuller) kappag = kappag - Fuller / (_Nobsg[g] - parent->kX)
@@ -1206,7 +1207,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
   if (NFE) {  // identify FE groups
     sortID = (*pFEID)[o = stableorder(*pFEID, 1)]
-    i_FE = 1; FEboot = B>0 & WREnonARubin==0 & NClustVar; j = Nobs; _FEID = J(Nobs, 1, 1)
+    i_FE = 1; FEboot = B>0 & NClustVar; j = Nobs; _FEID = J(Nobs, 1, 1)
     invFEwt = J(NFE,1,0)
     FEs = structFE(NFE)
     for (i=Nobs-1;i;i--) {
@@ -1384,7 +1385,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
   if (WREnonARubin==0) {
     poles = anchor = J(0,0,0)
-    interpolate_u = (robust | ML)==0
+    interpolate_u = !(robust | ML)
     if (interpolable = bootstrapt & B & null & Nw==1 & (kappa==0 | ARubin)) {    
       dnumerdr = smatrix(q)
       if (interpolate_u) dudr = dnumerdr
@@ -2246,7 +2247,7 @@ void boottest::MakeInterpolables() {
           dnumerdr[h1].M = (*pnumer - numer0) / poles[h1]
           if (interpolate_u)
             dudr[h1].M = (*pustar - ustar0) / poles[h1]
-          if (robust & !purerobust)  // df > 1 for an ARubin test with >1 instruments. 
+          if (robust)  // df > 1 for an ARubin test with >1 instruments. 
             for (d1=1;d1<=df;d1++) {
               for (c=1;c<=NErrClustCombs;c++) {
                 dJcddr[h1].M[c,d1].M = ((*pJcd)[c,d1].M - Jcd0[c,d1].M) / poles[h1]
@@ -2259,7 +2260,7 @@ void boottest::MakeInterpolables() {
               ddenomdr[h1].M[d1,d1].M = ddenomdr[h1].M[d1,d1].M + ddenomdr[h1].M[d1,d1].M  // double diagonal terms
             }
         }
-      if (robust & !purerobust)  // quadratic interaction terms
+      if (robust)  // quadratic interaction terms
         for (h1=1;h1<=q;h1++)
           for (h2=h1;h2;h2--)
             if (newPole[h1] | newPole[h2])
@@ -2284,7 +2285,7 @@ void boottest::MakeInterpolables() {
       }
     }
 
-    if (robust & !purerobust)  // even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
+    if (robust)  // even if an anchor was just moved, and linear components just computed from scratch, do the quadratic interpolation now, from the updated linear factors
       if (q==1)
         for (d1=df;d1;d1--)
           for (d2=d1;d2;d2--)
@@ -2393,7 +2394,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                              (B? 
                                colsum(SuwtXA)' : 
                                SuwtXA         ) :
-                             (robust==0 | granular | purerobust?
+                             (robust==0 | granular | (purerobust & !interpolable) ?
                                *pR * (betadev = rowsum(SuwtXA)) :
                                rowsum(*pR * SuwtXA)))
   } else {
@@ -2401,7 +2402,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                (B? 
                  cross(SuwtXA, v) : 
                  SuwtXA * v_sd    ) :
-               (robust==0 | granular | purerobust?
+               (robust==0 | granular | (purerobust & !interpolable)?
                   *pR * (betadev = SuwtXA * v) :
                  (*pR * SuwtXA) * v)
 
@@ -2426,8 +2427,8 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
           ((*pJcd)[c,d].M)[,1] = rowsum(Kcd[c,d].M) * v_sd
     else {
       if (granular | purerobust)  // optimized treatment when bootstrapping by many/small groups
-        if (purerobust)
-          pustar = &(*partialFE(&(DGP.u1ddot[1+_jk].M :* v)) - *pX12B(*pX1, *pX2, betadev))
+        if (purerobust & !interpolable)
+          pustar = &(*partialFE(&(DGP.u1ddot[1+_jk].M :* v)) - *pX12B(*pX1, *pX2, betadev))  // but avoid this idiosyncratic calculation and do everything through Jcd when interpolating for clean code
         else {  // clusters small but not all singletons
           if (NFE & FEboot==0) {
             pustar = partialFE(&(DGP.u1ddot.M :* v[*pIDBootData,]))
@@ -2454,11 +2455,11 @@ void boottest::MakeNonWREStats(real scalar w) {
 
   if (robust) {
     if (interpolating==0) {  // these quadratic computations needed to *prepare* for interpolation but are superseded by interpolation once it is going
-      if (purerobust)
+      if (purerobust & !interpolable)
         ustar2 = *pustar :* *pustar
       for (i=df;i;i--)
         for (j=i;j;j--) {
-          if (c = purerobust) _clustAccum(denom[i,j].M, c, cross(pM->WXAR[i].M, pM->WXAR[j].M, ustar2))  // c=purerobust not a bug
+          if (c = purerobust & !interpolable) _clustAccum(denom[i,j].M, c, cross(pM->WXAR[i].M, pM->WXAR[j].M, ustar2))  // c=purerobust not a bug
           for (c++; c<=NErrClustCombs; c++)
             _clustAccum(denom[i,j].M, c, colsum((*pJcd)[c,i].M :* (*pJcd)[c,j].M))  // (60)
         }
