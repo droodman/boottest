@@ -114,7 +114,8 @@ one-dimensional, a confidence set is derived:
 which bootstraps the distribution of the {it:coefficient(s)} of interest (or linear combinations thereof) rather t/z/F/chi2 statistics. Standard theory favors the latter, 
 but Young (2022) presents evidence that the bootstrap-c (or "non-studentized" test) is at least as reliable in instrumental variables (IV) estimation. And theory and simulation in
 Wang (2021) favors the non-studentized test when instruments are weak, but strong in at least one cluster. The option 
-{cmdab:stat:istic(c)} invokes the feature.
+{cmdab:stat:istic(c)} invokes the feature. However, the boottest author does not recommend this method, because in appears about the same as the bootstrap-t in size
+and worse in power.
 
 {p 2 4 0}* The second notable new feature is the ability to jackknife the bootstrap data-generating process, as advocated for OLS by MacKinnon, Nielsen, and
 Webb (2022) and for linear IV estimation by Young (2022). If a single cluster contains extreme observations,
@@ -147,6 +148,9 @@ new algorithm happens to settle at slightly different points. The last boottest 
 
 {p 2 4 0}* Version 3.1.0 also added support for {cmd:ivreg2}'s {cmd:partial()} option, and radically sped up the bootstrap after IV/GMM regressions. But it dropped support for linear GMM regressions;
 the lost feature stood on shaky ground anyway, since {cmd:boottest} did not recalculate the GMM weight matrix on each replication.
+
+{p 2 4 0}*Version 4.4.3 changed the default for {opt ptol:erance(#)} option, which controls the precision with which confidence interval bounds are identified,
+from 1e-6 to 1e-3. This saves time and onyl affects results in the third or fourth significant digit.
 
 {marker description}{...}
 {title:Description}
