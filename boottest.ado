@@ -1,4 +1,4 @@
-*! boottest 4.4.2 5 January 2023
+*! boottest 4.4.3 11 February 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -102,7 +102,7 @@ program define _boottest, rclass sortpreserve
 	}
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
-						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-6) svv MARGins ///
+						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
             issorted julia sysimage float(integer 64) Format(string) jk JACKknife*]
   if "`format'"=="" local format %10.4g
   
@@ -199,7 +199,7 @@ program define _boottest, rclass sortpreserve
       local needsysimage 1
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.8.5"')))  // hard-coded version requirement
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.9.0"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")
@@ -415,11 +415,6 @@ program define _boottest, rclass sortpreserve
 
   if `jk' & `ML' {
 		di as err "boottest can't jackknife ML-based estimates."
-		exit 198
-  }
-  
-  if `jk' & `IV' & !`ar' & `julia'{
-		di as err "The Julia implementation can't (yet) jackknife IV-based estimates, except with the Anderson-Rubin test."
 		exit 198
   }
   
@@ -1173,6 +1168,7 @@ end
 
 
 * Version history
+* 4.4.3 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
 * 4.4.2 Fixed wrong "robust" CI's after OLS
 * 4.4.1 Fixed crash in AR test after over-ID'd regression; added mention of jackknifing to output
 * 4.4.0 Minimized O(N) operations in non-jk WRE when clustering is coarse. Skip FE code in WRE if FE = cluster grouping. Bumped Julia version to 0.8.5.

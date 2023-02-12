@@ -89,7 +89,7 @@ one-dimensional, a confidence set is derived:
 {synopt:{opt nogr:aph}}allow derivation of confidence set but don't graph confidence function{p_end}
 {synopt:{cmdab:f:ormat(}fmt{cmd:)}}set {help format:numerical format} for confidence set bounds; default is %6.0g{p_end}
 {synopt:{opt noci}}prevent derivation of confidence set from inverted bootstrap test{p_end}
-{synopt:{opt ptol:erance(#)}}sets precision of identification of confidence set bounds (default 1e-6){p_end}
+{synopt:{opt ptol:erance(#)}}sets precision of identification of confidence set bounds (default 1e-3){p_end}
 {synopt:{cmdab:p:type(}{it:symmetric} {cmd:|} {it:equaltail} {cmd:|}}for unary hypotheses, set p value type; {it:symmetric} is default{p_end}
 {synopt:{space 12} {it:lower} {cmd:|} {it:upper}{cmd:)}}{p_end}
 {synoptline}
@@ -646,10 +646,6 @@ giving back through a {browse "http://j.mp/1iptvDY":donation} to support the wor
 {phang}. {stata gsem (c_city <- tenure wage ttl_exp collgrad), vce(cluster industry) probit} // same probit estimate as previous{p_end}
 {phang}. {stata boottest tenure}{space 60} // requires Stata 14.0 or later {p_end}
 {phang}. {stata boottest tenure, cluster(industry age) bootcluster(industry) small}{space 9} // requires Stata 14.0 or later{p_end}
-
-{phang}. {stata webuse smallg}{p_end}
-{phang}. {stata didregress (outcome x i.b) (treated), group(county) time(year) wildbootstrap(rseed(123) errorweight(webb))}{p_end}
-{phang}. {stata boottest, seed(123) weight(webb) nogr reps(1000)} // same test, ~200 times faster{p_end}
 
 {phang}. {stata sysuse auto}{p_end}
 {phang}. {stata program myprobit} // custom likelihood evaluator{p_end}
