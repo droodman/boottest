@@ -103,7 +103,7 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
-            issorted julia sysimage float(integer 64) Format(string) jk JACKknife*]
+            issorted julia float(integer 64) Format(string) jk JACKknife*]
   if "`format'"=="" local format %10.4g
   
   local jk = "`jk'`jackknife'" != ""
@@ -128,6 +128,9 @@ program define _boottest, rclass sortpreserve
       exit 198
     }
 
+    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
+    mata displayflush()
+
     local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
     python: from sfi import Data, Matrix, Missing, Scalar, Macro
 
@@ -135,8 +138,14 @@ program define _boottest, rclass sortpreserve
     if _rc {
       di "Installing PyJulia..."
       `pipline' julia
-      cap python: import julia; julia.install(color=False)
     }
+    if _rc {
+      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
+      di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
+      exit 198
+    }
+
+    cap python: import julia; julia.install(color=False)
     if _rc {
       di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
       di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
@@ -185,7 +194,7 @@ program define _boottest, rclass sortpreserve
       di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
       exit 198
     }
-
+// python:Main.eval('pushfirst!(LOAD_PATH,raw"D:\OneDrive\Documents\Macros\WildBootTests.jl")')
     qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="WildBootTests"]')
     python: Macro.setLocal("rc", str(Main.eval('length(p)')))
     if `rc'==0 {
@@ -196,10 +205,9 @@ program define _boottest, rclass sortpreserve
         di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("WildBootTests")}."'
         exit 198
       }
-      local needsysimage 1
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.9.0"')))  // hard-coded version requirement
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.9.2"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")
@@ -208,7 +216,6 @@ program define _boottest, rclass sortpreserve
           di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
           exit 198
         }
-        local needsysimage 1
       }
     }
 
@@ -223,28 +230,9 @@ program define _boottest, rclass sortpreserve
         exit 198
       }
     }
-
-    if "`sysimage'"!="" {
-      qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.is_direct_dep && v.name=="PackageCompiler"]')
-      python: Macro.setLocal("rc", str(Main.eval('length(p)')))
-      if `rc'==0 {
-        di "Installing PackageCompiler.jl..."
-        cap python: Pkg.add("PackageCompiler")
-        if _rc {
-          di as res _n "Warning: failed to automatically install the Julia package PackageCompiler."
-          di as res `"This should be installable from within Julia by typing {cmd:using Pkg; Pkg.add("PackageCompiler")}."'
-        }
-        if 0`needsysimage' {
-          cap python: Main.eval('using PackageCompiler; create_sysimage(["WildBootTests", "StableRNGs", "SnoopPrecompile"], sysimage_path="boottest.dll")')
-        }
-      }
-    }
-// python:Main.eval('pushfirst!(LOAD_PATH,raw"D:\OneDrive\Documents\Macros\WildBootTests.jl")')
     python: from julia import WildBootTests, StableRNGs
     python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
     global boottest_julia_loaded 1
-    
-    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
   }
 
   if "`small'" != "" & "`nosmall'" != "" {
@@ -1313,3 +1301,6 @@ end
 * 1.1.1 Added support for single-equation linear GMM with ivreg2 and ivregress.
 * 1.1.0 Fixed 1.0.1 bug in observation weight handling. Added multiway clustering, robust, cluster(), and bootcluster() options. Added waldtest wrapper.
 * 1.0.1 Added check for empty constraints. Fixed crash on use of weights after clustered estimation in Stata >13.
+
+// xtivreg2 lhwage (yeduc = _IyouXninne_1) _Ibirthyr_* _IbirXch7* [pw=wt] if inlist(year,1995), cluster(birthplnew) partial(_Ibirthyr_* _IbirXch7*) small fe
+// boottest yeduc, nogr seed(1231) noci jk julia
