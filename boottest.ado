@@ -878,7 +878,7 @@ program define _boottest, rclass sortpreserve
     else local sample `hold'
 
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
-
+// noi matlist `R'
     if !`julia' {
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', `jk', "`weighttype'", "`ptype'", "`statistic'", ///
@@ -1187,6 +1187,7 @@ end
 
 
 * Version history
+* 4.4.4 Fix wrong scaling of test stat after non-robust ML with Rademacher, Webb, Mammen weights
 * 4.4.3 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
 * 4.4.2 Fixed wrong "robust" CI's after OLS
 * 4.4.1 Fixed crash in AR test after over-ID'd regression; added mention of jackknifing to output

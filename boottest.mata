@@ -1278,6 +1278,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
   if (ML)
     df = rows(*pR)
+    
   else {
     if (ARubin) {
       pR  = &(J(kX2,kX1,0), I(kX2))  // attack surface is all endog vars
@@ -2506,7 +2507,7 @@ void boottest::MakeNonWREStats(real scalar w) {
         denom.M = denom.M * (v_sd * v_sd)
         for (k=cols(v); k; k--) {
           numer_k = numerw[,k]
-          (*pDist)[k+WeightGrpStart[w]-1] = cross(numer_k, invsym(denom.M), numer_k)
+         (*pDist)[k+WeightGrpStart[w]-1] = cross(numer_k, invsym(denom.M) * numer_k)
         }
         if (w==1)
           statDenom = denom.M  // original-sample denominator
