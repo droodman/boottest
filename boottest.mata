@@ -1059,7 +1059,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   real scalar i, j, c, minN, _B, i_FE, sumFEwt, _df
   pragma unset pIDAllData; pragma unset pIDCapData
 
-  Nobs = rows(*pX1)
+  Nobs = rows(*py1)
   NClustVar = cols(*pID)
   kX = (kX1 = cols(*pX1)) + (kX2 = cols(*pX2))
   if (kX2 == 0) pX2 = &J(Nobs,0,0)
@@ -1501,7 +1501,7 @@ void boottest::MakeWildWeights(real scalar _B, real scalar first) {
     }
 
     if (first)
-      v[,1] = J(Nstar, 1, WREnonARubin? m : v_sd)  // keep original residuals in first entry to compute base model stat    
+      v[,1] = J(Nstar, 1, v_sd)  // keep original residuals in first entry to compute base model stat    
   } else
     v = J(0,1,0)  // in places, cols(v) indicates B -- 1 for classical tests
 }
@@ -1870,7 +1870,7 @@ void boottest::PrepWRE() {
 
         if (NFE & FEboot==0)
           CTstarFEU[i+1].M = i? threebyone(CTstarFEY2, Repl.RparY[,i]) :- threebyone(CTstarFEX, PiddotRparYi) : 
-                            CTstarFEy1 :- threebyone(CTstarFEZR1, _r) :- threebyone(CTstarFEZ, DGP.beta.M) :+ threebyone(CTstarFEY2, DGP.deltaY) :- threebyone(CTstarFEX, DGP.Piddot * DGP.deltaY)
+                                CTstarFEy1 :- threebyone(CTstarFEZR1, _r) :- threebyone(CTstarFEZ, DGP.beta.M) :+ threebyone(CTstarFEY2, DGP.deltaY) :- threebyone(CTstarFEX, DGP.Piddot * DGP.deltaY)
 
       }
 
@@ -2011,7 +2011,7 @@ pointer(real matrix) scalar boottest::Filling(real scalar ind1, real matrix beta
         SstarUZperpinvZperpZperp_v = SstarinvZperpZperpZperpU[ind2+1].M * *pbetav
 
       if (NFE & FEboot==0)
-        CTstarFEUv = invFEwt :* (CTstarFEU[ind2+1].M * *pbetav)
+        CTstarFEUv = (invFEwt :* CTstarFEU[ind2+1].M) * *pbetav
 
       for (i=Clust.N;i;i--) {
         S = (*pinfoCapData)[i,]'
@@ -2411,7 +2411,6 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                (robust==0 | granular | purerobust?
                   *pR * (betadev = SuwtXA * v) :
                  (*pR * SuwtXA) * v)
-
     if (w==1) {
       if      ( ARubin) numerw[,1] = v_sd * DGP.Rpar * DGP.beta.M[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
       else if (null==0) numerw[,1] = v_sd * (*pR * (ML? beta : pM->Rpar * pM->beta.M) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
@@ -2434,7 +2433,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
     else {
       if (granular | purerobust)  // optimized treatment when bootstrapping by many/small groups
         if (purerobust & !interpolable)
-          pustar = &(*partialFE(&(DGP.u1ddot[1+_jk].M :* v)) - *pX12B(*pX1, *pX2, betadev))  // but avoid this idiosyncratic calculation and do everything through Jcd when interpolating for clean code
+          pustar = &(*partialFE(&(DGP.u1ddot[1+_jk].M :* v)) - *pX12B(*pX1, *pX2, betadev))  // but avoid this idiosyncratic calculation and do everything through Jcd when interpolating, for clean code
         else {  // clusters small but not all singletons
           if (NFE & FEboot==0) {
             pustar = partialFE(&(DGP.u1ddot.M :* v[*pIDBootData,]))
@@ -2494,20 +2493,17 @@ void boottest::MakeNonWREStats(real scalar w) {
     }
 
   } else { // non-robust
-
     pAR = ML? &AR : &pM->AR
     if (df == 1) {  // optimize for one null constraint
       denom.M = *pR * *pAR
-
-      if (ML==0)
-        denom.M = denom.M :* colsum(*pustar :* *pustar)
+      denom.M = ML? denom.M * (v_sd * v_sd) : denom.M :* colsum(*pustar :* *pustar)
       storeWtGrpResults(pDist, w,  numerw :/ sqrt(denom.M))
       if (w==1)
         statDenom = denom.M[1]  // original-sample denominator
     } else {
       denom.M = *pR * *pAR
-
       if (ML) {
+        denom.M = denom.M * (v_sd * v_sd)
         for (k=cols(v); k; k--) {
           numer_k = numerw[,k]
           (*pDist)[k+WeightGrpStart[w]-1] = cross(numer_k, invsym(denom.M), numer_k)
@@ -2864,7 +2860,7 @@ real matrix boottest::combs(real scalar d) {
 // Like Mata's order() but does a stable sort
 real colvector boottest::stableorder(real matrix X, real rowvector idx)
   return (order((X, (1::rows(X))), (idx,cols(X)+1)))
-  
+
 // Stata interface
 void boottest_stata(string scalar statname, string scalar dfname, string scalar dfrname, string scalar pname, string scalar padjname, string scalar ciname, 
   string scalar plotname, string scalar peakname, real scalar level, real scalar ptol, real scalar ML, real scalar LIML, real scalar Fuller, 

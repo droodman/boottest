@@ -1,4 +1,4 @@
-*! boottest 4.4.3 11 February 2023
+*! boottest 4.4.4 36 April 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -103,19 +103,21 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
-            issorted julia float(integer 64) Format(string) jk JACKknife*]
+            issorted julia threads(integer 0) float(integer 64) Format(string) jk JACKknife *]
   if "`format'"=="" local format %10.4g
   
   local jk = "`jk'`jackknife'" != ""
 
-  local julia = "`julia'" != "" 
+  local julia = "`julia'" != ""
+
   if `julia' & !0$boottest_julia_loaded {
     if c(stata_version) < 16 {
       di as err "The {cmd:julia} option requires Stata 16 or higher."
       exit 198
     }
 
-    if `"`c(python_exec)'"' == "" {
+    cap python: 1
+		if _rc {
       di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
       di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
       exit 198
@@ -128,24 +130,19 @@ program define _boottest, rclass sortpreserve
       exit 198
     }
 
-    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
-    mata displayflush()
-
     local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
     python: from sfi import Data, Matrix, Missing, Scalar, Macro
 
+    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
+    mata displayflush()
+
     cap python: import julia
+
     if _rc {
       di "Installing PyJulia..."
       `pipline' julia
+      cap python: import julia; julia.install(color=False)
     }
-    if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
-      di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
-      exit 198
-    }
-
-    cap python: import julia; julia.install(color=False)
     if _rc {
       di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
       di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
@@ -176,8 +173,15 @@ program define _boottest, rclass sortpreserve
       }
     }
     
-    python: import sys; nthreads = str(psutil.cpu_count(logical=False)) if 'psutil' in sys.modules else "auto"  // try to set # of Julia threads to # of physical cores
-    local pyline from julia.api import LibJulia; LibJulia.load().init_julia(['--threads='+nthreads]); from julia import Main, Random, Pkg
+//     python: import sys; nthreads = str(psutil.cpu_count(logical=False)) if 'psutil' in sys.modules else '1'  // try to set # of Julia threads to # of physical cores
+//     local pyline from julia.api import LibJulia; LibJulia.load().init_julia(['--threads='+nthreads]); from julia import Main, Random, Pkg
+    if `threads' {
+      python: nthreads = `threads'
+    }
+    else {
+      python: import sys; nthreads = psutil.cpu_count(logical=False) if 'psutil' in sys.modules else 1  // try to set # of Julia threads to # of physical cores
+    }
+    local pyline from julia import Julia; jl=Julia(/*sysimage=r"C:\Users\drood\ado\plus\b\wbt.so",*/ threads=nthreads); from julia import Main, Random, Pkg
     cap python: `pyline'
     if _rc {
       cap python: julia.install(color=False); `pyline'
@@ -207,7 +211,7 @@ program define _boottest, rclass sortpreserve
       }
     }
     else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.9.2"')))  // hard-coded version requirement
+      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.9.7"')))  // hard-coded version requirement
       if "`rc'" == "True" {
         di "Updating WildBootTests.jl..."
         cap python: Pkg.update("WildBootTests")
@@ -451,13 +455,14 @@ program define _boottest, rclass sortpreserve
 	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0 touse
 	mat `b' = e(b)
 	if "`e(wtype)'" != "" {
-		tokenize `e(wexp)'
+		tokenize `e(wexp)', parse("=")
 		cap confirm var `2'
 		if _rc {
 			tempname wtname
 			qui gen double `wtname' `e(wexp)'
 		}
-		else local wtname `2'
+		else if c(varabbrev)=="on" unab wtname: `2'
+    else local wtname `2'
 	}
 
 	if `"`h0s'"' != "" {
@@ -498,7 +503,7 @@ program define _boottest, rclass sortpreserve
       mat `r' = 0
 
       local 0 r(cmdline)
-      marksample marginstouse
+      marksample marginstouse, strok
     }
     else {
     	di as err "{cmd:margins} results not found."
@@ -888,30 +893,56 @@ program define _boottest, rclass sortpreserve
         if _rc python: `X' = np.empty([0,0])
       }
       foreach X in gridminvec gridmaxvec gridpointsvec {
-        cap python: `X' = np.asarray([np.nan if x==Missing.getValue() else x for x in Matrix.get('``X''')[0]])
+        cap python: `X' = np.squeeze(np.asarray([np.nan if x==Missing.getValue() else x for x in Matrix.get('``X''')[0]])).flatten()
         if _rc python: `X' = np.empty([`=`df'',0])
       }
       foreach X in r r1 b {
-        cap python: `X' = np.asarray(Matrix.get('``X'''))
+        cap python: `X' = np.squeeze(np.asarray(Matrix.get('``X'''))).flatten()
         if _rc python: `X' = np.empty([0])
       }
-      foreach X in Ynames Xnames_exog Xnames_endog ZExclnames scnames wtname {
+      foreach X in Xnames_exog Xnames_endog ZExclnames scnames {
         python: `X' = np.asarray(Data.get('``X''', selectvar="`hold'"))
       }
-      foreach X in FEname allclustvars {
-        python: `X' = np.asarray(Data.get('``X''', selectvar="`hold'"), dtype=np.int64)
+      foreach X in Ynames wtname {
+        python: `X' = np.squeeze(np.asarray(Data.get('``X''', selectvar="`hold'"))).flatten()
       }
+      python: FEname = np.squeeze(np.asarray(Data.get('`FEname'', selectvar="`hold'"), dtype=np.int64)).flatten()
+      python: allclustvars = np.asarray(Data.get('`allclustvars'', selectvar="`hold'"), dtype=np.int64)
 // foreach X in Ynames Xnames_exog Xnames_endog ZExclnames scnames wtname gridminvec gridmaxvec gridpointsvec R R1 V r r1 b FEname allclustvars {
 //   python:Main.`X' = `X'
 // }
 // python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
       qui python: Random.seed_b(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
-      python: test = WildBootTests.wildboottest(Main.Float`float', R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+// python: from juliacall import Main as jl; jl.seval("using WildBootTests")
+//       python: test = jl.wildboottest_b(jl.Float`float', R, r, overwrite=true, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+//                                 R1=R1, r1=r1, ///
+//                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
+//                                 issorted=True, ///
+//                                 hetrobust=bool(`hasrobust'), ///
+//                                 fedfadj=`FEdfadj', ///
+//                                 fweights = "`wtype'"=="fweight", ///
+//                                 maxmatsize=`=0`matsizegb'', ///
+//                                 ptype="`ptype'", ///
+//                                 bootstrapc = "`statistic'"=="c", ///
+//                                 liml=bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
+//                                 arubin=bool(`ar'), small=bool(`small'), ///
+//                                 scorebs=bool(`scoreBS'), ///
+//                                 jk=bool(`jk'), ///
+//                                 reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
+//                                 auxwttype="`weighttype'", ///
+//                                 rtol=`ptolerance', ///
+//                                 madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
+//                                 ml=bool(`ML'), beta=b, A=V, ///
+//                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
+//                                 diststat = "none" if "`svmat'"=="" else "`svmat'", ///
+//                                 getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
+//                                 getauxweights = "`svv'"!="", ///
+//                                 rng=rng)
+      python: test = WildBootTests.wildboottest_b(Main.Float`float', R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1=R1, r1=r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
                                 issorted=True, ///
                                 hetrobust=bool(`hasrobust'), ///
-                                nfe=`NFE', ///
                                 fedfadj=`FEdfadj', ///
                                 fweights = "`wtype'"=="fweight", ///
                                 maxmatsize=`=0`matsizegb'', ///
@@ -925,7 +956,7 @@ program define _boottest, rclass sortpreserve
                                 auxwttype="`weighttype'", ///
                                 rtol=`ptolerance', ///
                                 madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
-                                ml=bool(`ML'), beta=b.transpose(), A=V, ///
+                                ml=bool(`ML'), beta=b, A=V, ///
                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
                                 diststat = "none" if "`svmat'"=="" else "`svmat'", ///
                                 getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
@@ -1301,6 +1332,3 @@ end
 * 1.1.1 Added support for single-equation linear GMM with ivreg2 and ivregress.
 * 1.1.0 Fixed 1.0.1 bug in observation weight handling. Added multiway clustering, robust, cluster(), and bootcluster() options. Added waldtest wrapper.
 * 1.0.1 Added check for empty constraints. Fixed crash on use of weights after clustered estimation in Stata >13.
-
-// xtivreg2 lhwage (yeduc = _IyouXninne_1) _Ibirthyr_* _IbirXch7* [pw=wt] if inlist(year,1995), cluster(birthplnew) partial(_Ibirthyr_* _IbirXch7*) small fe
-// boottest yeduc, nogr seed(1231) noci jk julia

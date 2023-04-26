@@ -149,8 +149,8 @@ new algorithm happens to settle at slightly different points. The last boottest 
 {p 2 4 0}* Version 3.1.0 also added support for {cmd:ivreg2}'s {cmd:partial()} option, and radically sped up the bootstrap after IV/GMM regressions. But it dropped support for linear GMM regressions;
 the lost feature stood on shaky ground anyway, since {cmd:boottest} did not recalculate the GMM weight matrix on each replication.
 
-{p 2 4 0}*Version 4.4.3 changed the default for {opt ptol:erance(#)} option, which controls the precision with which confidence interval bounds are identified,
-from 1e-6 to 1e-3. This saves time and onyl affects results in the third or fourth significant digit.
+{p 2 4 0} * Version 4.4.3 changed the default for {opt ptol:erance(#)} option, which controls the precision with which confidence interval bounds are identified,
+from 1e-6 to 1e-3. This saves time and only affects results in the third or fourth significant digit.
 
 {marker description}{...}
 {title:Description}
