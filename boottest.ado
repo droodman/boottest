@@ -672,9 +672,20 @@ program define _boottest, rclass sortpreserve
       if _rc exit 111
       _estimates unhold `hold'
       if r(k_autoCns) mat `C' = `C'[r(k_autoCns)+1...,1...]
-      scalar `df' = rowsof(`C')
       mat `R' = `C'[1...,1..colsof(`C')-1]
       mat `r' = `C'[1...,   colsof(`C')  ]
+
+			* get rid of any remaining o. and b. constraints; r(k_autoCns) doesn't capture all
+			mata _boottestC = st_matrixcolstripe("`R'")[,2]
+			mata _boottestC = rowsum(select(st_matrix("`R'"), !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))') :!= 0)
+			mata st_matrix("`R'", select(st_matrix("`R'"), _boottestC))
+			mata st_matrix("`r'", select(st_matrix("`r'"), _boottestC))
+			cap mat `R'[1,1] = `R'[1,1]
+			if _rc {
+				di as error _n "Null constraint applies only to omitted variables or base levels of factor variables."
+				continue
+			}
+			scalar `df' = rowsof(`R')
     }
 
 		if 0`NFE' {
@@ -743,17 +754,6 @@ program define _boottest, rclass sortpreserve
 
 				mat `R1R' = `R' \ nullmat(`R1')  // add null to model constraints
 				mat `r1r' = `r' \ nullmat(`r1')
-
-				* get rid of any remaining o. and b. constraints; r(k_autcns) doesn't capture all
-				mata _boottestC = st_matrixcolstripe("`R1R'")[,2]
-				mata _boottestC = rowsum(select(st_matrix("`R1R'"), !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))') :!= 0)
-				mata st_matrix("`R1R'", select(st_matrix("`R1R'"), _boottestC))
-				mata st_matrix("`r1r'", select(st_matrix("`r1r'"), _boottestC))
-				cap mat `R1R'[1,1] = `R1R'[1,1]
-				if _rc {
-					di as error _n "Null constraint applies only to omitted variables or base levels of factor variables."
-					continue
-				}
 
 				`quietly' di as res _n "Re-running regression with null imposed." _n
 				if `"`cmdline'"'=="" local 0 `e(cmdline)'
@@ -878,7 +878,7 @@ program define _boottest, rclass sortpreserve
     else local sample `hold'
 
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
-// noi matlist `R'
+
     if !`julia' {
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', `jk', "`weighttype'", "`ptype'", "`statistic'", ///
@@ -1187,8 +1187,8 @@ end
 
 
 * Version history
-* 4.4.4 Fix wrong scaling of test stat after non-robust ML with Rademacher, Webb, Mammen weights
 * 4.4.3 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
+*       Correct dof when constraints include restrictions on o. and b. regressors
 * 4.4.2 Fixed wrong "robust" CI's after OLS
 * 4.4.1 Fixed crash in AR test after over-ID'd regression; added mention of jackknifing to output
 * 4.4.0 Minimized O(N) operations in non-jk WRE when clustering is coarse. Skip FE code in WRE if FE = cluster grouping. Bumped Julia version to 0.8.5.

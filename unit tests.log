@@ -1149,15 +1149,15 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   tenure
 
                            t(11) =     0.8177
-                        Prob>|t| =     0.4545
+                        Prob>|t| =     0.4535
 
-95% confidence set for null hypothesis expression: [−.02371, .06616]
+95% confidence set for null hypothesis expression: [−.02484, .06616]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   occupation
 
                            t(11) =     1.5398
-                        Prob>|t| =     0.2162
+                        Prob>|t| =     0.2152
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 (A confidence interval could not be bounded. Try widening the search range with the gridmin() and gridmax() options.)
@@ -1166,9 +1166,9 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   tenure
 
                            t(11) =     0.6068
-                        Prob>|t| =     0.4785
+                        Prob>|t| =     0.4775
 
-95% confidence set for null hypothesis expression: [−.04893, .05472]
+95% confidence set for null hypothesis expression: [−.04893, .05461]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
@@ -1217,7 +1217,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by id ye
                             t(8) =    28.4248
                         Prob>|t| =     0.0000
 
-95% confidence set for null hypothesis expression: [.7915, .9431]
+95% confidence set for null hypothesis expression: [.7899, .9431]
 
 Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
 
@@ -1227,7 +1227,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, clustering by ccode
                            t(48) =     3.5211
                         Prob>|t| =     0.0020
 
-95% confidence set for null hypothesis expression: [.0591, .2528]
+95% confidence set for null hypothesis expression: [.05866, .2528]
 
 Overriding estimator's cluster/robust settings with cluster(ccode pixcluster)
 
@@ -1254,7 +1254,7 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   merit
 
                            t(41) =     6.7127
-                        Prob>|t| =     0.4645
+                        Prob>|t| =     0.4635
 
 95% confidence set for null hypothesis expression: [−2.826, 1.31]
 
@@ -1270,9 +1270,9 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
   merit
 
                            t(41) =     6.7127
-                        Prob>|t| =     0.3103
+                        Prob>|t| =     0.3113
 
-95% confidence set for null hypothesis expression: [−5.388, 4.886]
+95% confidence set for null hypothesis expression: [−5.392, 4.968]
 
 Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clustering by state year, Rademacher weights:
   merit
@@ -1294,7 +1294,7 @@ Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clust
   merit
 
                            t(41) =     6.7127
-                        Prob>|t| =     0.4114
+                        Prob>|t| =     0.4094
 
 95% confidence set for null hypothesis expression: [−.09893, .2433]
 
