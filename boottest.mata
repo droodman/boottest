@@ -1177,14 +1177,17 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       if (scoreBS | WREnonARubin==0)
         ClustShare = haswt? *pwt/sumwt : 1/_Nobs
     }
+  } else
+    minN = rows(infoBootData)
 
-    purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
-    granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
-                               !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
+  purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
+  granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
+                             !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
 
-    if (jk & !WREnonARubin)
-      granularjk = kZ^3 + Nstar * (Nobs/Nstar*kZ^2 + (Nobs/Nstar)^2*kZ + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kZ^2*Nobs/Nstar + kZ^3 + 2*kZ*(kZ + Nobs/Nstar))
+  if (jk & !WREnonARubin)
+    granularjk = kZ^3 + Nstar * (Nobs/Nstar*kZ^2 + (Nobs/Nstar)^2*kZ + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kZ^2*Nobs/Nstar + kZ^3 + 2*kZ*(kZ + Nobs/Nstar))
 
+  if (bootstrapt) {
     if (robust & purerobust==0) {
       if (subcluster | granular)
         infoErrAll = _panelsetup(*pIDAll, subcluster+1..NClustVar)  // info for error clusters wrt data collapsed to intersections of all bootstrapping & error clusters; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusterings
@@ -1204,8 +1207,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
         IDCTCapstar[i].M = (*pIDCapData)[infoCTCapstar[i].M[,1]]       // ID numbers of those groupings w.r.t. the all-error-clusterings grouping
       }
     }
-  } else
-    minN = rows(infoBootData)
+  }
 
   if (NFE) {  // identify FE groups
     sortID = (*pFEID)[o = stableorder(*pFEID, 1)]

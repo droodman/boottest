@@ -1,4 +1,4 @@
-*! boottest 4.4.4 36 April 2023
+*! boottest 4.4.4 26 April 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1187,8 +1187,9 @@ end
 
 
 * Version history
-* 4.4.3 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
+* 4.4.4 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
 *       Correct dof when constraints include restrictions on o. and b. regressors
+* 4.4.3 Fixed bug in WRE jackknife test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
 * 4.4.2 Fixed wrong "robust" CI's after OLS
 * 4.4.1 Fixed crash in AR test after over-ID'd regression; added mention of jackknifing to output
 * 4.4.0 Minimized O(N) operations in non-jk WRE when clustering is coarse. Skip FE code in WRE if FE = cluster grouping. Bumped Julia version to 0.8.5.
