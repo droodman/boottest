@@ -609,8 +609,7 @@ program define _boottest, rclass sortpreserve
       mata _boottestkeepC = rowsum(st_matrix("`R1'"):!=0)
       mata st_matrix("`R1'", select(st_matrix("`R1'"), _boottestkeepC))  // drop rows corresponding purely to omitted variables
       mata st_matrix("`r1'", select(st_matrix("`r1'"), _boottestkeepC))
-    }    
-
+    }
 		if `cons' local Xnames_exog `hold' `Xnames_exog'  // add constant term
 	}
 
@@ -758,7 +757,7 @@ program define _boottest, rclass sortpreserve
 				`quietly' di as res _n "Re-running regression with null imposed." _n
 				if `"`cmdline'"'=="" local cmdline `e(cmdline)'
         
-        _parse expand lc lg: cmdline, common(CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) CLuster(passthru) Robust vce(string))
+        _parse expand lc lg: cmdline, common(CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) Robust)  // would be nice to extract, thus remove, cluster() option for speed, but it affects sample
         local 0, `lg_op'
         syntax, [from(passthru) INIt(passthru) ITERate(passthru) *]
         local 0 `lc_1'
@@ -787,7 +786,7 @@ program define _boottest, rclass sortpreserve
 					constraint `r(free)' `_constraint'
 				}
 
-				local cmdline version `c(stata_version)': `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', `max' `options'
+				local cmdline version `c(stata_version)': `anything' `if' `in' `=cond("`weight'"=="","",`"[`weight'`exp']"')', `max' `options'  // "if `hold'" would prematurely restrict sample, interact badly with probit perfect prediction detection, changing retained regressors
         forvalues i=2/0`lc_n' {  // reassemble hierarchical command line
           local cmdline2 `cmdline2' || `lc_`i''
         }
@@ -1347,3 +1346,7 @@ end
 * 1.1.1 Added support for single-equation linear GMM with ivreg2 and ivregress.
 * 1.1.0 Fixed 1.0.1 bug in observation weight handling. Added multiway clustering, robust, cluster(), and bootcluster() options. Added waldtest wrapper.
 * 1.0.1 Added check for empty constraints. Fixed crash on use of weights after clustered estimation in Stata >13.
+
+// sysuse auto, clear
+// probit foreign i.mpg
+// scoretest 14.mpg

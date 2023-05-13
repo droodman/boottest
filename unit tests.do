@@ -106,6 +106,9 @@ foreach julia in "" /*julia*/ {
   qui ml max // estimate
   boottest mpg, `julia' cmdline(ml model lf myprobit (foreign = mpg weight)) 
 
+  probit foreign i.mpg
+  scoretest 14.mpg
+
   use collapsed, clear
 
   qui regress hasinsurance selfemployed post post_self, cluster(year)

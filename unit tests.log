@@ -92,142 +92,145 @@
  67.   qui ml max // estimate
  68.   boottest mpg, `julia' cmdline(ml model lf myprobit (foreign = mpg weight)) 
  69. 
+.   probit foreign i.mpg
+ 70.   scoretest 14.mpg
+ 71. 
 .   use collapsed, clear
- 70. 
+ 72. 
 .   qui regress hasinsurance selfemployed post post_self, cluster(year)
- 71.   boottest post_self=.04, `julia' weight(webb) nogr
- 72.   boottest post_self=.04, `julia' weight(webb) reps(9999999) noci
- 73.   boottest post_self=.04, `julia' weight(normal) reps(9999) noci
- 74.   boottest post_self=.04, `julia' weight(gamma) reps(9999) noci svv
- 75.   boottest post_self=.04, `julia' weight(mammen) reps(9999) noci
- 76.   boottest post_self=.04, `julia' weight(mammen) reps(9999) boottype(score) nogr
- 77. 
-.   qui regress hasinsurance selfemployed post post_self, robust
- 78.   boottest post_self=.04, `julia' weight(webb) nogr
+ 73.   boottest post_self=.04, `julia' weight(webb) nogr
+ 74.   boottest post_self=.04, `julia' weight(webb) reps(9999999) noci
+ 75.   boottest post_self=.04, `julia' weight(normal) reps(9999) noci
+ 76.   boottest post_self=.04, `julia' weight(gamma) reps(9999) noci svv
+ 77.   boottest post_self=.04, `julia' weight(mammen) reps(9999) noci
+ 78.   boottest post_self=.04, `julia' weight(mammen) reps(9999) boottype(score) nogr
  79. 
+.   qui regress hasinsurance selfemployed post post_self, robust
+ 80.   boottest post_self=.04, `julia' weight(webb) nogr
+ 81. 
 .   qui regress hasinsurance selfemployed post post_self, cluster(year)
- 80.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
- 81.   boottest (post_self=.05) (post=-.02) (selfemployed=-.15), `julia' reps(9999) weight(webb) nogr
- 82. 
+ 82.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
+ 83.   boottest (post_self=.05) (post=-.02) (selfemployed=-.15), `julia' reps(9999) weight(webb) nogr
+ 84. 
 .   qui regress hasinsurance selfemployed post post_self
- 83.   boottest post_self=.04, `julia' weight(webb) nogr
- 84.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
- 85.   scoretest (post_self=.05), `julia' nogr
- 86.   scoretest (post_self=.05) (post=-.02), `julia' nogr
- 87.   boottest (post_self=.08), `julia' boottype(score) reps(9999) nogr
- 88.   boottest (post_self=.05) (post=-.02), `julia' boottype(score) reps(9999) nogr
- 89. 
+ 85.   boottest post_self=.04, `julia' weight(webb) nogr
+ 86.   boottest (post_self=.05) (post=-.02), `julia' reps(9999) weight(webb) nogr
+ 87.   scoretest (post_self=.05), `julia' nogr
+ 88.   scoretest (post_self=.05) (post=-.02), `julia' nogr
+ 89.   boottest (post_self=.08), `julia' boottype(score) reps(9999) nogr
+ 90.   boottest (post_self=.05) (post=-.02), `julia' boottype(score) reps(9999) nogr
+ 91. 
 .   use nlsw88, clear
- 90.   constraint 1 ttl_exp = .2
- 91.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
- 92.   boottest tenure, `julia' nogr
- 93. 
+ 92.   constraint 1 ttl_exp = .2
+ 93.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(industry)
+ 94.   boottest tenure, `julia' nogr
+ 95. 
 .   keep if e(sample)
- 94.   gen id = _n - cond(_n>1000, 1000, 0)
- 95.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(id)  // granular but not pure robust
- 96.   boottest tenure, `julia' reps(9999) nogr
- 97. 
-.   qui areg wage tenure ttl_exp collgrad, cluster(id) a(industry)
+ 96.   gen id = _n - cond(_n>1000, 1000, 0)
+ 97.   qui cnsreg wage tenure ttl_exp collgrad, constr(1) cluster(id)  // granular but not pure robust
  98.   boottest tenure, `julia' reps(9999) nogr
  99. 
+.   qui areg wage tenure ttl_exp collgrad, cluster(id) a(industry)
+100.   boottest tenure, `julia' reps(9999) nogr
+101. 
 .   use d:\OneDrive\Documents\Macros\nlsw88, clear
-100.   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
-101.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
-102.   boottest tenure, `julia' nonull reps(99999) matsize(.1) nogr
-103.   boottest tenure, `julia' ptype(upper) svmat(t) reps(9999) nogr
-104.   boottest tenure, `julia' ptype(lower) svmat(numer) reps(9999) nogr
-105. 
-.   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
-106.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
+102.   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
+103.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
+104.   boottest tenure, `julia' nonull reps(99999) matsize(.1) nogr
+105.   boottest tenure, `julia' ptype(upper) svmat(t) reps(9999) nogr
+106.   boottest tenure, `julia' ptype(lower) svmat(numer) reps(9999) nogr
 107. 
-.   qui ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
-108.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
+.   qui ivregress liml wage ttl_exp collgrad (tenure = union), cluster(industry)
+108.   boottest tenure, `julia' ptype(equaltail) reps(9999) nogr
 109. 
 .   qui ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
-110.   boottest tenure, ptype(equaltail) reps(99) noci
-111.   boottest collgrad tenure, `julia' ptype(equaltail) reps(99) noci
-112. 
+110.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
+111. 
+.   qui ivregress liml wage ttl_exp collgrad (tenure = union) if industry<., robust
+112.   boottest tenure, ptype(equaltail) reps(99) noci
+113.   boottest collgrad tenure, `julia' ptype(equaltail) reps(99) noci
+114. 
 .   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<.
-113.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
-114.   boottest tenure collgrad, `julia' ptype(equaltail) reps(99) noci
-115. 
+115.   boottest tenure, `julia' ptype(equaltail) reps(99) noci
+116.   boottest tenure collgrad, `julia' ptype(equaltail) reps(99) noci
+117. 
 .   qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
-116.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) nogr
-117.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01) nogr
-118. 
-.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
-119.   boottest tenure, `julia' ptype(equaltail) matsize(.005) noci weight(webb)
+118.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) nogr
+119.   boottest tenure, `julia' ptype(equaltail) weight(webb) stat(c) gridmin(-5) gridmax(5) gridpoints(100) matsize(.01) nogr
 120. 
+.   qui ivregress 2sls wage ttl_exp collgrad (tenure = union) if industry<., robust
+121.   boottest tenure, `julia' ptype(equaltail) matsize(.005) noci weight(webb)
+122. 
 .   preserve
-121.   keep if e(sample)
-122.   gen id = _n - cond(_n>1000, 1000, 0)
-123.   boottest tenure, `julia' cluster(id) ptype(equaltail) matsize(.005) noci weight(webb)
-124.   restore
-125. 
+123.   keep if e(sample)
+124.   gen id = _n - cond(_n>1000, 1000, 0)
+125.   boottest tenure, `julia' cluster(id) ptype(equaltail) matsize(.005) noci weight(webb)
+126.   restore
+127. 
 .   qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
-126.   boottest, `julia' ar nogr
-127.   boottest, `julia' ar nonull nogr
-128.   scoretest tenure, `julia' nogr
-129.   waldtest tenure, `julia' ptype(upper) nogr
-130. 
-.   qui ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
-131.   boottest tenure, `julia' nogr
+128.   boottest, `julia' ar nogr
+129.   boottest, `julia' ar nonull nogr
+130.   scoretest tenure, `julia' nogr
+131.   waldtest tenure, `julia' ptype(upper) nogr
 132. 
+.   qui ivregress liml wage (tenure = collgrad ttl_exp), cluster(industry)
+133.   boottest tenure, `julia' nogr
+134. 
 .   qui ivreg2 wage collgrad smsa race age (tenure = union married), cluster(industry) fuller(1)
-133.   boottest tenure, `julia' nograph weight(webb) reps(9999)
-134.   qui gen individual = _n
-135.   boottest tenure, `julia' noci bootcluster(individual) weight(webb)
-136.   boottest tenure, `julia' nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
-137. 
-.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., cluster(age) absorb(industry)
-138.   boottest tenure, `julia' nograph cluster(age occupation) bootcluster(occupation)
+135.   boottest tenure, `julia' nograph weight(webb) reps(9999)
+136.   qui gen individual = _n
+137.   boottest tenure, `julia' noci bootcluster(individual) weight(webb)
+138.   boottest tenure, `julia' nograph bootcluster(collgrad) cluster(collgrad industry) weight(webb) reps(9999)
 139. 
-.   qui areg wage ttl_exp collgrad tenure if occupation<. & grade<. & union<. & hours<., robust absorb(industry)
-140.   boottest tenure, `julia' nograph
+.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., cluster(age) absorb(industry)
+140.   boottest tenure, `julia' nograph cluster(age occupation) bootcluster(occupation)
 141. 
-.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., robust absorb(industry)
-142.   boottest tenure, `julia' nograph 
+.   qui areg wage ttl_exp collgrad tenure if occupation<. & grade<. & union<. & hours<., robust absorb(industry)
+142.   boottest tenure, `julia' nograph
 143. 
+.   qui areg wage ttl_exp collgrad tenure [aw=hours] if occupation<. & grade<. & union<., robust absorb(industry)
+144.   boottest tenure, `julia' nograph 
+145. 
 .   qui ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(industry)
-144.   boottest tenure, `julia' nograph
-145.   boottest occupation, `julia' nograph
-146. 
+146.   boottest tenure, `julia' nograph
+147.   boottest occupation, `julia' nograph
+148. 
 .   qui ivreghdfe wage ttl_exp collgrad tenure (occupation = union married) [aw=hours] if grade<., liml cluster(industry) absorb(age)
-147.   boottest tenure, `julia' nograph
-148.   boottest collgrad tenure, `julia' nograph
-149.   boottest occupation, `julia' gridmin(-1) gridmax(1) nograph
-150. 
+149.   boottest tenure, `julia' nograph
+150.   boottest collgrad tenure, `julia' nograph
+151.   boottest occupation, `julia' gridmin(-1) gridmax(1) nograph
+152. 
 .   constraint 1 [wage]collgrad
-151.   qui ivreghdfe wage ttl_exp /*collgrad*/ tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(age)  // approximate contrained LIML with ivreghdfe
-152.   boottest tenure, `julia' nograph
-153. 
+153.   qui ivreghdfe wage ttl_exp /*collgrad*/ tenure (occupation = union married) [aw=hours], liml cluster(industry) absorb(age)  // approximate contrained LIML with ivreghdfe
+154.   boottest tenure, `julia' nograph
+155. 
 .   use d:\OneDrive\Documents\Macros\abdata, clear
-154.   qui areg n w k, absorb(ind)
-155.   boottest k, `julia' cluster(id year) nograph
-156.   qui areg n w k [aw=ys], absorb(ind)
+156.   qui areg n w k, absorb(ind)
 157.   boottest k, `julia' cluster(id year) nograph
-158. 
+158.   qui areg n w k [aw=ys], absorb(ind)
+159.   boottest k, `julia' cluster(id year) nograph
+160. 
 .   use pixel-level-baseline-final, clear
-159.   global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
-160.   global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
-161.   global poly capdistance1 seadist1 borderdist1
-162.   qui encode pixwbcode, gen(ccode)  // make numerical country identifier
-163.   qui areg lnl0708s centr_tribe lnpd0 \$pix \$geo \$poly, absorb(ccode)
-164.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode)
-165.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(pixcluster)
-166.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
-167. 
+161.   global pix lnkm pixpetro pixdia pixwaterd pixcapdist pixmal pixsead pixsuit pixelev pixbdist
+162.   global geo lnwaterkm lnkm2split mean_elev mean_suit malariasuit petroleum diamondd
+163.   global poly capdistance1 seadist1 borderdist1
+164.   qui encode pixwbcode, gen(ccode)  // make numerical country identifier
+165.   qui areg lnl0708s centr_tribe lnpd0 \$pix \$geo \$poly, absorb(ccode)
+166.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode)
+167.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(pixcluster)
+168.   boottest centr_tribe, `julia' nogr reps(999) clust(ccode pixcluster) bootcluster(ccode pixcluster)
+169. 
 .   infile coll merit male black asian year state chst using regm.raw, clear
-168.   qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)   
-169.   generate individual = _n  // unique ID for each observation
-170.   boottest merit, `julia' nogr reps(999) gridpoints(10)  // defaults to bootcluster(state)
-171.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull
-172.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(state year)
-173.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(state year)
-174.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(individual)
-175.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual)
-176.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual) matsize(.1)
-177. }
+170.   qui regress coll merit male black asian i.year i.state if !inlist(state,34,57,59,61,64,71,72,85,88), cluster(state)   
+171.   generate individual = _n  // unique ID for each observation
+172.   boottest merit, `julia' nogr reps(999) gridpoints(10)  // defaults to bootcluster(state)
+173.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull
+174.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(state year)
+175.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(state year)
+176.   boottest merit, `julia' nogr reps(999) gridpoints(10) bootcluster(individual)
+177.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual)
+178.   boottest merit, `julia' nogr reps(999) gridpoints(10) nonull bootcluster(individual) matsize(.1)
+179. }
 
 Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -484,30 +487,32 @@ Fitting individual models as starting point for full model fit.
 
 Fitting full model.
 
-Mixed-process regression                               Number of obs =   2,217
-                                                       Wald chi2(2)  = 1004.04
-Log likelihood = -13512.755                            Prob > chi2   =  0.0000
+Mixed-process regression                                Number of obs =  2,217
+                                                        Wald chi2(2)  = 317.77
+Log pseudolikelihood = -13512.755                       Prob > chi2   = 0.0000
 
  ( 1)  [wage]tenure = 0
+                              (Std. err. adjusted for 12 clusters in industry)
 ------------------------------------------------------------------------------
-             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+             |               Robust
+             | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
 wage         |
       tenure |          0  (omitted)
-       _cons |   7.809235   .1225765    63.71   0.000     7.568989     8.04948
+       _cons |   7.809235   .4073256    19.17   0.000     7.010891    8.607578
 -------------+----------------------------------------------------------------
 tenure       |
-    collgrad |   .2294204    .233221     0.98   0.325    -.2276843    .6865252
-     ttl_exp |   .6828446   .0216115    31.60   0.000     .6404868    .7252024
-       _cons |  -2.642845   .2911175    -9.08   0.000    -3.213425   -2.072266
+    collgrad |   .2294204   .4219757     0.54   0.587    -.5976368    1.056478
+     ttl_exp |   .6828446   .0405263    16.85   0.000     .6034146    .7622746
+       _cons |  -2.642845   .3257173    -8.11   0.000     -3.28124   -2.004451
 -------------+----------------------------------------------------------------
-    /lnsig_1 |   1.752935   .0150177   116.72   0.000     1.723501    1.782369
-    /lnsig_2 |   1.504619   .0150192   100.18   0.000     1.475182    1.534056
-/atanhrho_12 |   .0271501   .0227031     1.20   0.232    -.0173472    .0716473
+    /lnsig_1 |   1.752935   .0714927    24.52   0.000     1.612812    1.893059
+    /lnsig_2 |   1.504619   .0258663    58.17   0.000     1.453922    1.555316
+/atanhrho_12 |   .0271501   .0263105     1.03   0.302    -.0244175    .0787177
 -------------+----------------------------------------------------------------
-       sig_1 |   5.771519   .0866747                      5.604116    5.943923
-       sig_2 |   4.502438   .0676232                      4.371831    4.636947
-      rho_12 |   .0271434   .0226864                     -.0173455     .071525
+       sig_1 |   5.771519   .4126217                        5.0169    6.639645
+       sig_2 |   4.502438   .1164613                      4.279868    4.736583
+      rho_12 |   .0271434   .0262911                     -.0244127    .0785555
 ------------------------------------------------------------------------------
 
 Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
@@ -647,24 +652,26 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
 Re-running regression with null imposed.
 
 
-Iteration 0:  Log likelihood = -1338.5964  
-Iteration 1:  Log likelihood = -1332.3403  
-Iteration 2:  Log likelihood =  -1332.339  
-Iteration 3:  Log likelihood =  -1332.339  
+Iteration 0:  Log pseudolikelihood = -1338.5964  
+Iteration 1:  Log pseudolikelihood = -1332.3403  
+Iteration 2:  Log pseudolikelihood =  -1332.339  
+Iteration 3:  Log pseudolikelihood =  -1332.339  
 
 Probit regression                                       Number of obs =  2,217
-                                                        Wald chi2(3)  =  12.58
-Log likelihood = -1332.339                              Prob > chi2   = 0.0056
+                                                        Wald chi2(3)  =  11.80
+Log pseudolikelihood = -1332.339                        Prob > chi2   = 0.0081
 
  ( 1)  [c_city]tenure = 0
+                              (Std. err. adjusted for 12 clusters in industry)
 ------------------------------------------------------------------------------
-      c_city | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+             |               Robust
+      c_city | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
       tenure |          0  (omitted)
-        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
-     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
-    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
-       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+        wage |   .0068643   .0043506     1.58   0.115    -.0016627    .0153913
+     ttl_exp |  -.0021496    .007035    -0.31   0.760     -.015938    .0116389
+    collgrad |   .1904642   .0767865     2.48   0.013     .0399654     .340963
+       _cons |  -.6223347   .0939856    -6.62   0.000    -.8065432   -.4381262
 ------------------------------------------------------------------------------
 
 Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
@@ -678,24 +685,26 @@ Overriding estimator's cluster/robust settings with cluster(industry age)
 Re-running regression with null imposed.
 
 
-Iteration 0:  Log likelihood = -1338.5964  
-Iteration 1:  Log likelihood = -1332.3403  
-Iteration 2:  Log likelihood =  -1332.339  
-Iteration 3:  Log likelihood =  -1332.339  
+Iteration 0:  Log pseudolikelihood = -1338.5964  
+Iteration 1:  Log pseudolikelihood = -1332.3403  
+Iteration 2:  Log pseudolikelihood =  -1332.339  
+Iteration 3:  Log pseudolikelihood =  -1332.339  
 
 Probit regression                                       Number of obs =  2,217
-                                                        Wald chi2(3)  =  12.58
-Log likelihood = -1332.339                              Prob > chi2   = 0.0056
+                                                        Wald chi2(3)  =  11.80
+Log pseudolikelihood = -1332.339                        Prob > chi2   = 0.0081
 
  ( 1)  [c_city]tenure = 0
+                              (Std. err. adjusted for 12 clusters in industry)
 ------------------------------------------------------------------------------
-      c_city | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+             |               Robust
+      c_city | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
       tenure |          0  (omitted)
-        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
-     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
-    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
-       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+        wage |   .0068643   .0043506     1.58   0.115    -.0016627    .0153913
+     ttl_exp |  -.0021496    .007035    -0.31   0.760     -.015938    .0116389
+    collgrad |   .1904642   .0767865     2.48   0.013     .0399654     .340963
+       _cons |  -.6223347   .0939856    -6.62   0.000    -.8065432   -.4381262
 ------------------------------------------------------------------------------
 
 Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by industry age, bootstrap clustering by industry, Rademacher weights:
@@ -707,27 +716,29 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by indu
 Re-running regression with null imposed.
 
 
-Iteration 0:  Log likelihood = -1334.9102  
-Iteration 1:  Log likelihood = -1332.3392  
-Iteration 2:  Log likelihood =  -1332.339  
-Iteration 3:  Log likelihood =  -1332.339  
+Iteration 0:  Log pseudolikelihood = -1334.9102  
+Iteration 1:  Log pseudolikelihood = -1332.3392  
+Iteration 2:  Log pseudolikelihood =  -1332.339  
+Iteration 3:  Log pseudolikelihood =  -1332.339  
 
 Generalized structural equation model                    Number of obs = 2,217
 Response: c_city   
 Family:   Bernoulli
 Link:     Probit   
-Log likelihood = -1332.339
+Log pseudolikelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
+                              (Std. err. adjusted for 12 clusters in industry)
 ------------------------------------------------------------------------------
-             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+             |               Robust
+             | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
 c_city       |
       tenure |          0  (omitted)
-        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
-     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
-    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
-       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+        wage |   .0068643   .0043506     1.58   0.115    -.0016627    .0153913
+     ttl_exp |  -.0021496    .007035    -0.31   0.760     -.015938    .0116389
+    collgrad |   .1904642   .0767865     2.48   0.013     .0399654     .340963
+       _cons |  -.6223347   .0939856    -6.62   0.000    -.8065432   -.4381262
 ------------------------------------------------------------------------------
 
 Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
@@ -741,27 +752,29 @@ Overriding estimator's cluster/robust settings with cluster(industry age)
 Re-running regression with null imposed.
 
 
-Iteration 0:  Log likelihood = -1334.9102  
-Iteration 1:  Log likelihood = -1332.3392  
-Iteration 2:  Log likelihood =  -1332.339  
-Iteration 3:  Log likelihood =  -1332.339  
+Iteration 0:  Log pseudolikelihood = -1334.9102  
+Iteration 1:  Log pseudolikelihood = -1332.3392  
+Iteration 2:  Log pseudolikelihood =  -1332.339  
+Iteration 3:  Log pseudolikelihood =  -1332.339  
 
 Generalized structural equation model                    Number of obs = 2,217
 Response: c_city   
 Family:   Bernoulli
 Link:     Probit   
-Log likelihood = -1332.339
+Log pseudolikelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
+                              (Std. err. adjusted for 12 clusters in industry)
 ------------------------------------------------------------------------------
-             | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+             |               Robust
+             | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
 -------------+----------------------------------------------------------------
 c_city       |
       tenure |          0  (omitted)
-        wage |   .0068643   .0051208     1.34   0.180    -.0031722    .0169008
-     ttl_exp |  -.0021496   .0063972    -0.34   0.737    -.0146879    .0103888
-    collgrad |   .1904642   .0675515     2.82   0.005     .0580657    .3228626
-       _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
+        wage |   .0068643   .0043506     1.58   0.115    -.0016627    .0153913
+     ttl_exp |  -.0021496    .007035    -0.31   0.760     -.015938    .0116389
+    collgrad |   .1904642   .0767865     2.48   0.013     .0399654     .340963
+       _cons |  -.6223347   .0939856    -6.62   0.000    -.8065432   -.4381262
 ------------------------------------------------------------------------------
 
 Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by industry age, bootstrap clustering by industry, Rademacher weights:
@@ -788,6 +801,167 @@ Score bootstrap-t, null imposed, 999 replications, Wald test, Rademacher weights
 
                                z =    -2.0409
                         Prob>|z| =     0.0350
+
+note: 12.mpg != 0 predicts failure perfectly;
+      12.mpg omitted and 2 obs not used.
+
+note: 15.mpg != 0 predicts failure perfectly;
+      15.mpg omitted and 2 obs not used.
+
+note: 16.mpg != 0 predicts failure perfectly;
+      16.mpg omitted and 4 obs not used.
+
+note: 19.mpg != 0 predicts failure perfectly;
+      19.mpg omitted and 8 obs not used.
+
+note: 20.mpg != 0 predicts failure perfectly;
+      20.mpg omitted and 3 obs not used.
+
+note: 22.mpg != 0 predicts failure perfectly;
+      22.mpg omitted and 5 obs not used.
+
+note: 23.mpg != 0 predicts success perfectly;
+      23.mpg omitted and 3 obs not used.
+
+note: 29.mpg != 0 predicts failure perfectly;
+      29.mpg omitted and 1 obs not used.
+
+note: 31.mpg != 0 predicts success perfectly;
+      31.mpg omitted and 1 obs not used.
+
+note: 34.mpg != 0 predicts failure perfectly;
+      34.mpg omitted and 1 obs not used.
+
+note: 35.mpg != 0 predicts success perfectly;
+      35.mpg omitted and 2 obs not used.
+
+note: 41.mpg != 0 predicts success perfectly;
+      41.mpg omitted and 1 obs not used.
+
+note: 30.mpg omitted because of collinearity.
+Iteration 0:  Log likelihood = -26.925192  
+Iteration 1:  Log likelihood = -23.571543  
+Iteration 2:  Log likelihood = -23.565102  
+Iteration 3:  Log likelihood = -23.565102  
+
+Probit regression                                       Number of obs =     41
+                                                        LR chi2(8)    =   6.72
+                                                        Prob > chi2   = 0.5671
+Log likelihood = -23.565102                             Pseudo R2     = 0.1248
+
+------------------------------------------------------------------------------
+     foreign | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         mpg |
+         12  |          0  (empty)
+         14  |  -.9674216   1.075272    -0.90   0.368    -3.074917    1.140073
+         15  |          0  (empty)
+         16  |          0  (empty)
+         17  |   8.35e-16   1.085402     0.00   1.000    -2.127349    2.127349
+         18  |  -.7647097   1.000971    -0.76   0.445    -2.726577    1.197157
+         19  |          0  (empty)
+         20  |          0  (empty)
+         21  |  -.2533471   1.052133    -0.24   0.810     -2.31549    1.808795
+         22  |          0  (empty)
+         23  |          0  (empty)
+         24  |  -.6744897   1.117851    -0.60   0.546    -2.865437    1.516457
+         25  |   .8416212   1.092553     0.77   0.441    -1.299744    2.982986
+         26  |  -.4307273   1.160041    -0.37   0.710    -2.704367    1.842912
+         28  |  -.4307273   1.160041    -0.37   0.710    -2.704367    1.842912
+         29  |          0  (empty)
+         30  |          0  (omitted)
+         31  |          0  (empty)
+         34  |          0  (empty)
+         35  |          0  (empty)
+         41  |          0  (empty)
+             |
+       _cons |  -7.14e-16   .8862269    -0.00   1.000    -1.736973    1.736973
+------------------------------------------------------------------------------
+
+Re-running regression with null imposed.
+
+
+note: 12.mpg != 0 predicts failure perfectly;
+      12.mpg omitted and 2 obs not used.
+
+note: 15.mpg != 0 predicts failure perfectly;
+      15.mpg omitted and 2 obs not used.
+
+note: 16.mpg != 0 predicts failure perfectly;
+      16.mpg omitted and 4 obs not used.
+
+note: 19.mpg != 0 predicts failure perfectly;
+      19.mpg omitted and 8 obs not used.
+
+note: 20.mpg != 0 predicts failure perfectly;
+      20.mpg omitted and 3 obs not used.
+
+note: 22.mpg != 0 predicts failure perfectly;
+      22.mpg omitted and 5 obs not used.
+
+note: 23.mpg != 0 predicts success perfectly;
+      23.mpg omitted and 3 obs not used.
+
+note: 29.mpg != 0 predicts failure perfectly;
+      29.mpg omitted and 1 obs not used.
+
+note: 31.mpg != 0 predicts success perfectly;
+      31.mpg omitted and 1 obs not used.
+
+note: 34.mpg != 0 predicts failure perfectly;
+      34.mpg omitted and 1 obs not used.
+
+note: 35.mpg != 0 predicts success perfectly;
+      35.mpg omitted and 2 obs not used.
+
+note: 41.mpg != 0 predicts success perfectly;
+      41.mpg omitted and 1 obs not used.
+
+note: 30.mpg omitted because of collinearity.
+Iteration 0:  Log likelihood = -26.925192  
+Iteration 1:  Log likelihood = -23.980576  
+Iteration 2:  Log likelihood = -23.974122  
+Iteration 3:  Log likelihood = -23.974122  
+
+Probit regression                                       Number of obs =     41
+                                                        Wald chi2(7)  =   5.32
+Log likelihood = -23.974122                             Prob > chi2   = 0.6215
+
+ ( 1)  [foreign]14.mpg = 0
+------------------------------------------------------------------------------
+     foreign | Coefficient  Std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+         mpg |
+         12  |          0  (empty)
+         14  |          0  (omitted)
+         15  |          0  (empty)
+         16  |          0  (empty)
+         17  |   .6744897   .7904398     0.85   0.393    -.8747437    2.223723
+         18  |  -.0902199   .6698064    -0.13   0.893    -1.403016    1.222576
+         19  |          0  (empty)
+         20  |          0  (empty)
+         21  |   .4211426   .7440976     0.57   0.571    -1.037262    1.879547
+         22  |          0  (empty)
+         23  |          0  (empty)
+         24  |   6.84e-17   .8344386     0.00   1.000     -1.63547     1.63547
+         25  |   1.516111   .8002314     1.89   0.058    -.0523137    3.084536
+         26  |   .2437624   .8901651     0.27   0.784    -1.500929    1.988454
+         28  |   .2437624   .8901651     0.27   0.784    -1.500929    1.988454
+         29  |          0  (empty)
+         30  |          0  (omitted)
+         31  |          0  (empty)
+         34  |          0  (empty)
+         35  |          0  (empty)
+         41  |          0  (empty)
+             |
+       _cons |  -.6744897   .4817634    -1.40   0.162    -1.618729    .2697491
+------------------------------------------------------------------------------
+
+Rao score (Lagrange multiplier) test:
+  14.mpg
+
+                               z =    -0.9053
+                        Prob>|z| =     0.3653
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.04
