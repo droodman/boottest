@@ -510,7 +510,7 @@ tenure       |
       rho_12 |   .0271434   .0226864                     -.0173455     .071525
 ------------------------------------------------------------------------------
 
-Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
+Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                                z =     8.2785
@@ -667,7 +667,7 @@ Log likelihood = -1332.339                              Prob > chi2   = 0.0056
        _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
 ------------------------------------------------------------------------------
 
-Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
+Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                                z =     0.2980
@@ -698,7 +698,7 @@ Log likelihood = -1332.339                              Prob > chi2   = 0.0056
        _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
 ------------------------------------------------------------------------------
 
-Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by cluster(industry), bootstrap clustering by industry, Rademacher weights:
+Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by industry age, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                            t(11) =     0.2803
@@ -713,9 +713,9 @@ Iteration 2:  Log likelihood =  -1332.339
 Iteration 3:  Log likelihood =  -1332.339  
 
 Generalized structural equation model                    Number of obs = 2,217
-Response         : c_city
-Family           : Bernoulli
-Link             : probit
+Response: c_city   
+Family:   Bernoulli
+Link:     Probit   
 Log likelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
@@ -747,9 +747,9 @@ Iteration 2:  Log likelihood =  -1332.339
 Iteration 3:  Log likelihood =  -1332.339  
 
 Generalized structural equation model                    Number of obs = 2,217
-Response         : c_city
-Family           : Bernoulli
-Link             : probit
+Response: c_city   
+Family:   Bernoulli
+Link:     Probit   
 Log likelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
@@ -764,7 +764,7 @@ c_city       |
        _cons |  -.6223347   .0848449    -7.33   0.000    -.7886276   -.4560418
 ------------------------------------------------------------------------------
 
-Score bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
+Score bootstrap-t, null imposed, 999 replications, Wald test, clustering by industry age, bootstrap clustering by industry, Rademacher weights:
   tenure
 
                            t(11) =     0.2803

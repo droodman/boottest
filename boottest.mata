@@ -924,7 +924,7 @@ real colvector boottest::getdist(| string scalar diststat) {
   if (dirty) boottest()
   if (diststat == "numer") {
     _pnumer = v_sd==1? pnumer : &(*pnumer / v_sd)
-    _sort( DistCDR = (*_pnumer)[|2\.|]' :+ *pr , 1)
+    _sort( DistCDR = (*_pnumer)[|2\.|]' /*:+ *pr*/ , 1)
   } else if (rows(DistCDR)==0)
     if (cols(*pDist) > 1)
       _sort( DistCDR = multiplier * (*pDist)[|2\.|]' , 1)
@@ -1090,8 +1090,6 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     pwt = &(sumwt = 1)
   _Nobs = haswt & obswttype=="fweight"? sumwt : Nobs
 
-  bootneqcap = NBootClustVar!=NClustVar | subcluster  // bootstrapping and intersection of error clusterings different?
-
   if (WREnonARubin)
     if (NClustVar)
       infoBootData = _panelsetup(*pID, 1..NBootClustVar, pIDBootData)
@@ -1105,6 +1103,34 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     pinfoCapData = pinfoAllData = &(infoBootData = J(Nobs,0,0))  // causes no collapsing of data in _panelsum() calls, only multiplying by weights if any
   Nstar = rows(infoBootData)
 
+  if (NClustVar > NBootClustVar) {  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
+    pinfoAllData = &_panelsetup(*pID, 1..NClustVar, pIDAllData)
+    if (subcluster & rows(infoBootData) != rows(*pinfoAllData)) {
+      errprintf("\nboottest can only perform the subcluster bootstrap when the bootstrap clusters are nested within the (intersections of the) error clusters.\n")
+      _error(499)
+    }
+  } else {
+    pinfoAllData = &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
+    if (WREnonARubin)
+      pIDAllData = pIDBootData
+  }
+
+  subcluster = NClustVar > NErrClustVar
+  bootneqcap = NBootClustVar!=NClustVar | subcluster  // bootstrapping and intersection of error clusterings different?
+
+  if (subcluster)  // info for intersections of error clustering wrt data
+    pinfoCapData = &_panelsetup(*pID, subcluster+1..NClustVar, pIDCapData)
+  else {
+    pinfoCapData = pinfoAllData  // info for intersections of error clustering wrt data
+    if (WREnonARubin)
+      pIDCapData = pIDAllData
+  }
+
+  Nall = rows(*pinfoAllData)
+   IDCap = rows(*pinfoCapData)==Nobs? *pID :   (*pID)[(*pinfoCapData)[,1],]   // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
+
+  pIDAll = Nall==Nobs               ?  pID : &((*pID)[(*pinfoAllData)[,1],])  // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
+
   if (bootstrapt) {
     if (NClustVar) {
       minN = .
@@ -1112,31 +1138,6 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       Combs = combs(NErrClustVar)  // represent all error clustering combinations. First is intersection of all error clustering vars
       Clust = structboottestClust(rows(Combs)-1)  // leave out no-cluster combination
       NErrClustCombs = length(Clust)
-      subcluster = NClustVar - NErrClustVar
-
-      if (NClustVar > NBootClustVar) {  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
-        pinfoAllData = &_panelsetup(*pID, 1..NClustVar, pIDAllData)
-        if (subcluster & rows(infoBootData) != rows(*pinfoAllData)) {
-          errprintf("\nboottest can only perform the subcluster bootstrap when the bootstrap clusters are nested within the (intersections of the) error clusters.\n")
-          _error(499)
-        }
-      } else {
-        pinfoAllData = &infoBootData  // info for grouping by intersections of all bootstrap & clustering vars wrt data; used to speed crosstab UXAR wrt bootstrapping cluster & intersection of all error clusters
-        if (WREnonARubin)
-          pIDAllData = pIDBootData
-      }
-
-      if (NClustVar > NErrClustVar)  // info for intersections of error clustering wrt data
-        pinfoCapData = &_panelsetup(*pID, subcluster+1..NClustVar, pIDCapData)
-      else {
-        pinfoCapData = pinfoAllData  // info for intersections of error clustering wrt data
-        if (WREnonARubin)
-          pIDCapData = pIDAllData
-      }
-
-      Nall = rows(*pinfoAllData)
-       IDCap = rows(*pinfoCapData)==Nobs? *pID :   (*pID)[(*pinfoCapData)[,1],]   // version of ID matrix with one row for each all-error-cluster-var intersection instead of 1 row for each obs; gets resorted
-      pIDAll = Nall==Nobs               ?  pID : &((*pID)[(*pinfoAllData)[,1],])  // version of ID matrix with one row for each all-bootstrap & error cluster-var intersection instead of 1 row for each obs
 
       BootClust = 2^(NClustVar - NBootClustVar)  // location of bootstrap clustering within list of cluster combinations
 
@@ -1181,8 +1182,8 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     minN = rows(infoBootData)
 
   purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
-  granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Clust.N*B*(Nstar+1)) :
-                             !jk & robust & scoreBS==0 & (purerobust | (Clust.N+Nstar)*kZ*B + (Clust.N-Nstar)*B + kZ*B < Clust.N*kZ*kZ + Nobs*kZ + Clust.N * Nstar*kZ + Clust.N*Nstar)
+  granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Nall*B*(Nstar+1)) :
+                             !jk & robust & scoreBS==0 & (purerobust | (Nall+Nstar)*kZ*B + (Nall-Nstar)*B + kZ*B < Nall*kZ*kZ + Nobs*kZ + Nall * Nstar*kZ + Nall*Nstar)
 
   if (jk & !WREnonARubin)
     granularjk = kZ^3 + Nstar * (Nobs/Nstar*kZ^2 + (Nobs/Nstar)^2*kZ + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kZ^2*Nobs/Nstar + kZ^3 + 2*kZ*(kZ + Nobs/Nstar))
@@ -2315,7 +2316,6 @@ void boottest::MakeInterpolables() {
 // Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
 void boottest::_MakeInterpolables(real colvector r) {
   real scalar d, c, _jk; real colvector uXAR; pointer (real matrix) scalar pustarXAR, ptmp
-
   if (ML)
     uXAR = *pSc * (AR = *pA * *pR')
   else {

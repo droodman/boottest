@@ -1,4 +1,4 @@
-*! boottest 4.4.4 26 April 2023
+*! boottest 4.4.5 26 April 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -426,10 +426,10 @@ program define _boottest, rclass sortpreserve
 	}
 	local scoreBS = "`boottype'"=="score"
 	
-  local NFE = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), e(N_g) + 0`e(singleton)',  ///
-              cond(`DID', 0`e(N_clust)',                                  ///
-              cond("`cmd'"=="areg", 1+e(df_a),                            ///
-                   max(0`e(K1)', 0`e(df_a_initial)'))))  // reghdfe
+  if inlist("`cmd'","xtreg","xtivreg","xtivreg2") local NFE = e(N_g) + 0`e(singleton)'
+  else local NFE = cond(`DID', 0`e(N_clust)',                       ///
+                               cond("`cmd'"=="areg", 1+e(df_a),     ///
+                               max(0`e(K1)', 0`e(df_a_initial)')))  // reghdfe
 
   local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`absvars'"))
   if `"`_FEname'"' != "" {
@@ -756,9 +756,14 @@ program define _boottest, rclass sortpreserve
 				mat `r1r' = `r' \ nullmat(`r1')
 
 				`quietly' di as res _n "Re-running regression with null imposed." _n
-				if `"`cmdline'"'=="" local 0 `e(cmdline)'
-				                else local 0 `cmdline'
-				syntax [anything] [aw pw fw iw] [if] [in], [CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) CLuster(passthru) Robust vce(string) *]
+				if `"`cmdline'"'=="" local cmdline `e(cmdline)'
+        
+        _parse expand lc lg: cmdline, common(CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) CLuster(passthru) Robust vce(string))
+        local 0, `lg_op'
+        syntax, [from(passthru) INIt(passthru) ITERate(passthru) *]
+        local 0 `lc_1'
+				syntax [anything] [aw pw fw iw] [if] [in], [*]
+
 				if "`e(cmd)'"=="ml" local max max  // tack on max option in case ml run in interactive model and cmdline() is missing it
 
 				cap _estimates drop `hold'
@@ -782,7 +787,13 @@ program define _boottest, rclass sortpreserve
 					constraint `r(free)' `_constraint'
 				}
 
-				cap `=cond("`quietly'"=="", "noisily", "")' `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', constraints(`_constraints') `from' `init' `iterate' `max' `options'
+				local cmdline version `c(stata_version)': `anything' if `hold' `=cond("`weight'"=="","",`"[`weight'`exp']"')', `max' `options'
+        forvalues i=2/0`lc_n' {  // reassemble hierarchical command line
+          local cmdline2 `cmdline2' || `lc_`i''
+        }
+
+        * re-estimate!
+        cap `=cond("`quietly'"=="", "noisily", "")' `cmdline' `from' `init' `iterate' constraints(`_constraints') `cmdline2'
 
 				local rc = _rc
 				constraint drop `_constraints'
@@ -792,7 +803,7 @@ program define _boottest, rclass sortpreserve
 				}
 				if !`rc' {
 					mat `b0' = e(b)
-					cap `=cond("`cmd'"=="tobit", "version 15:", "")' `anything' if e(sample), `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `options' `max'
+					cap `cmdline' `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `cmdline2'
 					local rc = _rc
           mat drop `b0'
 				}
@@ -883,7 +894,7 @@ program define _boottest, rclass sortpreserve
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
                           `ML', `LIML', 0`fuller', `K', `ar', `null', `scoreBS', `jk', "`weighttype'", "`ptype'", "`statistic'", ///
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
-                          "`Ynames'", "`b'", "`V'", "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `NBootClustVar', `NErrClustVar', ///
+                          "`Ynames'", `=cond(`ML', `" "`b'", "`V'" "', `" "","" "')', "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `NBootClustVar', `NErrClustVar', ///
                           "`FEname'", `NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
                           "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
     }
@@ -934,7 +945,7 @@ program define _boottest, rclass sortpreserve
 //                                 madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
 //                                 ml=bool(`ML'), beta=b, A=V, ///
 //                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
-//                                 diststat = "none" if "`svmat'"=="" else "`svmat'", ///
+//                                 getdist = bool("`svmat'"!=""), ///
 //                                 getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
 //                                 getauxweights = "`svv'"!="", ///
 //                                 rng=rng)
@@ -958,7 +969,7 @@ program define _boottest, rclass sortpreserve
                                 madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
                                 ml=bool(`ML'), beta=b, A=V, ///
                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
-                                diststat = "none" if "`svmat'"=="" else "`svmat'", ///
+                                getdist = bool("`svmat'"!=""), ///
                                 getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
                                 rng=rng)
@@ -986,7 +997,7 @@ program define _boottest, rclass sortpreserve
       python: Scalar.setValue("`NBootClustname'", test.nbootclust)
       python: Matrix.store("`b0'", test.b)
       python: Matrix.store("`V0'", test.V)
-      if "`dist'"!="" python: Matrix.store("`dist'", test.dist)
+      if "`dist'"!="" python: Matrix.store("`dist'", test.dist if "`svmat'"=="t" else test.numerdist)
       if "`svv'" !="" python: Matrix.store("`svv'", test.auxweights)
     }
 
@@ -1187,6 +1198,8 @@ end
 
 
 * Version history
+* 4.4.5 Fixed crash after hierarchical models (mixed, mecloglog, etc.). When imposing null on ML estimate, run user's estimator under current Stata version.
+*       No longer add r to returned numerators with svmat(numer). Affects this result matrix when r!=0.
 * 4.4.4 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
 *       Correct dof when constraints include restrictions on o. and b. regressors
 * 4.4.3 Fixed bug in WRE jackknife test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
