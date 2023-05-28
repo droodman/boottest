@@ -1,9 +1,4 @@
-// Issues:
-// nlogit doesn't accept from(..., skip)
-// dsge doesn't accept predict ..., scores
-// eprobit, meglm work for me
-
-*! boottest 4.4.5 26 April 2023
+*! boottest 4.4.6 27 May 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1223,6 +1218,7 @@ end
 
 
 * Version history
+* 4.4.6 Tweaks to work with more ML-based commands and to error on xttobit, xtintreg
 * 4.4.5 Fixed crash after hierarchical models (mixed, mecloglog, etc.). When imposing null on ML estimate, run user's estimator under current Stata version.
 *       No longer add r to returned numerators with svmat(numer). Affects that result matrix when r!=0.
 * 4.4.4 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
