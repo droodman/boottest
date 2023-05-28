@@ -50,3 +50,4 @@ jk IV simulator.do
 ~boottest.mata.stswp
 ~boottest.ado.stswp
 *.stswp
+scoretest vs lmtest.do

@@ -2316,6 +2316,7 @@ void boottest::MakeInterpolables() {
 // Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
 void boottest::_MakeInterpolables(real colvector r) {
   real scalar d, c, _jk; real colvector uXAR; pointer (real matrix) scalar pustarXAR, ptmp
+
   if (ML)
     uXAR = *pSc * (AR = *pA * *pR')
   else {
@@ -2500,7 +2501,7 @@ void boottest::MakeNonWREStats(real scalar w) {
     if (df == 1) {  // optimize for one null constraint
       denom.M = *pR * *pAR
       denom.M = ML? denom.M * (v_sd * v_sd) : denom.M :* colsum(*pustar :* *pustar)
-      storeWtGrpResults(pDist, w,  numerw :/ sqrt(denom.M))
+      storeWtGrpResults(pDist, w, numerw :/ sqrt(denom.M))
       if (w==1)
         statDenom = denom.M[1]  // original-sample denominator
     } else {

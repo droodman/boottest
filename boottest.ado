@@ -1,3 +1,8 @@
+// Issues:
+// nlogit doesn't accept from(..., skip)
+// dsge doesn't accept predict ..., scores
+// eprobit, meglm work for me
+
 *! boottest 4.4.5 26 April 2023
 *! Copyright (C) 2015-23 David Roodman
 
@@ -81,6 +86,11 @@ program define _boottest, rclass sortpreserve
 		}
     else local absvars = subinstr(subinstr("`absvars'", "#", " ", .), "i.", "", .)
 	}
+  if inlist("`cmd'","xttobit","xtintreg") & "`null'" == "" {
+    di as err "Unable to impose null on {cmd:`cmd'}."
+    exit 198
+  }
+  
 	if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
 		di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
 		exit 198
@@ -181,7 +191,7 @@ program define _boottest, rclass sortpreserve
     else {
       python: import sys; nthreads = psutil.cpu_count(logical=False) if 'psutil' in sys.modules else 1  // try to set # of Julia threads to # of physical cores
     }
-    local pyline from julia import Julia; jl=Julia(/*sysimage=r"C:\Users\drood\ado\plus\b\wbt.so",*/ threads=nthreads); from julia import Main, Random, Pkg
+    local pyline from julia import Julia; jl=Julia(threads=nthreads); from julia import Main, Random, Pkg
     cap python: `pyline'
     if _rc {
       cap python: julia.install(color=False); `pyline'
@@ -793,7 +803,6 @@ program define _boottest, rclass sortpreserve
 
         * re-estimate!
         cap `=cond("`quietly'"=="", "noisily", "")' `cmdline' `from' `init' `iterate' constraints(`_constraints') `cmdline2'
-
 				local rc = _rc
 				constraint drop `_constraints'
 				if e(converged)==0 {
@@ -802,7 +811,9 @@ program define _boottest, rclass sortpreserve
 				}
 				if !`rc' {
 					mat `b0' = e(b)
-					cap `cmdline' `=cond(inlist("`cmd'","cmp","ml"),"init(`b0')","from(`b0',skip)")' iterate(0) `cmdline2'
+          _mkvec `b', update from(`b0', skip) first  // mlexp doesn't handle from(..., skip)
+          cap `cmdline' `=cond(inlist("`cmd'","cmp","ml"),"init(`b')","from(`b')")' iterate(0) `cmdline2'
+          if _rc cap `cmdline' from(`b', skip) iterate(0) `cmdline2'  // mprobit still needs skip even after _mkvec, from(..., skip)
 					local rc = _rc
           mat drop `b0'
 				}
@@ -821,35 +832,50 @@ program define _boottest, rclass sortpreserve
 			
 			mat `V' = e(V`=cond("`e(V_modelbased)'"!="", "_modelbased", "")')
 
-			tempvar sc
-			cap predict double `sc'* if e(sample), score
-			if _rc {
-				di as err "Could not generate scores from `e(cmd)' with {cmd:predict}."
-				exit _rc
-			}
-
-			unab scnames: `sc'*
-			if `:word count `scnames'' == e(k_eq) {  // generate score for each parameter from those for each equation
-				local colnames: colnames `b'
-				tokenize `:coleq `b''
-				local lasteq
-				local eq 0
-				local _sc
-				qui forvalues i=1/`k' {
-					if "``i''" != "`lasteq'" | "``i''"=="/" {
-						local ++eq
-						local lasteq ``i''
-					}
-					local var: word `i' of `colnames'
-					if "`var'"=="_cons" | strmatch("`var'","*._cons") | "``i''"=="/" local _sc `_sc' `:word `eq' of `scnames'' // constant term or free parameter
-					else {
-						tempvar t
-						gen double `t' = `:word `eq' of `scnames'' * `var' if e(sample)
-						local _sc `_sc' `t'
-					}
-				}
-				local scnames `_sc'
-			}
+      tempvar sc
+      cap predict double `sc'* if e(sample), score
+      if _rc {
+        if `reps'==0 & "`e(gradient)'"!="" {  // hack: for score and Wald tests, generate observation-level "scores" with last entries=total gradient and rest 0, since only their sums matter
+          tempname gradient
+          mat `gradient' = e(gradient)
+          mata st_view(_boottestt=.,.,"`hold'"); st_local("n1", strofreal(max(selectindex(_boottestt))))
+          local scnames
+          qui forvalues i=1/`k' {
+            tempvar t
+            gen double `t' = 0
+            replace `t' = `gradient'[1,`i'] in `n1'
+            local scnames `scnames' `t'
+          }
+        }
+        else {
+          di as err "Could not generate scores from `e(cmd)' with {cmd:predict}."
+          exit _rc
+        }
+      }
+      else {
+        unab scnames: `sc'*
+        if `:word count `scnames'' == e(k_eq) {  // generate score for each parameter from those for each equation
+          local colnames: colnames `b'
+          tokenize `:coleq `b''
+          local lasteq
+          local eq 0
+          local _sc
+          qui forvalues i=1/`k' {
+            if "``i''" != "`lasteq'" | "``i''"=="/" {
+              local ++eq
+              local lasteq ``i''
+            }
+            local var: word `i' of `colnames'
+            if "`var'"=="_cons" | strmatch("`var'","*._cons") | "``i''"=="/" local _sc `_sc' `:word `eq' of `scnames'' // constant term or free parameter
+            else {
+              tempvar t
+              gen double `t' = `:word `eq' of `scnames'' * `var' if e(sample)
+              local _sc `_sc' `t'
+            }
+          }
+          local scnames `_sc'
+        }
+      }
 
 			if !`null' {
 				cap _estimates drop `hold'
@@ -1198,7 +1224,7 @@ end
 
 * Version history
 * 4.4.5 Fixed crash after hierarchical models (mixed, mecloglog, etc.). When imposing null on ML estimate, run user's estimator under current Stata version.
-*       No longer add r to returned numerators with svmat(numer). Affects this result matrix when r!=0.
+*       No longer add r to returned numerators with svmat(numer). Affects that result matrix when r!=0.
 * 4.4.4 Increase WildBootTests.jl version 0.9.0. Fixed bug in WRE jk test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
 *       Correct dof when constraints include restrictions on o. and b. regressors
 * 4.4.3 Fixed bug in WRE jackknife test stat computation when clusters are many ("granular"). Changed ptol() default to 1e-3. Fixed computation bug in WRE with classical errors.
@@ -1346,7 +1372,3 @@ end
 * 1.1.1 Added support for single-equation linear GMM with ivreg2 and ivregress.
 * 1.1.0 Fixed 1.0.1 bug in observation weight handling. Added multiway clustering, robust, cluster(), and bootcluster() options. Added waldtest wrapper.
 * 1.0.1 Added check for empty constraints. Fixed crash on use of weights after clustered estimation in Stata >13.
-
-// sysuse auto, clear
-// probit foreign i.mpg
-// scoretest 14.mpg
