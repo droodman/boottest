@@ -81,10 +81,6 @@ program define _boottest, rclass sortpreserve
 		}
     else local absvars = subinstr(subinstr("`absvars'", "#", " ", .), "i.", "", .)
 	}
-  if inlist("`cmd'","xttobit","xtintreg") & "`null'" == "" {
-    di as err "Unable to impose null on {cmd:`cmd'}."
-    exit 198
-  }
   
 	if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
 		di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
@@ -782,7 +778,8 @@ program define _boottest, rclass sortpreserve
 					forvalues j=1/`=colsof(`R1R')' {
 						if `R1R'[`i',`j'] {
 							if `terms++' local _constraint `_constraint' +
-							local _constraint `_constraint' `=cond(`R1R'[`i',`j']!=1,"`=`R1R'[`i',`j']' * ","")' `=cond("`coleq'"=="","","[`:word `j' of `coleq'']")'`:word `j' of `colnames''
+              local eq = cond("`coleq'"=="" | inlist("`cmd'","xttobit","xtintreg") & "`coleq'"!=".", "", "[`:word `j' of `coleq'']")  // hack around xttobit/xtintreg bug internally renaming first eq to "eq1"
+							local _constraint `_constraint' `=cond(`R1R'[`i',`j']!=1,"`=`R1R'[`i',`j']' * ","")' `eq'`:word `j' of `colnames''
 						}
 					}
 					local _constraint `_constraint' = `=`r1r'[`i',1]'
@@ -797,7 +794,7 @@ program define _boottest, rclass sortpreserve
         }
 
         * re-estimate!
-        cap `=cond("`quietly'"=="", "noisily", "")' `cmdline' `from' `init' `iterate' constraints(`_constraints') `cmdline2'
+        cap `=cond("`quietly'"=="", "noisily", "")' `cmdline' `from' `init' `iterate' `=cond("`cmd'"=="slogit","nocorner","")' constraints(`_constraints') `cmdline2'
 				local rc = _rc
 				constraint drop `_constraints'
 				if e(converged)==0 {
