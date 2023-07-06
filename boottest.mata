@@ -2589,7 +2589,7 @@ real matrix boottest::crosstabFE(real colvector v, real matrix info) {
   retval = J(NFE, rows(info), 0)
   if (haswt) {
     vw = v :* sqrtwt
-    if (cols(info) | rows(info)==rows(v))
+    if (cols(info) & rows(info)!=rows(v))
       for (i=cols(retval);i;i--) {
         _FEID = panelsubmatrix(*pFEID, i, info)
         _v    = panelsubmatrix(vw    , i, info)
@@ -2602,7 +2602,7 @@ real matrix boottest::crosstabFE(real colvector v, real matrix info) {
       for (i=cols(retval);i;i--)
         retval[(*pFEID)[i],i] = vw[i]
   } else
-    if (cols(info) | rows(info)==rows(v))
+    if (cols(info) & rows(info)!=rows(v))
       for (i=cols(retval);i;i--) {
         _FEID = panelsubmatrix(*pFEID, i, info)
         _v    = panelsubmatrix(v     , i, info)
