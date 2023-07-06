@@ -145,7 +145,8 @@ program define _boottest, rclass sortpreserve
       cap python: import julia; julia.install(color=False)
     }
     if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically."
+      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically, or to find it if installed."
+      di as err _n "If it just installed successfully, try restarting Stata."
       di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
       exit 198
     }
@@ -157,7 +158,8 @@ program define _boottest, rclass sortpreserve
       cap python: import psutil
     }
     if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package psutil. Unable to install it automatically."
+      di as err _n "The {cmd:julia} option requires the Python package psutil. Unable to install it automatically, or to find it if installed."
+      di as err _n "If it just installed successfully, try restarting Stata."
       di as err `"You can install it {browse "https://github.com/giampaolo/psutil/blob/master/INSTALL.rst":manually}."'
       exit 198
     }
@@ -168,7 +170,8 @@ program define _boottest, rclass sortpreserve
       `pipline' numpy
       cap python: import numpy as np
       if _rc {
-        di as err _n "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically."
+        di as err _n "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically, or to find it if installed.."
+        di as err _n "If it just installed successfully, try restarting Stata."
         di as err `"You can install it {browse "https://numpy.org/install":manually}."'
         exit 198
       }
