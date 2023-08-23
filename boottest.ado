@@ -1,4 +1,4 @@
-*! boottest 4.4.6 27 May 2023
+*! boottest 4.4.7 22 August 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1221,6 +1221,7 @@ end
 
 
 * Version history
+* 4.4.7 Fixed "mlabformat() not allowed" in Stata <16
 * 4.4.6 Tweaks to work with more ML-based commands and to error on xttobit, xtintreg
 * 4.4.5 Fixed crash after hierarchical models (mixed, mecloglog, etc.). When imposing null on ML estimate, run user's estimator under current Stata version.
 *       No longer add r to returned numerators with svmat(numer). Affects that result matrix when r!=0.
