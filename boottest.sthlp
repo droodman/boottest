@@ -51,7 +51,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt boot:type(wild | score)}}specify bootstrap type; after ML estimation, {it:score} is default and only option{p_end}
 {synopt:{opt jack:knife} or {opt jk}}request jackknifing of bootstrap data-generating process{p_end}
 {synopt:{opt stat:istic(t | c)}}specify statistic type to bootstrap; default is {it:t}{p_end}
-{synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; deafult is 999; set to 0 for Rao or Wald test{p_end}
+{synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; default is 999; set to 0 for Rao or Wald test{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt marg:ins}}bootstrap current results from {cmd:margins}{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}

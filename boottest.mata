@@ -238,7 +238,7 @@ void boottestOLS::InitVars(pointer(real matrix) scalar pRperp) {  // pRperp is f
       if (parent->granularjk)
         invMg = Xg
       else
-        XXg = XinvHg = smatrix(parent->Nstar)
+        XXg = XinvHg = Xg
       negR1AR1 = - *pR1AR1
       for (g=parent->Nstar; g; g--) {
         S = parent->NClustVar? parent->infoBootData[g,1] \ parent->infoBootData[g,2] : g\g
@@ -640,7 +640,7 @@ void boottestOLS::MakeResiduals(real scalar _jk) {
   if (_jk) {
     m = parent->small? sqrt((parent->Nstar - 1) / parent->Nstar) : 1
     
-    if (parent->purerobust)  // somwhat faster handling classic hc3
+    if (parent->purerobust)  // somewhat faster handling classic hc3
       if (rows(R1perp)) {
         Xt1 = *pX12B(*parent->pX1, *parent->pX2, t1)
         u1ddot[2].M = m * ((invMg.M :* (u1ddot.M + Xt1)) - Xt1)

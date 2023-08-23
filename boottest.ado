@@ -104,8 +104,11 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
-            issorted julia threads(integer 0) float(integer 64) Format(string) jk JACKknife *]
+            issorted julia threads(integer 0) PRECision(integer 64) Format(string) jk JACKknife *]
+
   if "`format'"=="" local format %10.4g
+  qui query born
+  local mlabformat = cond($S_1 < td(16oct2019), "", `"mlabformat(`format')"')
   
   local jk = "`jk'`jackknife'" != ""
 
@@ -945,7 +948,7 @@ program define _boottest, rclass sortpreserve
 // python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
       qui python: Random.seed_b(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
 // python: from juliacall import Main as jl; jl.seval("using WildBootTests")
-//       python: test = jl.wildboottest_b(jl.Float`float', R, r, overwrite=true, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+//       python: test = jl.wildboottest_b(jl.Float`precision', R, r, overwrite=true, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
 //                                 R1=R1, r1=r1, ///
 //                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
 //                                 issorted=True, ///
@@ -969,7 +972,7 @@ program define _boottest, rclass sortpreserve
 //                                 getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
 //                                 getauxweights = "`svv'"!="", ///
 //                                 rng=rng)
-      python: test = WildBootTests.wildboottest_b(Main.Float`float', R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+      python: test = WildBootTests.wildboottest_b(Main.Float`precision', R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1=R1, r1=r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
                                 issorted=True, ///
@@ -1141,7 +1144,7 @@ program define _boottest, rclass sortpreserve
 					local 0, `graphopt'
 					syntax, [LPattern(passthru) LWidth(passthru) LColor(passthru) LStyle(passthru) *]
 
-					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) mlabformat(`format') xtitle("`constraintLHS1'") ///
+					line `Y' `X1', sort(`X1') `lpattern' `lwidth' `lcolor' `lstyle' || scatter `Y' `X1' if _n>rowsof(`plotmat'), mlabel(`X1') mlabpos(6) `mlabformat' xtitle("`constraintLHS1'") ///
             || if (`gridmin'<. | -`X1'<=-`plotmin') & (`gridmax'<. | `X1'<=`plotmax'), ///
 						ytitle(`"`=strproper("`madjust'") + cond("`madjust'"!="","-adjusted ", "")' p value"') ///
 						yscale(range(0 .)) name(`graphname'`_h', `replace') ///
