@@ -1177,7 +1177,7 @@ program define _boottest, rclass sortpreserve
       local neginfty = cond(c(stata_version)>=14, "-∞", ".")
       local union = cond(c(stata_version)>=14, "∪", "U")
 			forvalues i=1/`=rowsof(`cimat')' {
-				if `i'>1 local CIstr = "`CIstr' `union' "
+				if `i'>1 local CIstr = "`CIstr'`union'"
 				local CIstr = "`CIstr'" + cond(`cimat'[`i',1]==., "(`neginfty'", "[" + strofreal(`cimat'[`i',1], "`format'")) + ", " + cond(`cimat'[`i',2]==., "`infty')", strofreal(`cimat'[`i',2], "`format'") + "]")
 			}
       local CIstr = subinstr("`CIstr'", "-", "−", .)  // proper minus sign
