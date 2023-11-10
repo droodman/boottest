@@ -104,7 +104,7 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
-            issorted julia threads(integer 0) PRECision(integer 64) Format(string) jk JACKknife *]
+            issorted julia PRECision(integer 64) Format(string) jk JACKknife *]
 
   if "`format'"=="" local format %10.4g
   qui query born
@@ -115,134 +115,20 @@ program define _boottest, rclass sortpreserve
   local julia = "`julia'" != ""
 
   if `julia' & !0$boottest_julia_loaded {
-    if c(stata_version) < 16 {
-      di as err "The {cmd:julia} option requires Stata 16 or higher."
-      exit 198
-    }
-
-    cap python: 1
-		if _rc {
-      di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
-      di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
-      exit 198
-    }
-
-    qui python query
-    if "`r(version)'" < "3" {
-      di as err "Stata is currently configured to use Python " `r(version)' ". The {cmd:julia} option requires Python 3."
-      di as err `"See {help python}."'
-      exit 198
-    }
-
-    local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
-    python: from sfi import Data, Matrix, Missing, Scalar, Macro
-
-    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
-    mata displayflush()
-
-    cap python: import julia
-
-    if _rc {
-      di "Installing PyJulia..."
-      `pipline' julia
-      cap python: import julia; julia.install(color=False)
-    }
-    if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package PyJulia. Unable to install it automatically, or to find it if installed."
-      di as err _n "If it just installed successfully, try restarting Stata."
-      di as err `"You can install it {browse "https://pyjulia.readthedocs.io/en/stable/installation.html":manually}."'
-      exit 198
-    }
-
-    cap python: import psutil
-    if _rc {
-      di "Installing psutil..."
-      `pipline' psutil
-      cap python: import psutil
-    }
-    if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package psutil. Unable to install it automatically, or to find it if installed."
-      di as err _n "If it just installed successfully, try restarting Stata."
-      di as err `"You can install it {browse "https://github.com/giampaolo/psutil/blob/master/INSTALL.rst":manually}."'
-      exit 198
-    }
-
-    cap python: import numpy as np
-    if _rc {
-      di "Installing NumPy..."
-      `pipline' numpy
-      cap python: import numpy as np
-      if _rc {
-        di as err _n "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically, or to find it if installed.."
-        di as err _n "If it just installed successfully, try restarting Stata."
-        di as err `"You can install it {browse "https://numpy.org/install":manually}."'
-        exit 198
-      }
-    }
-    
-//     python: import sys; nthreads = str(psutil.cpu_count(logical=False)) if 'psutil' in sys.modules else '1'  // try to set # of Julia threads to # of physical cores
-//     local pyline from julia.api import LibJulia; LibJulia.load().init_julia(['--threads='+nthreads]); from julia import Main, Random, Pkg
-    if `threads' {
-      python: nthreads = `threads'
-    }
-    else {
-      python: import sys; nthreads = psutil.cpu_count(logical=False) if 'psutil' in sys.modules else 1  // try to set # of Julia threads to # of physical cores
-    }
-    local pyline from julia import Julia; jl=Julia(threads=nthreads); from julia import Main, Random, Pkg
-    cap python: `pyline'
-    if _rc {
-      cap python: julia.install(color=False); `pyline'
-      if _rc {
-        di as err _n "Could not automatically initialize the PyJulia package."
-        di as err `"Perhaps {browse "https://pyjulia.readthedocs.io/en/latest/installation.html#install-pyjulia":these instructions} will help."'
-        exit 198
-      }
-    }
-
-    qui python: Scalar.setValue("rc", Main.eval('VERSION < v"1.8.0"')) 
-    if 0`rc' {
-      di as err _n "The {cmd:julia} option requires that Julia 1.8 or higher be installed and accessible by default through the system path."
-      di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
-      exit 198
-    }
-// python:Main.eval('pushfirst!(LOAD_PATH,raw"D:\OneDrive\Documents\Macros\WildBootTests.jl")')
-    qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="WildBootTests"]')
-    python: Macro.setLocal("rc", str(Main.eval('length(p)')))
-    if `rc'==0 {
-      di "Installing WildBootTests.jl..."
-      cap python: Pkg.add("WildBootTests")
-      if _rc {
-        di as err _n "Failed to automatically install the Julia package WildBootTests.jl."
-        di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("WildBootTests")}."'
-        exit 198
-      }
-    }
-    else {
-      python: Macro.setLocal("rc", str(Main.eval('p[1].version < v"0.9.7"')))  // hard-coded version requirement
-      if "`rc'" == "True" {
-        di "Updating WildBootTests.jl..."
-        cap python: Pkg.update("WildBootTests")
+    julia, qui: using Pkg; vals = values(Pkg.dependencies())
+    foreach pkg in StableRNGs WildBootTests {
+      qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
+      if !`r(ans)' {
+        cap julia, qui: Pkg.add("`pkg'")
         if _rc {
-          di as err _n "Failed to automatically update the Julia package WildBootTests.jl."
-          di as err `"You should be able to update it by running Julia and typing {cmd:using Pkg; Pkg.update("WildBootTests")}."'
+          di as err _n "Failed to automatically install the Julia package `pkg'.jl."
+          di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("`pkg'")}."'
           exit 198
         }
       }
+      julia, qui: using `pkg'
     }
-
-    qui python: Main.eval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.is_direct_dep && v.name=="StableRNGs"]')
-    python: Macro.setLocal("rc", str(Main.eval('length(p)')))
-    if `rc'==0 {
-      di "Installing StableRNGs.jl..."
-      cap python: Pkg.add("StableRNGs")
-      if _rc {
-        di as err _n "Failed to automatically install the Julia package StableRNGs."
-        di as err `"This should be installable from within Julia by typing {cmd:using Pkg; Pkg.add("StableRNGs")}."'
-        exit 198
-      }
-    }
-    python: from julia import WildBootTests, StableRNGs
-    python: rng = StableRNGs.StableRNG(0)  // create now; properly seed later
+    julia, qui: rng = StableRNG(0)  // create now; properly seed later
     global boottest_julia_loaded 1
   }
 
@@ -264,7 +150,7 @@ program define _boottest, rclass sortpreserve
   if inlist("`e(cmd)'", "didregress", "xtdidregress") & `"`h0s'`h0'"' == "" local h0s r1vs0.`e(treatment)'
 
 	if `matsizegb'==1000000 local matsizegb .
-  
+
   if "`svv'" != "" tempname svv
 
 	if `reps'==0 local svmat
@@ -923,105 +809,93 @@ program define _boottest, rclass sortpreserve
     }
     else {
       foreach X in R R1 V {
-        cap python: `X' = np.asarray(Matrix.get('``X'''))
-        if _rc python: `X' = np.empty([0,0])
+        if "``X''" != "" julia PutMatToMat ``X'', dest(`X')
+          else julia, qui: `X' = Matrix{Float`precision'}(undef,0,0)
       }
       foreach X in gridminvec gridmaxvec gridpointsvec {
-        cap python: `X' = np.squeeze(np.asarray([np.nan if x==Missing.getValue() else x for x in Matrix.get('``X''')[0]])).flatten()
-        if _rc python: `X' = np.empty([`=`df'',0])
+        if "``X''" != "" julia PutMatToMat ``X'', dest(`X')
+          else julia, qui: `X' = Matrix{Float`precision'}(undef,`=`df'',0)
       }
       foreach X in r r1 b {
-        cap python: `X' = np.squeeze(np.asarray(Matrix.get('``X'''))).flatten()
-        if _rc python: `X' = np.empty([0])
+        if "``X''" != "" {
+          julia PutMatToMat ``X'', dest(`X')
+          julia, qui: `X' = vec(`X')
+        }
+        else julia, qui: `X' = Vector{Float`precision'}(undef,0)
       }
-      foreach X in Xnames_exog Xnames_endog ZExclnames scnames {
-        python: `X' = np.asarray(Data.get('``X''', selectvar="`hold'"))
+      foreach X in Xnames_exog Xnames_endog ZExclnames scnames allclustvars {
+        if "``X''" != "" julia PutVarsToMat ``X'' if `hold', dest(`X')
+          else julia, qui: `X' = Matrix{Float`precision'}(undef,0,0)
       }
-      foreach X in Ynames wtname {
-        python: `X' = np.squeeze(np.asarray(Data.get('``X''', selectvar="`hold'"))).flatten()
+      foreach X in Ynames wtname FEname {
+        if "``X''" != "" {
+          julia PutVarsToMat ``X'' if `hold', dest(`X')
+          julia, qui: `X' = dropdims(`X'; dims=2)
+        }
+        else julia, qui: `X' = Vector{Float`precision'}(undef,0)
       }
-      python: FEname = np.squeeze(np.asarray(Data.get('`FEname'', selectvar="`hold'"), dtype=np.int64)).flatten()
-      python: allclustvars = np.asarray(Data.get('`allclustvars'', selectvar="`hold'"), dtype=np.int64)
+      julia, qui: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname)
+      julia, qui: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars)
 // foreach X in Ynames Xnames_exog Xnames_endog ZExclnames scnames wtname gridminvec gridmaxvec gridpointsvec R R1 V r r1 b FEname allclustvars {
 //   python:Main.`X' = `X'
 // }
 // python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
-      qui python: Random.seed_b(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
-// python: from juliacall import Main as jl; jl.seval("using WildBootTests")
-//       python: test = jl.wildboottest_b(jl.Float`precision', R, r, overwrite=true, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
-//                                 R1=R1, r1=r1, ///
-//                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
-//                                 issorted=True, ///
-//                                 hetrobust=bool(`hasrobust'), ///
-//                                 fedfadj=`FEdfadj', ///
-//                                 fweights = "`wtype'"=="fweight", ///
-//                                 maxmatsize=`=0`matsizegb'', ///
-//                                 ptype="`ptype'", ///
-//                                 bootstrapc = "`statistic'"=="c", ///
-//                                 liml=bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
-//                                 arubin=bool(`ar'), small=bool(`small'), ///
-//                                 scorebs=bool(`scoreBS'), ///
-//                                 jk=bool(`jk'), ///
-//                                 reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
-//                                 auxwttype="`weighttype'", ///
-//                                 rtol=`ptolerance', ///
-//                                 madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
-//                                 ml=bool(`ML'), beta=b, A=V, ///
-//                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
-//                                 getdist = bool("`svmat'"!=""), ///
-//                                 getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
-//                                 getauxweights = "`svv'"!="", ///
-//                                 rng=rng)
-      python: test = WildBootTests.wildboottest_b(Main.Float`precision', R, r, resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
-                                R1=R1, r1=r1, ///
+      julia, qui: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
+      julia, qui: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
+                                obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+                                R1, r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
-                                issorted=True, ///
-                                hetrobust=bool(`hasrobust'), ///
+                                issorted=true, ///
+                                hetrobust=Bool(`hasrobust'), ///
                                 fedfadj=`FEdfadj', ///
                                 fweights = "`wtype'"=="fweight", ///
                                 maxmatsize=`=0`matsizegb'', ///
                                 ptype="`ptype'", ///
                                 bootstrapc = "`statistic'"=="c", ///
-                                liml=bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
-                                arubin=bool(`ar'), small=bool(`small'), ///
-                                scorebs=bool(`scoreBS'), ///
-                                jk=bool(`jk'), ///
-                                reps=`reps', imposenull=bool(`null'), level=`level'/100, ///
-                                auxwttype="`weighttype'", ///
+                                liml=Bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
+                                arubin=Bool(`ar'), small=Bool(`small'), ///
+                                scorebs=Bool(`scoreBS'), ///
+                                jk=Bool(`jk'), ///
+                                reps=`reps', imposenull=Bool(`null'), level=`level'/100, ///
+                                auxwttype=:`weighttype', ///
                                 rtol=`ptolerance', ///
-                                madjtype="none" if "`madjust'"=="" else "`madjust'", nH0=`N_h0s', ///
-                                ml=bool(`ML'), beta=b, A=V, ///
+                                madjtype="`madjust'"=="" ? :none : :`madjust', nH0=`N_h0s', ///
+                                ml=Bool(`ML'), beta=b, A=V, ///
                                 gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
-                                getdist = bool("`svmat'"!=""), ///
-                                getci = `level'<100 and "`cimat'" != "", getplot = "`plotmat'"!="", ///
+                                getdist = Bool("`svmat'"!=""), ///
+                                getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
                                 rng=rng)
-      python: Macro.setLocal("seed", str(Main.rand(rng, Main.Int32)))  // chain Julia rng back to Stata to advance it replicably
-      set seed `seed'
-      python: Main.test = test
+      qui julia: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
+      set seed `r(ans)'
       if "`plotmat'"!="" {
         if `df'==1 {
-            python: Matrix.store("`plotmat'", Main.eval("[test.plot[:X][1] test.plot[:p]]"))
-            python: Matrix.store("`peakmat'", Main.eval("[test.peak[:X][1] test.peak[:p]]"))
+          julia, qui: `plotmat' = [test.plot[:X][1] test.plot[:p]]
+          julia GetMatFromMat `plotmat'
+          julia, qui: `peakmat' = [test.peak[:X][1] test.peak[:p]]
+          julia GetMatFromMat `peakmat'
         }
         else {
-          python: Y, X = np.meshgrid(Main.eval("test.plot[:X][2]"), Main.eval("test.plot[:X][1]"))
-          python: Matrix.store("`plotmat'", np.vstack((np.reshape(X,-1), np.reshape(Y,-1), Main.eval("test.plot[:p]"))).transpose())
+          julia, qui: `plotmat' = [vcat(vec([[x y] for x in test.plot[:X][1], y in test.plot[:X][2]])...) test.plot[:p]]
+          julia GetMatFromMat `plotmat'
         }
       }
-      if `level'<100 & "`cimat'" != "" python: Matrix.store("`cimat'", test.ci)
-      python: Scalar.setValue("`teststat'", test.stat)
-      python: Scalar.setValue("`df'", test.dof)
-      python: Scalar.setValue("`df_r'", test.dof_r)
-      python: Scalar.setValue("`p'", test.p)
-      python: Scalar.setValue("`padj'", test.padj)
-      python: Scalar.setValue("`repsname'", test.reps)
-      python: Scalar.setValue("`repsFeasname'", test.repsfeas)
-      python: Scalar.setValue("`NBootClustname'", test.nbootclust)
-      python: Matrix.store("`b0'", test.b)
-      python: Matrix.store("`V0'", test.V)
-      if "`dist'"!="" python: Matrix.store("`dist'", test.dist if "`svmat'"=="t" else test.numerdist)
-      if "`svv'" !="" python: Matrix.store("`svv'", test.auxweights)
+      if `level'<100 & "`cimat'" != "" julia GetMatFromMat `cimat', source(test.ci)
+      julia, qui: SF_scal_save("`teststat'", test.stat)
+      julia, qui: SF_scal_save("`df'", test.dof)
+      julia, qui: SF_scal_save("`df_r'", test.dof_r)
+      julia, qui: SF_scal_save("`p'", test.p)
+      julia, qui: SF_scal_save("`padj'", test.padj)
+      julia, qui: SF_scal_save("`repsname'", test.reps)
+      julia, qui: SF_scal_save("`repsFeasname'", test.repsfeas)
+      julia, qui: SF_scal_save("`NBootClustname'", test.nbootclust)
+      julia GetMatFromMat `b0', source(test.b)
+      julia GetMatFromMat `V0', source(test.V)
+      if "`dist'"!="" {
+        julia, qui: `dist' = "`svmat'"=="t" ? test.dist : test.numerdist
+        julia GetMatFromMat `dist'
+      }
+      if "`svv'" !="" julia GetMatFromMat `svv', source(test.auxweights)
     }
 
 		_estimates unhold `hold'
