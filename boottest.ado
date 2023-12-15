@@ -111,24 +111,19 @@ program define _boottest, rclass sortpreserve
   local mlabformat = cond($S_1 < td(16oct2019), "", `"mlabformat(`format')"')
   
   local jk = "`jk'`jackknife'" != ""
-
+  local quietly = "`quietly'" != ""
   local julia = "`julia'" != ""
 
   if `julia' & !0$boottest_julia_loaded {
-    julia, qui: using Pkg; vals = values(Pkg.dependencies())
-    foreach pkg in StableRNGs WildBootTests {
-      qui julia: mapreduce(v->v.name=="`pkg'", +, vals)
-      if !`r(ans)' {
-        cap julia, qui: Pkg.add("`pkg'")
-        if _rc {
-          di as err _n "Failed to automatically install the Julia package `pkg'.jl."
-          di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("`pkg'")}."'
-          exit 198
-        }
-      }
-      julia, qui: using `pkg'
+    qui jl: Int(VERSION < v"1.8.0")
+    if `r(ans)' {
+      di as err _n "boottest requires that Julia 1.8.0 or higher be installed and accessible by default."
+      di as err    "See the Installation section of the {help jl##installation:jl help file}."
+      exit 198
     }
-    julia, qui: rng = StableRNG(0)  // create now; properly seed later
+    jl AddPkg StableRNGs WildBootTests
+    jl, qui: using StableRNGs, WildBootTests
+    jl, qui: rng = StableRNG(0)  // create now; properly seed later
     global boottest_julia_loaded 1
   }
 
@@ -409,9 +404,11 @@ program define _boottest, rclass sortpreserve
 			di as txt _n "({cmd:h0(1)} assumed)"
 			local h0 1
 		}
-		foreach c of numlist `h0' {
-			`quietly' if `"`: constraint `c''"' == "" di as res "Constraint `c' not found and will be skipped."
-		}
+		if !`quietly' {
+      foreach c of numlist `h0' {
+        if `"`: constraint `c''"' == "" di as res "Constraint `c' not found and will be skipped."
+      }
+    }
 		local h0_1 `h0'
 	}
 
@@ -647,7 +644,7 @@ program define _boottest, rclass sortpreserve
 				mat `R1R' = `R' \ nullmat(`R1')  // add null to model constraints
 				mat `r1r' = `r' \ nullmat(`r1')
 
-				`quietly' di as res _n "Re-running regression with null imposed." _n
+				if !`quietly' di as res _n "Re-running regression with null imposed." _n
 				if `"`cmdline'"'=="" local cmdline `e(cmdline)'
         
         _parse expand lc lg: cmdline, common(CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) Robust)  // would be nice to extract, thus remove, cluster() option for speed, but it affects sample
@@ -686,7 +683,7 @@ program define _boottest, rclass sortpreserve
         }
 
         * re-estimate!
-        cap `=cond("`quietly'"=="", "noisily", "")' `cmdline' `from' `init' `iterate' `=cond("`cmd'"=="slogit","nocorner","")' constraints(`_constraints') `cmdline2'
+        cap `=cond(`quietly', "", "noisily")' `cmdline' `from' `init' `iterate' `=cond("`cmd'"=="slogit","nocorner","")' constraints(`_constraints') `cmdline2'
 				local rc = _rc
 				constraint drop `_constraints'
 				if e(converged)==0 {
@@ -705,7 +702,7 @@ program define _boottest, rclass sortpreserve
 					di as err "Error imposing null. Perhaps {cmd:`cmd'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
 					exit `rc'
 				}
-				if "`quietly'"=="" {
+				if !`quietly' {
 					mata st_numscalar("`t'", any(!diagonal(st_matrix("e(V)")) :& st_matrix("e(b)")'))
 					if `t' {
 						di _n as res _n "{res}Warning: Negative Hessian under null hypothesis not positive definite. Results may be unreliable." _n
@@ -805,43 +802,41 @@ program define _boottest, rclass sortpreserve
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
                           "`Ynames'", `=cond(`ML', `" "`b'", "`V'" "', `" "","" "')', "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `NBootClustVar', `NErrClustVar', ///
                           "`FEname'", `NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-                          "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', "`quietly'"!="", "`b0'", "`V0'", "`svv'", "`NBootClustname'")
+                          "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', `quietly', "`b0'", "`V0'", "`svv'", "`NBootClustname'")
     }
     else {
       foreach X in R R1 V {
-        if "``X''" != "" julia PutMatToMat ``X'', dest(`X')
-          else julia, qui: `X' = Matrix{Float`precision'}(undef,0,0)
+        if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
+          else jl, qui: `X' = Matrix{Float`precision'}(undef,0,0)
       }
       foreach X in gridminvec gridmaxvec gridpointsvec {
-        if "``X''" != "" julia PutMatToMat ``X'', dest(`X')
-          else julia, qui: `X' = Matrix{Float`precision'}(undef,`=`df'',0)
+        if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
+          else jl, qui: `X' = Matrix{Float`precision'}(undef,`=`df'',0)
       }
       foreach X in r r1 b {
         if "``X''" != "" {
-          julia PutMatToMat ``X'', dest(`X')
-          julia, qui: `X' = vec(`X')
+          jl PutMatToMat ``X'', dest(`X')
+          jl, qui: `X' = vec(`X')
         }
-        else julia, qui: `X' = Vector{Float`precision'}(undef,0)
+        else jl, qui: `X' = Vector{Float`precision'}(undef,0)
       }
       foreach X in Xnames_exog Xnames_endog ZExclnames scnames allclustvars {
-        if "``X''" != "" julia PutVarsToMat ``X'' if `hold', dest(`X')
-          else julia, qui: `X' = Matrix{Float`precision'}(undef,0,0)
+        if "``X''" != "" jl PutVarsToMat ``X'' if `hold', dest(`X')
+          else jl, qui: `X' = Matrix{Float`precision'}(undef,0,0)
       }
       foreach X in Ynames wtname FEname {
         if "``X''" != "" {
-          julia PutVarsToMat ``X'' if `hold', dest(`X')
-          julia, qui: `X' = dropdims(`X'; dims=2)
+          jl PutVarsToMat ``X'' if `hold', dest(`X')
+          jl, qui: `X' = dropdims(`X'; dims=2)
         }
-        else julia, qui: `X' = Vector{Float`precision'}(undef,0)
+        else jl, qui: `X' = Vector{Float`precision'}(undef,0)
       }
-      julia, qui: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname)
-      julia, qui: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars)
-// foreach X in Ynames Xnames_exog Xnames_endog ZExclnames scnames wtname gridminvec gridmaxvec gridpointsvec R R1 V r r1 b FEname allclustvars {
-//   python:Main.`X' = `X'
-// }
-// python:Main.eval('using JLD; @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V')
-      julia, qui: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
-      julia, qui: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
+      jl, qui: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname)
+      jl, qui: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars)
+// jl: using JLD
+// jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V
+      jl, qui: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
+      jl, qui: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
                                 obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1, r1, ///
                                 nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
@@ -866,47 +861,39 @@ program define _boottest, rclass sortpreserve
                                 getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
                                 getauxweights = "`svv'"!="", ///
                                 rng=rng)
-      qui julia: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
+      qui jl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
       set seed `r(ans)'
       if "`plotmat'"!="" {
         if `df'==1 {
-          julia, qui: `plotmat' = [test.plot[:X][1] test.plot[:p]]
-          julia GetMatFromMat `plotmat'
-          julia, qui: `peakmat' = [test.peak[:X][1] test.peak[:p]]
-          julia GetMatFromMat `peakmat'
+          jl GetMatFromMat `plotmat', source([test.plot[:X][1] test.plot[:p]])
+          jl GetMatFromMat `peakmat', source([test.peak[:X][1] test.peak[:p]])
         }
-        else {
-          julia, qui: `plotmat' = [vcat(vec([[x y] for x in test.plot[:X][1], y in test.plot[:X][2]])...) test.plot[:p]]
-          julia GetMatFromMat `plotmat'
-        }
+        else jl GetMatFromMat `plotmat', source([vcat(vec([[x y] for x in test.plot[:X][1], y in test.plot[:X][2]])...) test.plot[:p]])
       }
-      if `level'<100 & "`cimat'" != "" julia GetMatFromMat `cimat', source(test.ci)
-      julia, qui: SF_scal_save("`teststat'", test.stat)
-      julia, qui: SF_scal_save("`df'", test.dof)
-      julia, qui: SF_scal_save("`df_r'", test.dof_r)
-      julia, qui: SF_scal_save("`p'", test.p)
-      julia, qui: SF_scal_save("`padj'", test.padj)
-      julia, qui: SF_scal_save("`repsname'", test.reps)
-      julia, qui: SF_scal_save("`repsFeasname'", test.repsfeas)
-      julia, qui: SF_scal_save("`NBootClustname'", test.nbootclust)
-      julia GetMatFromMat `b0', source(test.b)
-      julia GetMatFromMat `V0', source(test.V)
-      if "`dist'"!="" {
-        julia, qui: `dist' = "`svmat'"=="t" ? test.dist : test.numerdist
-        julia GetMatFromMat `dist'
-      }
-      if "`svv'" !="" julia GetMatFromMat `svv', source(test.auxweights)
+      if `level'<100 & "`cimat'" != "" jl GetMatFromMat `cimat', source(test.ci)
+      jl, qui: SF_scal_save("`teststat'", test.stat)
+      jl, qui: SF_scal_save("`df'", test.dof)
+      jl, qui: SF_scal_save("`df_r'", test.dof_r)
+      jl, qui: SF_scal_save("`p'", test.p)
+      jl, qui: SF_scal_save("`padj'", test.padj)
+      jl, qui: SF_scal_save("`repsname'", test.reps)
+      jl, qui: SF_scal_save("`repsFeasname'", test.repsfeas)
+      jl, qui: SF_scal_save("`NBootClustname'", test.nbootclust)
+      jl GetMatFromMat `b0', source(test.b)
+      jl GetMatFromMat `V0', source(test.V)
+      if "`dist'"!="" jl GetMatFromMat `dist', source(test.`=cond("`svmat'"=="t", "dist", "numerdist")')
+      if "`svv'" !="" jl GetMatFromMat `svv', source(test.auxweights)
     }
 
 		_estimates unhold `hold'
 
-    `quietly' if 2^`NBootClustname' < `reps' & inlist("`weighttype'", "rademacher", "mammen") {
+    if !`quietly' & 2^`NBootClustname' < `reps' & inlist("`weighttype'", "rademacher", "mammen") {
       di _n "Warning: with " `NBootClustname' " bootstrap clusters, the number of replications, `reps', exceeds the universe of " strproper("`weighttype'") " draws, 2^"`NBootClustname' " = " 2^`NBootClustname' ". " _c
       if "`weighttype'"=="rademacher" di "Sampling each once." _c
       di _n "Consider Webb weights instead, using {cmd:weight(webb)}."
     }
     local reps = `repsname'  // in case reduced to 2^G
-    `quietly' if `reps' & (`NBootClustname'>12 | "`weighttype'" != "rademacher") & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1) {
+    if !`quietly' & `reps' & (`NBootClustname'>12 | "`weighttype'" != "rademacher") & floor(`level'/100 * (`reps'+1)) != `level'/100 * (`reps'+1) {
       di _n "Note: The bootstrap usually performs best when the confidence level (here, `level'%)" _n "      times the number of replications plus 1 (`reps'+1=" `reps'+1 ") is an integer."
     }
 
@@ -1051,7 +1038,7 @@ program define _boottest, rclass sortpreserve
       local neginfty = cond(c(stata_version)>=14, "-∞", ".")
       local union = cond(c(stata_version)>=14, "∪", "U")
 			forvalues i=1/`=rowsof(`cimat')' {
-				if `i'>1 local CIstr = "`CIstr'`union'"
+				if `i'>1 local CIstr = "`CIstr' `union' "
 				local CIstr = "`CIstr'" + cond(`cimat'[`i',1]==., "(`neginfty'", "[" + strofreal(`cimat'[`i',1], "`format'")) + ", " + cond(`cimat'[`i',2]==., "`infty')", strofreal(`cimat'[`i',2], "`format'") + "]")
 			}
       local CIstr = subinstr("`CIstr'", "-", "−", .)  // proper minus sign
@@ -1060,7 +1047,7 @@ program define _boottest, rclass sortpreserve
 			if inlist("`ptype'", "symmetric", "equaltail") {
 				tempname t
 				mata st_numscalar("`t'", anyof(st_matrix("`cimat'"), .))
-				if `t' di "(A confidence interval could not be bounded. Try widening the search range with the {cmd:gridmin()} and {cmd:gridmax()} options.)"
+				if `t' di "(A confidence set could not be bounded. Try widening the search range with the {cmd:gridmin()} and {cmd:gridmax()} options.)"
 			}
 			mat colnames `cimat' = lo hi
       cap mat rownames `cimat' = `h0text'
@@ -1068,7 +1055,7 @@ program define _boottest, rclass sortpreserve
 			return local CIstr`_h' `CIstr'
 		}
 		
-		if "`statistic'" == "c" & `df'==1 {
+		if "`statistic'"=="c" & `df'==1 {
 			di "Note: denominator for `tz' statistic computed from the bootstrap replications of the numerator."
 		}
 		
