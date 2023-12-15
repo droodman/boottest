@@ -494,10 +494,11 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
     X1y1 = cross(*pX1, *py1)
     y1y1 = cross(*py1, *py1)
   }
+
   Z = Z - *pZperp * (*pinvZperpZperp * ZperpZ)  // XXX when is this avoidable, like in jk?
 
-  Zy1  = cross(Z, *py1)    
-  XZ   = cross(*pX1, Z) \ cross(*pX2, Z)
+  Zy1 = cross(Z, *py1)    
+  XZ  = cross(*pX1, Z) \ cross(*pX2, Z)
   V = invXX * XZ
   ZZ  =  cross(Z,Z)
   if (parent->WREnonARubin) ZY2 = cross(Z, *pY2)
@@ -525,6 +526,7 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
       for (g=parent->Nstar; g; g--)
         invHg[g].M = invsym(kappa==1? H_2SLSg[g].M : ZZg[g].M + kappa * H_2SLSmZZg[g].M)
     H_2SLS = V ' XZ  // Hessian
+
     if (kappa!=1 | LIML) H_2SLSmZZ = H_2SLS - ZZ
     if (LIML==0)  // DGP is LIML except possibly when getting confidence peak for A-R plot; but LIML=0 when exactly id'd, for then kappa=1 always and Hessian doesn't depend on r1 and can be computed now
       MakeH()
@@ -1281,7 +1283,6 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
 
   if (ML)
     df = rows(*pR)
-    
   else {
     if (ARubin) {
       pR  = &(J(kX2,kX1,0), I(kX2))  // attack surface is all endog vars

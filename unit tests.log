@@ -722,9 +722,9 @@ Iteration 2:  Log pseudolikelihood =  -1332.339
 Iteration 3:  Log pseudolikelihood =  -1332.339  
 
 Generalized structural equation model                    Number of obs = 2,217
-Response: c_city   
-Family:   Bernoulli
-Link:     Probit   
+Response         : c_city
+Family           : Bernoulli
+Link             : probit
 Log pseudolikelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
@@ -758,9 +758,9 @@ Iteration 2:  Log pseudolikelihood =  -1332.339
 Iteration 3:  Log pseudolikelihood =  -1332.339  
 
 Generalized structural equation model                    Number of obs = 2,217
-Response: c_city   
-Family:   Bernoulli
-Link:     Probit   
+Response         : c_city
+Family           : Bernoulli
+Link             : probit
 Log pseudolikelihood = -1332.339
 
  ( 1)  [c_city]tenure = 0
