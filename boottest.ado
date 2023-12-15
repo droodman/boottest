@@ -121,9 +121,10 @@ program define _boottest, rclass sortpreserve
       di as err    "See the Installation section of the {help jl##installation:jl help file}."
       exit 198
     }
-    jl AddPkg StableRNGs WildBootTests
+    jl AddPkg StableRNGs
+//     jl AddPkg WildBootTests, minver(0.9.11)
     jl, qui: using StableRNGs, WildBootTests
-    jl, qui: rng = StableRNG(0)  // create now; properly seed later
+    jl, qui: rng = StableRNG(0)  // create now, seed later
     global boottest_julia_loaded 1
   }
 
@@ -565,8 +566,12 @@ program define _boottest, rclass sortpreserve
       mat `r' = `C'[1...,   colsof(`C')  ]
 
 			* get rid of any remaining o. and b. constraints; r(k_autoCns) doesn't capture all
-			mata _boottestC = st_matrixcolstripe("`R'")[,2]
-			mata _boottestC = rowsum(select(st_matrix("`R'"), !(strmatch(_boottestC, "*b*.*") :| strmatch(_boottestC, "*o*.*"))') :!= 0)
+      mata _boottestC = J(1,0,0)
+      foreach var in `:colnames `R'' {
+        _ms_parse_parts `var'
+        mata _boottestC = _boottestC, !`r(omit)'
+      }
+      mata _boottestC = rowsum(select(st_matrix("`R'"), _boottestC) :!= 0)
 			mata st_matrix("`R'", select(st_matrix("`R'"), _boottestC))
 			mata st_matrix("`r'", select(st_matrix("`r'"), _boottestC))
 			cap mat `R'[1,1] = `R'[1,1]
@@ -809,6 +814,7 @@ program define _boottest, rclass sortpreserve
         if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
           else jl, qui: `X' = Matrix{Float`precision'}(undef,0,0)
       }
+
       foreach X in gridminvec gridmaxvec gridpointsvec {
         if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
           else jl, qui: `X' = Matrix{Float`precision'}(undef,`=`df'',0)
@@ -836,6 +842,7 @@ program define _boottest, rclass sortpreserve
 // jl: using JLD
 // jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V
       jl, qui: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
+
       jl, qui: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
                                 obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                                 R1, r1, ///
