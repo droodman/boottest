@@ -1487,9 +1487,9 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.0742
+                        Prob>|t| =     0.0703
 
-95% confidence set for null hypothesis expression: [.03807, .07148]
+95% confidence set for null hypothesis expression: [.03815, .07148]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.04
@@ -1541,9 +1541,9 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.0742
+                        Prob>|t| =     0.0703
 
-95% confidence set for null hypothesis expression: [.03807, .07148]
+95% confidence set for null hypothesis expression: [.03815, .07148]
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
   post
@@ -1551,7 +1551,7 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
                             t(7) =    -5.5821
                         Prob>|t| =     0.0000
 
-95% confidence set for null hypothesis expression: [−.02943, −.0129]
+95% confidence set for null hypothesis expression: [−.02955, −.0129]
 
 Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -2242,7 +2242,7 @@ Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clusteri
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.1770
+                        Prob>|t| =     0.1034
 
 Warning: with 8 bootstrap clusters, the number of replications, 9999, exceeds the universe of Mammen draws, 2^8 = 256. 
 Consider Webb weights instead, using weight(webb).
@@ -2253,7 +2253,7 @@ Score bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap cluster
                             t(7) =     1.8479
                         Prob>|t| =     0.0903
 
-95% confidence set for null hypothesis expression: [.03349, .08018]
+95% confidence set for null hypothesis expression: [−.1533, −.1334] ∪ [−.03434, .1137] ∪ [.1242, .1515] ∪ [.2035, .2524] ∪ [.263, .2878]
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Webb weights:
   post_self=.04
@@ -2276,7 +2276,7 @@ Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clusteri
   selfemployed=-.15
 
                    F(3, 7) =     0.8534
-                  Prob > F =     0.7587
+                  Prob > F =     0.7588
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, Webb weights:
   post_self=.04

@@ -1,4 +1,4 @@
-*! boottest 4.4.7 22 August 2023
+*! boottest 4.4.8 22 December 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 * You should have received a copy of the GNU General Public License
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-*! Version history at bottom
+* Version history at bottom
 
 
 cap program drop boottest
@@ -41,6 +41,8 @@ end
 cap program drop _boottest
 program define _boottest, rclass sortpreserve
 	version 11
+
+  local JLVERSION 0.7.2
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2" | ("`e(cmd)'"=="ivreghdfe" & "`e(extended_absvars)'"==""), "ivreg2", "`e(cmd)'")
 	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
@@ -115,14 +117,18 @@ program define _boottest, rclass sortpreserve
   local julia = "`julia'" != ""
 
   if `julia' & !0$boottest_julia_loaded {
-    qui jl: Int(VERSION < v"1.8.0")
-    if `r(ans)' {
-      di as err _n "boottest requires that Julia 1.8.0 or higher be installed and accessible by default."
-      di as err    "See the Installation section of the {help jl##installation:jl help file}."
+    cap jl version
+    if _rc {
+      di as err `"Can't access Julia. {cmd:boottest} requires that the {cmd:jl} command be installed, via {stata ssc install julia}."
+      di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
       exit 198
     }
+    if "`r(version)'" != "`JLVERSION'" {
+      di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
+      ssc install julia, replace
+    }
     jl AddPkg StableRNGs
-//     jl AddPkg WildBootTests, minver(0.9.11)
+    jl AddPkg WildBootTests, minver(0.9.12)
     jl, qui: using StableRNGs, WildBootTests
     jl, qui: rng = StableRNG(0)  // create now, seed later
     global boottest_julia_loaded 1
@@ -1089,6 +1095,7 @@ end
 
 
 * Version history
+* 4.4.8 Revamped Julia link
 * 4.4.7 Fixed "mlabformat() not allowed" in Stata <16
 * 4.4.6 Tweaks to work with more ML-based commands and to error on xttobit, xtintreg
 * 4.4.5 Fixed crash after hierarchical models (mixed, mecloglog, etc.). When imposing null on ML estimate, run user's estimator under current Stata version.
