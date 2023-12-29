@@ -1,4 +1,4 @@
-*! boottest 4.4.8 22 December 2023
+*! boottest 4.4.9 28 December 2023
 *! Copyright (C) 2015-23 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -42,7 +42,7 @@ cap program drop _boottest
 program define _boottest, rclass sortpreserve
 	version 11
 
-  local JLVERSION 0.7.2
+  local JLVERSION 0.8.0
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2" | ("`e(cmd)'"=="ivreghdfe" & "`e(extended_absvars)'"==""), "ivreg2", "`e(cmd)'")
 	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
@@ -123,10 +123,17 @@ program define _boottest, rclass sortpreserve
       di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
       exit 198
     }
-    if "`r(version)'" != "`JLVERSION'" {
+    parse "`r(version)'", parse(".")
+    local v1 `1'
+    local v2 `3'
+    local v3 `5'
+    parse "`JLVERSION'", parse(".")
+    if `v1'<`1' | `v1'==`1' & `v2'<`3' | `v1'==`1' & `v2'==`3' & `v3'<`5' {
       di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
       ssc install julia, replace
     }
+
+    jl SetEnv boottest
     jl AddPkg StableRNGs
     jl AddPkg WildBootTests, minver(0.9.12)
     jl, qui: using StableRNGs, WildBootTests
@@ -1095,6 +1102,7 @@ end
 
 
 * Version history
+* 4.4.9 Added jl SetEnv call to create private Julia package environment
 * 4.4.8 Revamped Julia link
 * 4.4.7 Fixed "mlabformat() not allowed" in Stata <16
 * 4.4.6 Tweaks to work with more ML-based commands and to error on xttobit, xtintreg
