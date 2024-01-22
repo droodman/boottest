@@ -1479,9 +1479,7 @@ Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clust
                         Prob>|t| =     0.3894
 
 95% confidence set for null hypothesis expression: [−.09375, .2381]
-The Julia package StableRNGs is not installed and up-to-date. Attempting to update it. This could take a few minutes.
-
-The Julia package WildBootTests is not installed and up-to-date. Attempting to update it. This could take a few minutes.
+The Julia package DataFrames is not installed and up-to-date. Attempting to update it. This could take a few minutes.
 
 
 Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.

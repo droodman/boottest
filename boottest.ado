@@ -124,9 +124,9 @@ program define _boottest, rclass sortpreserve
       exit 198
     }
     parse "`r(version)'", parse(".")
-    local v1 `1'
-    local v2 `3'
-    local v3 `5'
+    local v1: copy local 1
+    local v2: copy local 3
+    local v3: copy local 5
     parse "`JLVERSION'", parse(".")
     if `v1'<`1' | `v1'==`1' & `v2'<`3' | `v1'==`1' & `v2'==`3' & `v3'<`5' {
       di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
@@ -171,7 +171,7 @@ program define _boottest, rclass sortpreserve
 				di as err "option " as res "svmat(" `svmat' ")" as err " not allowed."
 				error 198
 			}
-			if "`svmat'" == "" local svmat `_svmat'
+			if "`svmat'" == "" local svmat: copy local _svmat
 		}
 
 	if `"`options'"' != "" {
@@ -190,7 +190,7 @@ program define _boottest, rclass sortpreserve
 	local madjust `bonferroni'`sidak'
 
 	if `"`graphname'"' != "" {
-		local 0 `graphname'
+		local 0: copy local graphname
 		syntax [anything(name=graphname)], [replace]
 	}
 	else local graphname Graph
@@ -225,7 +225,7 @@ program define _boottest, rclass sortpreserve
 	
 	if `"`robust'`cluster'"' != "" {
 		local hasrobust 1
-		local clustvars `cluster'
+		local clustvars: copy local cluster
 		if `"`clustvars'"'!="" confirm var `clustvars'
 		local override 1
 		di as txt _n "Overriding estimator's cluster/robust settings with " as res `"`=cond("`clustvars'"=="", "robust", "cluster(`clustvars')")'"'
@@ -340,7 +340,7 @@ program define _boottest, rclass sortpreserve
       tempvar FEname
       qui egen long `FEname' = group(`_FEname') if e(sample)
     }
-    else local FEname `_FEname'
+    else local FEname: copy local _FEname
   }
 
   if "`cmd'" == "xtreg" {
@@ -350,7 +350,7 @@ program define _boottest, rclass sortpreserve
   }
   else if inlist("`cmd'","xtivreg","xtivreg2","xtdidregress") local FEdfadj 0
   else if inlist("`cmd'", "reghdfe", "ivreghdfe") local FEdfadj = max(1, e(df_a))
-  else local FEdfadj `NFE'
+  else local FEdfadj: copy local NFE
 
 	if `"`seed'"'!="" set seed `seed'
 
@@ -364,7 +364,7 @@ program define _boottest, rclass sortpreserve
 			qui gen double `wtname' `e(wexp)'
 		}
 		else if c(varabbrev)=="on" unab wtname: `2'
-    else local wtname `2'
+    else local wtname: copy local 2
 	}
 
 	if `"`h0s'"' != "" {
@@ -423,7 +423,7 @@ program define _boottest, rclass sortpreserve
         if `"`: constraint `c''"' == "" di as res "Constraint `c' not found and will be skipped."
       }
     }
-		local h0_1 `h0'
+		local h0_1: copy local h0
 	}
 
 	if `N_h0s'==1 local madjust
@@ -477,7 +477,7 @@ program define _boottest, rclass sortpreserve
       }
 		}
 		else {
-			local Xnames_exog `colnames'
+			local Xnames_exog: copy local colnames
       if inlist("`e(cmd)'", "didregress", "xtdidregress") local Xnames_exog: subinstr local Xnames_exog "r1vs0." ""
 		}
 
@@ -503,7 +503,7 @@ program define _boottest, rclass sortpreserve
 					}
 				}
 			}
-			local `varlist' `_revarlist'
+			local `varlist': copy local _revarlist
 		}
 		mata _boottestkeepC = st_matrix("`keepC'"); _boottestp = cols(_boottestkeepC)? _boottestp[_boottestkeepC] : J(0,1,0)
 
@@ -528,7 +528,7 @@ program define _boottest, rclass sortpreserve
 		}
 
 		if `"`bootcluster'"' == "" {
-			local bootcluster `clustvars'
+			local bootcluster: copy local clustvars
 			if `reps' & `NErrClustVar'>1 di as txt "({cmdab:bootcl:uster(`clustvars')} assumed)"
 		}
 		local    clustvars `:list clustvars & bootcluster' `:list clustvars - bootcluster'
@@ -544,7 +544,7 @@ program define _boottest, rclass sortpreserve
 			}
 			else local _allclustvars `_allclustvars' `clustvar'
 		}
-		local allclustvars `_allclustvars'
+		local allclustvars: copy local _allclustvars
 	}
   local NBootClustVar: word count `bootcluster'
 
@@ -668,7 +668,7 @@ program define _boottest, rclass sortpreserve
         _parse expand lc lg: cmdline, common(CONSTraints(passthru) from(passthru) INIt(passthru) ITERate(passthru) Robust)  // would be nice to extract, thus remove, cluster() option for speed, but it affects sample
         local 0, `lg_op'
         syntax, [from(passthru) INIt(passthru) ITERate(passthru) *]
-        local 0 `lc_1'
+        local 0: copy local lc_1
 				syntax [anything] [aw pw fw iw] [if] [in], [*]
 
 				if "`e(cmd)'"=="ml" local max max  // tack on max option in case ml run in interactive model and cmdline() is missing it
@@ -762,7 +762,7 @@ program define _boottest, rclass sortpreserve
           qui forvalues i=1/`k' {
             if "``i''" != "`lasteq'" | "``i''"=="/" {
               local ++eq
-              local lasteq ``i''
+              local lasteq: copy local `i'
             }
             local var: word `i' of `colnames'
             if "`var'"=="_cons" | strmatch("`var'","*._cons") | "``i''"=="/" local _sc `_sc' `:word `eq' of `scnames'' // constant term or free parameter
@@ -772,7 +772,7 @@ program define _boottest, rclass sortpreserve
               local _sc `_sc' `t'
             }
           }
-          local scnames `_sc'
+          local scnames: copy local _sc
         }
       }
 
@@ -808,9 +808,9 @@ program define _boottest, rclass sortpreserve
     if `margins' {
       cap drop `touse'
       gen byte `touse' = `hold' & `marginstouse'
-      local sample `touse'
+      local sample: copy local touse
     }
-    else local sample `hold'
+    else local sample: copy local hold
 
     return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
 
@@ -1072,7 +1072,7 @@ program define _boottest, rclass sortpreserve
 			mat colnames `cimat' = lo hi
       cap mat rownames `cimat' = `h0text'
 			return matrix CI`_h' = `cimat'
-			return local CIstr`_h' `CIstr'
+			return local CIstr`_h': copy local CIstr
 		}
 		
 		if "`statistic'"=="c" & `df'==1 {
@@ -1091,10 +1091,10 @@ program define _boottest, rclass sortpreserve
   cap mat_put_rr `C'  // can fail in boottest, margins
 	return scalar level = `level'
 	return scalar ptol = `ptolerance'
-	return local statistic `statistic'
-	return local weighttype `weighttype'
-	return local boottype `boottype'
-	return local clustvars `clustvars'
+	return local statistic: copy local statistic
+	return local weighttype: copy local weighttype
+	return local boottype: copy local boottype
+	return local clustvars: copy local clustvars
 	return scalar null = `null'
 	return scalar reps = `repsname'
   return scalar NH0s = `N_h0s'
