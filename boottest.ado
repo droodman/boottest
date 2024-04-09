@@ -1,4 +1,4 @@
-*! boottest 4.4.10 30 January 2024
+*! boottest 4.4.11 30 March 2024
 *! Copyright (C) 2015-24 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@ program define boottest
   }
 	cap noi _boottest `0'
 	local rc = _rc
+  if `'"`env'"'!="" qui jl SetEnv `env'  // revert to original Julia environment local env set by _boottest
 	constraint drop `anythingh0'
 	cap mata mata drop _boottestp
 	cap mata mata drop _boottestC
@@ -71,8 +72,8 @@ program define _boottest, rclass sortpreserve
 		di as err "Doesn't work after {`cmd', `e(xtmodel)'}."
 		exit 198
 	}
-	if inlist("`cmd'","reghdfe","ivreghdfe") {
-    fvunab absvars: `e(extended_absvars)'
+	if inlist("`cmd'","reghdfe","ivreghdfe","reghdfejl","ivreghdfejl") & `"`e(absvars)'"'!="" {
+    fvunab absvars: `e(absvars)'
 		if `:word count `absvars''>1 {
 			di as err "Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms."
 			exit 198
@@ -128,16 +129,19 @@ program define _boottest, rclass sortpreserve
     local v2: copy local 3
     local v3: copy local 5
     parse "`JLVERSION'", parse(".")
-    if `v1'<`1' | `v1'==`1' & `v2'<`3' | `v1'==`1' & `v2'==`3' & `v3'<`5' {
+    local version: di %05.0f `v1' %05.0f `v2' %05.0f `v3'
+    if "`version'" < "000010000000000" {
       di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
       ssc install julia, replace
     }
 
-    jl SetEnv boottest
+    qui jl GetEnv
+    c_local env `r(env)'
+    qui jl SetEnv boottest
     jl AddPkg StableRNGs
     jl AddPkg WildBootTests, minver(0.9.12)
-    jl, qui: using StableRNGs, WildBootTests
-    jl, qui: rng = StableRNG(0)  // create now, seed later
+    jl, norepl: using StableRNGs, WildBootTests;
+    jl, norepl: rng = StableRNG(0);  // create now, seed later
     global boottest_julia_loaded 1
   }
 
@@ -331,7 +335,7 @@ program define _boottest, rclass sortpreserve
   if inlist("`cmd'","xtreg","xtivreg","xtivreg2") local NFE = e(N_g) + 0`e(singleton)'
   else local NFE = cond(`DID', 0`e(N_clust)',                       ///
                                cond("`cmd'"=="areg", 1+e(df_a),     ///
-                               max(0`e(K1)', 0`e(df_a_initial)')))  // reghdfe
+                                     max(0`e(K1)', 0`e(df_a)', 0`e(df_a_initial)')))  // reghdfe
 
   local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`absvars'"))
   if `"`_FEname'"' != "" {
@@ -496,11 +500,11 @@ program define _boottest, rclass sortpreserve
 				local var: word `i' of ``varlist''
         _ms_parse_parts `var'
 				if !r(omit) {
-					local _revarlist `_revarlist' `: word `i' of `revarlist''
-					if inlist("`varlist'", "Xnames_exog", "Xnames_endog") {
-						local pos: list posof "`var'" in colnames
-						if `pos' mat `keepC' = nullmat(`keepC'), `pos'
-					}
+          local _revarlist `_revarlist' `: word `i' of `revarlist''
+          if inlist("`varlist'", "Xnames_exog", "Xnames_endog") {
+            local pos: list posof "`var'" in colnames
+            if `pos' mat `keepC' = nullmat(`keepC'), `pos'
+          }
 				}
 			}
 			local `varlist': copy local _revarlist
@@ -825,63 +829,62 @@ program define _boottest, rclass sortpreserve
     else {
       foreach X in R R1 V {
         if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
-          else jl, qui: `X' = Matrix{Float`precision'}(undef,0,0)
+          else jl, norepl: `X' = Matrix{Float`precision'}(undef,0,0);
       }
 
       foreach X in gridminvec gridmaxvec gridpointsvec {
         if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
-          else jl, qui: `X' = Matrix{Float`precision'}(undef,`=`df'',0)
+          else jl, norepl: `X' = Matrix{Float`precision'}(undef,`=`df'',0);
       }
       foreach X in r r1 b {
         if "``X''" != "" {
           jl PutMatToMat ``X'', dest(`X')
-          jl, qui: `X' = vec(`X')
+          jl, norepl: `X' = vec(`X');
         }
-        else jl, qui: `X' = Vector{Float`precision'}(undef,0)
+        else jl, norepl: `X' = Vector{Float`precision'}(undef,0);
       }
       foreach X in Xnames_exog Xnames_endog ZExclnames scnames allclustvars {
         if "``X''" != "" jl PutVarsToMat ``X'' if `hold', dest(`X')
-          else jl, qui: `X' = Matrix{Float`precision'}(undef,0,0)
+          else jl, norepl: `X' = Matrix{Float`precision'}(undef,0,0);
       }
       foreach X in Ynames wtname FEname {
         if "``X''" != "" {
           jl PutVarsToMat ``X'' if `hold', dest(`X')
-          jl, qui: `X' = dropdims(`X'; dims=2)
+          jl, norepl: `X' = dropdims(`X'; dims=2);
         }
-        else jl, qui: `X' = Vector{Float`precision'}(undef,0)
+        else jl, norepl: `X' = Vector{Float`precision'}(undef,0);
       }
-      jl, qui: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname)
-      jl, qui: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars)
+      jl, norepl: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname);
+      jl, norepl: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars);
 // jl: using JLD
 // jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V
-      jl, qui: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
-
-      jl, qui: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
-                                obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
-                                R1, r1, ///
-                                nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
-                                issorted=true, ///
-                                hetrobust=Bool(`hasrobust'), ///
-                                fedfadj=`FEdfadj', ///
-                                fweights = "`wtype'"=="fweight", ///
-                                maxmatsize=`=0`matsizegb'', ///
-                                ptype="`ptype'", ///
-                                bootstrapc = "`statistic'"=="c", ///
-                                liml=Bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
-                                arubin=Bool(`ar'), small=Bool(`small'), ///
-                                scorebs=Bool(`scoreBS'), ///
-                                jk=Bool(`jk'), ///
-                                reps=`reps', imposenull=Bool(`null'), level=`level'/100, ///
-                                auxwttype=:`weighttype', ///
-                                rtol=`ptolerance', ///
-                                madjtype="`madjust'"=="" ? :none : :`madjust', nH0=`N_h0s', ///
-                                ml=Bool(`ML'), beta=b, A=V, ///
-                                gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
-                                getdist = Bool("`svmat'"!=""), ///
-                                getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
-                                getauxweights = "`svv'"!="", ///
-                                rng=rng)
-      qui jl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
+      jl, norepl: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)');  // chain Stata rng to Julia rng
+      jl, norepl: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
+                          obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
+                          R1, r1, ///
+                          nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
+                          issorted=true, ///
+                          hetrobust=Bool(`hasrobust'), ///
+                          fedfadj=`FEdfadj', ///
+                          fweights = "`wtype'"=="fweight", ///
+                          maxmatsize=`=0`matsizegb'', ///
+                          ptype="`ptype'", ///
+                          bootstrapc = "`statistic'"=="c", ///
+                          liml=Bool(`LIML'), fuller=`=0`fuller'', `=cond(`K'<.,"kappa=`K',","")' ///
+                          arubin=Bool(`ar'), small=Bool(`small'), ///
+                          scorebs=Bool(`scoreBS'), ///
+                          jk=Bool(`jk'), ///
+                          reps=`reps', imposenull=Bool(`null'), level=`level'/100, ///
+                          auxwttype=:`weighttype', ///
+                          rtol=`ptolerance', ///
+                          madjtype="`madjust'"=="" ? :none : :`madjust', nH0=`N_h0s', ///
+                          ml=Bool(`ML'), beta=b, A=V, ///
+                          gridmin=gridminvec, gridmax=gridmaxvec, gridpoints=gridpointsvec, ///
+                          getdist = Bool("`svmat'"!=""), ///
+                          getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
+                          getauxweights = "`svv'"!="", ///
+                          rng=rng);
+      qui jl, norepl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
       set seed `r(ans)'
       if "`plotmat'"!="" {
         if `df'==1 {
@@ -891,14 +894,14 @@ program define _boottest, rclass sortpreserve
         else jl GetMatFromMat `plotmat', source([vcat(vec([[x y] for x in test.plot[:X][1], y in test.plot[:X][2]])...) test.plot[:p]])
       }
       if `level'<100 & "`cimat'" != "" jl GetMatFromMat `cimat', source(test.ci)
-      jl, qui: SF_scal_save("`teststat'", test.stat)
-      jl, qui: SF_scal_save("`df'", test.dof)
-      jl, qui: SF_scal_save("`df_r'", test.dof_r)
-      jl, qui: SF_scal_save("`p'", test.p)
-      jl, qui: SF_scal_save("`padj'", test.padj)
-      jl, qui: SF_scal_save("`repsname'", test.reps)
-      jl, qui: SF_scal_save("`repsFeasname'", test.repsfeas)
-      jl, qui: SF_scal_save("`NBootClustname'", test.nbootclust)
+      jl, norepl: SF_scal_save("`teststat'", test.stat);
+      jl, norepl: SF_scal_save("`df'", test.dof);
+      jl, norepl: SF_scal_save("`df_r'", test.dof_r);
+      jl, norepl: SF_scal_save("`p'", test.p);
+      jl, norepl: SF_scal_save("`padj'", test.padj);
+      jl, norepl: SF_scal_save("`repsname'", test.reps);
+      jl, norepl: SF_scal_save("`repsFeasname'", test.repsfeas);
+      jl, norepl: SF_scal_save("`NBootClustname'", test.nbootclust);
       jl GetMatFromMat `b0', source(test.b)
       jl GetMatFromMat `V0', source(test.V)
       if "`dist'"!="" jl GetMatFromMat `dist', source(test.`=cond("`svmat'"=="t", "dist", "numerdist")')
@@ -1102,6 +1105,7 @@ end
 
 
 * Version history
+* 4.4.11 Change formula for bounds search start in ARubin to prevent missings. Updated jl usage.
 * 4.4.10 Fixed crash after latest versions of *reghdfe*
 * 4.4.9  Added jl SetEnv call to create private Julia package environment
 * 4.4.8  Revamped Julia link

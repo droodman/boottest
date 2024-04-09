@@ -450,7 +450,7 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
                                z =     2.4454
                         Prob>|z| =     0.0230
 
-95% confidence set for null hypothesis expression: [.07356, 1.249]
+95% confidence set for null hypothesis expression: [.07155, 1.247]
 
 Rao score (Lagrange multiplier) test:
   tenure
@@ -543,7 +543,7 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
                    chi2(2) =    18.4337
                Prob > chi2 =     0.0000
 
-95% confidence set for null hypothesis expression: [.1677, 5.426]
+95% confidence set for null hypothesis expression: [.3354, 5.393]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
@@ -1232,7 +1232,7 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
                                z =     2.4454
                         Prob>|z| =     0.0350
 
-95% confidence set for null hypothesis expression: [.04728, 1.27]
+95% confidence set for null hypothesis expression: [.04072, 1.27]
 
 Wild bootstrap-t, null not imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
@@ -1240,7 +1240,7 @@ Wild bootstrap-t, null not imposed, 999 replications, Anderson-Rubin Wald test, 
                                z =     2.4454
                         Prob>|z| =     0.0280
 
-95% confidence set for null hypothesis expression: [.05172, 1.42]
+95% confidence set for null hypothesis expression: [.0522, 1.42]
 
 Rao score (Lagrange multiplier) test:
   tenure
@@ -1479,8 +1479,6 @@ Wild bootstrap-t, null not imposed, 999 replications, Wald test, bootstrap clust
                         Prob>|t| =     0.3894
 
 95% confidence set for null hypothesis expression: [−.09375, .2381]
-The Julia package DataFrames is not installed and up-to-date. Attempting to update it. This could take a few minutes.
-
 
 Warning: with 8 bootstrap clusters, the number of replications, 999, exceeds the universe of Rademacher draws, 2^8 = 256. Sampling each once.
 Consider Webb weights instead, using weight(webb).
@@ -1563,16 +1561,16 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
   post_self=.04
 
                    F(2, 7) =    26.6776
-                  Prob > F =     0.0000
-       Sidak-adjusted prob =     0.0000
+                  Prob > F =     0.0039
+       Sidak-adjusted prob =     0.0078
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
   post
   post_self=.08
 
                    F(2, 7) =    16.3553
-                  Prob > F =     0.0000
-       Sidak-adjusted prob =     0.0000
+                  Prob > F =     0.0039
+       Sidak-adjusted prob =     0.0078
 (NLSW, 1988 extract)
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
@@ -2534,13 +2532,13 @@ Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clusterin
 
 Overriding estimator's cluster/robust settings with cluster(collgrad industry)
 
-Warning: 251 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
+Warning: 774 replications returned an infeasible test statistic and were deleted from the bootstrap distribution.
 
 Wild bootstrap-t, null imposed, 9999 replications, Wald test, clustering by collgrad industry, bootstrap clustering by collgrad, Webb weights:
   tenure
 
                                z =     3.9420
-                        Prob>|z| =     0.1984
+                        Prob>|z| =     0.2096
 
 95% confidence set for null hypothesis expression: (−∞, ∞)
 
