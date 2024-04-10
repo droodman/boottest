@@ -140,8 +140,8 @@ program define _boottest, rclass sortpreserve
     qui jl SetEnv boottest
     jl AddPkg StableRNGs
     jl AddPkg WildBootTests, minver(0.9.12)
-    jl, norepl: using StableRNGs, WildBootTests;
-    jl, norepl: rng = StableRNG(0);  // create now, seed later
+    _jl: using StableRNGs, WildBootTests;
+    _jl: rng = StableRNG(0);  // create now, seed later
     global boottest_julia_loaded 1
   }
 
@@ -829,37 +829,37 @@ program define _boottest, rclass sortpreserve
     else {
       foreach X in R R1 V {
         if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
-          else jl, norepl: `X' = Matrix{Float`precision'}(undef,0,0);
+          else _jl: `X' = Matrix{Float`precision'}(undef,0,0);
       }
 
       foreach X in gridminvec gridmaxvec gridpointsvec {
         if "``X''" != "" jl PutMatToMat ``X'', dest(`X')
-          else jl, norepl: `X' = Matrix{Float`precision'}(undef,`=`df'',0);
+          else _jl: `X' = Matrix{Float`precision'}(undef,`=`df'',0);
       }
       foreach X in r r1 b {
         if "``X''" != "" {
           jl PutMatToMat ``X'', dest(`X')
-          jl, norepl: `X' = vec(`X');
+          _jl: `X' = vec(`X');
         }
-        else jl, norepl: `X' = Vector{Float`precision'}(undef,0);
+        else _jl: `X' = Vector{Float`precision'}(undef,0);
       }
       foreach X in Xnames_exog Xnames_endog ZExclnames scnames allclustvars {
         if "``X''" != "" jl PutVarsToMat ``X'' if `hold', dest(`X')
-          else jl, norepl: `X' = Matrix{Float`precision'}(undef,0,0);
+          else _jl: `X' = Matrix{Float`precision'}(undef,0,0);
       }
       foreach X in Ynames wtname FEname {
         if "``X''" != "" {
           jl PutVarsToMat ``X'' if `hold', dest(`X')
-          jl, norepl: `X' = dropdims(`X'; dims=2);
+          _jl: `X' = dropdims(`X'; dims=2);
         }
-        else jl, norepl: `X' = Vector{Float`precision'}(undef,0);
+        else _jl: `X' = Vector{Float`precision'}(undef,0);
       }
-      jl, norepl: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname);
-      jl, norepl: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars);
+      _jl: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname);
+      _jl: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars);
 // jl: using JLD
 // jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V
-      jl, norepl: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)');  // chain Stata rng to Julia rng
-      jl, norepl: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
+      _jl: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)');  // chain Stata rng to Julia rng
+      _jl: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
                           obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                           R1, r1, ///
                           nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
@@ -884,7 +884,7 @@ program define _boottest, rclass sortpreserve
                           getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
                           getauxweights = "`svv'"!="", ///
                           rng=rng);
-      qui jl, norepl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
+      qui _jl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
       set seed `r(ans)'
       if "`plotmat'"!="" {
         if `df'==1 {
@@ -894,14 +894,14 @@ program define _boottest, rclass sortpreserve
         else jl GetMatFromMat `plotmat', source([vcat(vec([[x y] for x in test.plot[:X][1], y in test.plot[:X][2]])...) test.plot[:p]])
       }
       if `level'<100 & "`cimat'" != "" jl GetMatFromMat `cimat', source(test.ci)
-      jl, norepl: SF_scal_save("`teststat'", test.stat);
-      jl, norepl: SF_scal_save("`df'", test.dof);
-      jl, norepl: SF_scal_save("`df_r'", test.dof_r);
-      jl, norepl: SF_scal_save("`p'", test.p);
-      jl, norepl: SF_scal_save("`padj'", test.padj);
-      jl, norepl: SF_scal_save("`repsname'", test.reps);
-      jl, norepl: SF_scal_save("`repsFeasname'", test.repsfeas);
-      jl, norepl: SF_scal_save("`NBootClustname'", test.nbootclust);
+      _jl: SF_scal_save("`teststat'", test.stat);
+      _jl: SF_scal_save("`df'", test.dof);
+      _jl: SF_scal_save("`df_r'", test.dof_r);
+      _jl: SF_scal_save("`p'", test.p);
+      _jl: SF_scal_save("`padj'", test.padj);
+      _jl: SF_scal_save("`repsname'", test.reps);
+      _jl: SF_scal_save("`repsFeasname'", test.repsfeas);
+      _jl: SF_scal_save("`NBootClustname'", test.nbootclust);
       jl GetMatFromMat `b0', source(test.b)
       jl GetMatFromMat `V0', source(test.V)
       if "`dist'"!="" jl GetMatFromMat `dist', source(test.`=cond("`svmat'"=="t", "dist", "numerdist")')
