@@ -1561,16 +1561,16 @@ Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clusterin
   post_self=.04
 
                    F(2, 7) =    26.6776
-                  Prob > F =     0.0039
-       Sidak-adjusted prob =     0.0078
+                  Prob > F =     0.0000
+       Sidak-adjusted prob =     0.0000
 
 Wild bootstrap-t, null imposed, 256 replications, Wald test, bootstrap clustering by year, Rademacher weights:
   post
   post_self=.08
 
                    F(2, 7) =    16.3553
-                  Prob > F =     0.0039
-       Sidak-adjusted prob =     0.0078
+                  Prob > F =     0.0000
+       Sidak-adjusted prob =     0.0000
 (NLSW, 1988 extract)
 
 Wild bootstrap-t, null imposed, 999 replications, Wald test, bootstrap clustering by industry, Rademacher weights:
