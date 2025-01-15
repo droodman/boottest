@@ -1,5 +1,5 @@
-*! boottest 4.4.11 12 April 2024
-*! Copyright (C) 2015-24 David Roodman
+*! boottest 4.4.12 15 January 2025
+*! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -151,15 +151,25 @@ program define _boottest, rclass sortpreserve
   }
 
   local margins = "`margins'" != ""
-  if `margins' & `"`h0s'`h0'"' != "" {
-    di as err "Include the {cmd:margins} option or state null hyptheses, but don't do both."
-    exit 198
+  if `margins' {
+    if `"`h0s'`h0'"' != "" {
+      di as err "Include the {cmd:margins} option or state null hyptheses, but don't do both."
+      exit 198
+    }
+    if "`r(predict1_label)'" != "Linear prediction" {
+      di as err _n "{cmd:margins} option only works with linear margins predictions such as average predictions after {cmd:regress}."
+      exit 198
+    }
+    if strlen("`r(Jacobian)'") {
+      tempname rJacobian
+      mat `rJacobian' = r(Jacobian)
+    }
+    else {
+    	di as err "{cmd:margins} results not found."
+      error 303
+    }
   }
-  if `margins' & "`r(predict1_label)'" != "Linear prediction" {
-    di as err _n "{cmd:margins} option only works with linear margins predictions such as average predictions after {cmd:regress}."
-    exit 198
-  }
-  
+
   if inlist("`e(cmd)'", "didregress", "xtdidregress") & `"`h0s'`h0'"' == "" local h0s r1vs0.`e(treatment)'
 
 	if `matsizegb'==1000000 local matsizegb .
@@ -396,25 +406,18 @@ program define _boottest, rclass sortpreserve
 		local anythingh0 1
 	}
 	else if `margins' {
-  	if strlen("`r(Jacobian)'") {
-    	mata _boottestp = selectindex(rowsum(st_matrix("r(Jacobian)"):!=0))  // skip all-zero rows
-      mata st_local("marginsnames", invtokens(st_matrixrowstripe("r(Jacobian)")[_boottestp,2]'))
-      mata st_matrix("`marginsH0'", st_matrix("r(Jacobian)")[_boottestp,])
-      mata st_local("N_h0s", strofreal(length(_boottestp)))
-      if `N_h0s'==0 {
-        di as err "No valid {cmd:margins} results not found."
-        error 303
-      }
-      scalar `df' = 1  // always when working with margins results, df = 1 and constant term = 0
-      mat `r' = 0
-
-      local 0 r(cmdline)
-      marksample marginstouse, strok
-    }
-    else {
-    	di as err "{cmd:margins} results not found."
+    mata _boottestp = selectindex(rowsum(st_matrix("`rJacobian'"):!=0))  // skip all-zero rows
+    mata st_local("marginsnames", invtokens(st_matrixrowstripe("`rJacobian'")[_boottestp,2]'))
+    mata st_matrix("`marginsH0'", st_matrix("`rJacobian'")[_boottestp,])
+    mata st_local("N_h0s", strofreal(length(_boottestp)))
+    if `N_h0s'==0 {
+      di as err "No valid {cmd:margins} results not found."
       error 303
     }
+    scalar `df' = 1  // always when working with margins results, df = 1 and constant term = 0
+    mat `r' = 0
+
+    marksample marginstouse, strok
   }
   else {
 		local N_h0s 1  // number of nulls
@@ -1105,6 +1108,7 @@ end
 
 
 * Version history
+* 4.4.12 Fixed crash on boottest, margins after areg
 * 4.4.11 Change formula for bounds search start in ARubin to prevent missings. Updated jl usage.
 * 4.4.10 Fixed crash after latest versions of *reghdfe*
 * 4.4.9  Added jl SetEnv call to create private Julia package environment
