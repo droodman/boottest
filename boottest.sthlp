@@ -403,7 +403,7 @@ one-sided tests.
 {phang}{cmdab:svm:at}[{cmd:(}{it:t} {cmd:|} {it:numer}{cmd:)}] requests that the bootstrapped quasi-t/z distribution be saved in return value {cmd:r(dist)}. This 
 can be diagnostically useful, since it allows scrutiny of the simulated distribution that is inferred from. An example is below. Or, 
 if {cmd:svmat(numer)} is specified, over-riding the default, only the numerators are returned. If the null hypothesis is that a coefficient is zero, then these numerators
-are the estiamtes of that coefficient in all the bootstrap replications.
+are the estimates of that coefficient in all the bootstrap replications.
 
 {phang}{cmd:svv} requests that the matrix of wild weights be saved in return value {cmd:r(v)}. Warning: The wild weight matrix is very large under some 
 circumstances: it has one row for each bootstrapping cluster and one column for each bootstrap replication. If it is large, then this option may bring Stata to its knees. If

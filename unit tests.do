@@ -1,5 +1,6 @@
 cap cd "D:\OneDrive\Documents\Work\Econometrics\Wild cluster"
 cap cd "/mnt/d/OneDrive/Documents/Work/Econometrics/Wild cluster"
+cap cd "/Users/davidroodman/Library/CloudStorage/OneDrive-Personal/Documents/Work/Econometrics/Wild cluster"
 
 set more off
 set rmsg off
