@@ -1,6 +1,6 @@
 cap cd "D:\OneDrive\Documents\Work\Econometrics\Wild cluster"
 cap cd "/mnt/d/OneDrive/Documents/Work/Econometrics/Wild cluster"
-cap cd "/Users/davidroodman/Library/CloudStorage/OneDrive-Personal/Documents/Work/Econometrics/Wild cluster"
+cap cd "/Users/davidroodman/Library/CloudStorage/OneDrive-Personal/Documents/Macros"
 
 set more off
 set rmsg off
@@ -15,7 +15,7 @@ program myprobit  // custom likelihood evaluator
 end
 
 cap log close
-qui log using "D:\OneDrive\Documents\Macros\boottest\unit tests.log", replace
+qui log using "unit tests.log", replace
 
 version 13
 
@@ -36,7 +36,7 @@ foreach julia in "" julia {
   boottest {post_self=.04} {post}, `julia' nogr  // separate tests, no correction for multiple hypotheses
   boottest {(post) (post_self=.04)} {(post) (post_self=.08)}, `julia' madj(sidak) nogr  // separate tests, Sidak correction for  multiple hypotheses
 
-  use nlsw88
+  webuse nlsw88
 
   qui regress wage tenure ttl_exp collgrad, cluster(industry)
   boottest tenure, `julia' svmat nogr  // wild bootstrap test of joint null, Rademacher weights, null imposed, saving  simulated distribution
