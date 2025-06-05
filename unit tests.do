@@ -15,7 +15,7 @@ program myprobit  // custom likelihood evaluator
 end
 
 cap log close
-qui log using "unit tests.log", replace
+qui log using "D:\OneDrive\Documents\Macros\boottest\unit tests.log", replace
 
 version 13
 
