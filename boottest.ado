@@ -1,4 +1,4 @@
-*! boottest 4.4.13 24 May 2025
+*! boottest 4.4.14 11 June 2025
 *! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1106,8 +1106,11 @@ program define _boottest, rclass sortpreserve
   return scalar NH0s = `N_h0s'
 end
 
+cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle to the plugin to reduce the chance that Stata unloads it
+
 
 * Version history
+* 4.4.14 Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
 * 4.4.13 Check for and support used of contrast operators in margins
 * 4.4.12 Fixed crash on boottest, margins after areg
 * 4.4.11 Change formula for bounds search start in ARubin to prevent missings. Updated jl usage.
