@@ -1,5 +1,5 @@
 {smcl}
-{* *! boottest 4.2.0 24 August 2022}{...}
+{* *! boottest 4.5.0 17 June 2025}{...}
 {help boottest:boottest}
 {hline}{...}
 
@@ -65,6 +65,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt bootcl:uster(varlist)}}sets cluster variable(s) to boostrap on; default is all {cmdab:cl:uster()} variables{p_end}
 {synopt:{opt ar}}request Anderson-Rubin test{p_end}
 {synopt:{opt seed(#)}}initialize random number seed to {it:#}{p_end}
+{synopt:{opt sameseed}}use same seed for multiple independent hypotheses{p_end}
 {synopt:{cmdab:matsize:gb(#)}}set maximum size of wild weight matrix, in gigabytes{p_end}
 {synopt:{opt qui:etly}}suppress display of null-imposed estimate; relevant after ML estimation{p_end}
 {synopt:{opt cmd:line(string)}}provide estimation command line; needed only after custom ML estimation{p_end}
@@ -429,6 +430,11 @@ all coefficients on instrumented variables, and no others.
 
 {phang}{opt seed(#)} sets the initial state of the random number generator. See {help set seed}.
 
+{phang}{opt sameseed(#)} forces use of the same seed when testing multiple independent hypotheses. Especially in conjuction with {cmdab:svm:at}, this option can be useful when
+using {cmd:boottest} as the starting point for wild-bootstrapping a complex computation that depends on several regression estimates. For example, to wild-bootstrap the ratio
+between the coefficients on regressors A and B, you could run {cmd:boottest {A} {B}, svmat(numer) sameseed}. This would save the bootstrapped estimates of the two coefficients
+in r(dist_1) and r(dist_2). You could then compute the ratios of corresponding entries in those return matrices, confident that they came from exactly the same simulations.
+
 {phang}{opt qui:etly}, with Maximum Likelihood-based estimation, suppresses display of initial re-estimation with null imposed.
 
 {phang}{opt matsize:gb(#)} limits the size of the wild weight matrix, in a gigabytes, when memory limits are a concern. More precisely,
@@ -477,27 +483,7 @@ time. If {cmd:boottest} already feels fast in your applications, the {cmd:julia}
 {pstd}However, for hard problems, such as ones involving the subcluster bootstrap, or multiway clustering in which all-cluster intersections are numerous, the Julia implementation
 can be much faster.
 
-{pstd}To use the Julia back end, you need to install several things. Because there is no direct software channel between Stata and Julia, {cmd:boottest} makes the 
-connection by way of Python. The requirements list may therefore look intimidating. But set-up should be straightforward! The requirements:
-
-{p 4 6 0}
-* Stata 16 or newer.
-
-{p 4 6 0}
-* {browse "https://www.python.org/downloads/":Python} (free), with Stata {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python/":configured to use it}.
-
-{p 4 6 0}
-* Julia 1.7.0 or newer (free), {browse "https://julialang.org/downloads/platform":installed so that it is accessible through the system path}.
-
-{p 4 6 0}
-* Packages {browse "https://numpy.org/install":NumPy} and
-{browse "https://pyjulia.readthedocs.io/en/stable/installation.html":PyJulia} for Python and {browse "https://github.com/JuliaRandom/StableRNGs.jl":StableRNGs} 
-and {browse "https://github.com/droodman/WildBootTests.jl":WildBootTests} for Julia (all free). {cmd:boottest} should automatically install these when needed.
-
-{pstd}The creators of Julia {browse "https://docs.julialang.org/en/v1.7/stdlib/Random/":do not guarantee} that the built-in algorithms for generating random numbers will
-remain unchanged as Julia changes. To guarantee replicability of results, {cmd:boottest} therefore relies on the 
-{browse "https://github.com/JuliaRandom/StableRNGs.jl":StableRNGs} package, which does make this guarantee. For the same reason, on each call, {cmd:boottest} initializes 
-the Julia StableRNG with a seed extracted from the Stata random-number generator (RNG), so that seeding the Stata RNG will deterministically seed the Julia one.
+{pstd}To use the Julia back end, you need to install the {cmd:julia} package too.
 
 
 {title:Stored results}

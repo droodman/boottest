@@ -1,4 +1,4 @@
-*! boottest 4.4.14 11 June 2025
+*! boottest 4.5.0 17 June 2025
 *! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -105,7 +105,7 @@ program define _boottest, rclass sortpreserve
 		macro shift
 	}
 	local 0 `*'
-	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
+	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) sameseed BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
             issorted julia PRECision(integer 64) Format(string) jk JACKknife *]
 
@@ -366,7 +366,8 @@ program define _boottest, rclass sortpreserve
   else if inlist("`cmd'", "reghdfe", "ivreghdfe") local FEdfadj = max(1, e(df_a))
   else local FEdfadj: copy local NFE
 
-	if `"`seed'"'!="" set seed `seed'
+	if `"`seed'"'=="" local seed = c(seed)
+  set seed `seed'
 
 	tempname p padj se teststat df df_r hold C1 C R1 R r1 r1r R1R r b V b0 V0 keepC repsname repsFeasname t NBootClustname marginsH0 touse
 	mat `b' = e(b)
@@ -556,6 +557,8 @@ program define _boottest, rclass sortpreserve
   local NBootClustVar: word count `bootcluster'
 
 	forvalues h=1/`N_h0s' {  // loop over multiple independent constraints
+    if "`sameseed'"!="" set seed `seed'
+  
     if `margins' mat `R' = `marginsH0'[`h', 1...]
     else {
     	_estimates hold `hold', restore
@@ -819,7 +822,7 @@ program define _boottest, rclass sortpreserve
     }
     else local sample: copy local hold
 
-    return local seed = cond("`seed'"!="", "`seed'", "`c(seed)'")
+    return local seed: copy local seed
 
     if !`julia' {
       mata boottest_stata("`teststat'", "`df'", "`df_r'", "`p'", "`padj'", "`cimat'", "`plotmat'", "`peakmat'", `level', `ptolerance', ///
@@ -1110,6 +1113,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
+* 4.5.9  Added sameseed option
 * 4.4.14 Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
 * 4.4.13 Check for and support used of contrast operators in margins
 * 4.4.12 Fixed crash on boottest, margins after areg
