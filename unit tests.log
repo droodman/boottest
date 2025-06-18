@@ -2223,7 +2223,7 @@ Wild bootstrap-t, null imposed, 9999999 replications, Wald test, bootstrap clust
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.0757
+                        Prob>|t| =     0.0756
 
 Wild bootstrap-t, null imposed, 9999 replications, Wald test, bootstrap clustering by year, Normal weights:
   post_self=.04
