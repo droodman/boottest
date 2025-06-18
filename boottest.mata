@@ -925,10 +925,10 @@ real colvector boottest::getdist(| string scalar diststat) {
   if (dirty) boottest()
   if (diststat == "numer") {
     _pnumer = v_sd==1? pnumer : &(*pnumer / v_sd)
-    _sort( DistCDR = (*_pnumer)[|2\.|]' /*:+ *pr*/ , 1)
+    /*_sort(*/ DistCDR = (*_pnumer)[|2\.|]' /*:+ *pr*/ /*, 1)*/
   } else if (rows(DistCDR)==0)
     if (cols(*pDist) > 1)
-      _sort( DistCDR = multiplier * (*pDist)[|2\.|]' , 1)
+      /*_sort(*/ DistCDR = multiplier * (*pDist)[|2\.|]' /*, 1)*/
     else
       DistCDR = J(0,1,0)
   return(DistCDR)

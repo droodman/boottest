@@ -865,7 +865,7 @@ program define _boottest, rclass sortpreserve
 // jl: using JLD
 // jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V
       _jl: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
-      _jl: test = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
+      _jl: _boottest_jl = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
                           obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
                           R1, r1, ///
                           nbootclustvar=`NBootClustVar', nerrclustvar=`NErrClustVar', ///
@@ -894,24 +894,24 @@ program define _boottest, rclass sortpreserve
       set seed `r(ans)'
       if "`plotmat'"!="" {
         if `df'==1 {
-          jl GetMatFromMat `plotmat', source([test.plot[:X][1] test.plot[:p]])
-          jl GetMatFromMat `peakmat', source([test.peak[:X][1] test.peak[:p]])
+          jl GetMatFromMat `plotmat', source([_boottest_jl.plot[:X][1] _boottest_jl.plot[:p]])
+          jl GetMatFromMat `peakmat', source([_boottest_jl.peak[:X][1] _boottest_jl.peak[:p]])
         }
-        else jl GetMatFromMat `plotmat', source([vcat(vec([[x y] for x in test.plot[:X][1], y in test.plot[:X][2]])...) test.plot[:p]])
+        else jl GetMatFromMat `plotmat', source([vcat(vec([[x y] for x in _boottest_jl.plot[:X][1], y in _boottest_jl.plot[:X][2]])...) _boottest_jl.plot[:p]])
       }
-      if `level'<100 & "`cimat'" != "" jl GetMatFromMat `cimat', source(test.ci)
-      _jl: SF_scal_save("`teststat'", test.stat)
-      _jl: SF_scal_save("`df'", test.dof)
-      _jl: SF_scal_save("`df_r'", test.dof_r)
-      _jl: SF_scal_save("`p'", test.p)
-      _jl: SF_scal_save("`padj'", test.padj)
-      _jl: SF_scal_save("`repsname'", test.reps)
-      _jl: SF_scal_save("`repsFeasname'", test.repsfeas)
-      _jl: SF_scal_save("`NBootClustname'", test.nbootclust)
-      jl GetMatFromMat `b0', source(test.b)
-      jl GetMatFromMat `V0', source(test.V)
-      if "`dist'"!="" jl GetMatFromMat `dist', source(test.`=cond("`svmat'"=="t", "dist", "numerdist")')
-      if "`svv'" !="" jl GetMatFromMat `svv', source(test.auxweights)
+      if `level'<100 & "`cimat'" != "" jl GetMatFromMat `cimat', source(_boottest_jl.ci)
+      _jl: SF_scal_save("`teststat'", _boottest_jl.stat)
+      _jl: SF_scal_save("`df'", _boottest_jl.dof)
+      _jl: SF_scal_save("`df_r'", _boottest_jl.dof_r)
+      _jl: SF_scal_save("`p'", _boottest_jl.p)
+      _jl: SF_scal_save("`padj'", _boottest_jl.padj)
+      _jl: SF_scal_save("`repsname'", _boottest_jl.reps)
+      _jl: SF_scal_save("`repsFeasname'", _boottest_jl.repsfeas)
+      _jl: SF_scal_save("`NBootClustname'", _boottest_jl.nbootclust)
+      jl GetMatFromMat `b0', source(_boottest_jl.b)
+      jl GetMatFromMat `V0', source(_boottest_jl.V)
+      if "`dist'"!="" jl GetMatFromMat `dist', source(_boottest_jl.`=cond("`svmat'"=="t", "dist", "numerdist")')
+      if "`svv'" !="" jl GetMatFromMat `svv', source(_boottest_jl.auxweights)
     }
 
 		_estimates unhold `hold'
