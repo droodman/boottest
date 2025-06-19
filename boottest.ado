@@ -1,4 +1,4 @@
-*! boottest 4.5.0 17 June 2025
+*! boottest 4.5.0 18 June 2025
 *! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -137,8 +137,9 @@ program define _boottest, rclass sortpreserve
     qui jl GetEnv
     c_local env `r(env)'
     qui jl SetEnv boottest
+// _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
     jl AddPkg StableRNGs
-    jl AddPkg WildBootTests, minver(0.9.12)
+    jl AddPkg WildBootTests, minver(1.0.0)
     _jl: using StableRNGs, WildBootTests
     _jl: rng = StableRNG(0)  // create now, seed later
     global boottest_julia_loaded 1
@@ -910,7 +911,7 @@ program define _boottest, rclass sortpreserve
       _jl: SF_scal_save("`NBootClustname'", _boottest_jl.nbootclust)
       jl GetMatFromMat `b0', source(_boottest_jl.b)
       jl GetMatFromMat `V0', source(_boottest_jl.V)
-      if "`dist'"!="" jl GetMatFromMat `dist', source(_boottest_jl.`=cond("`svmat'"=="t", "dist", "numerdist")')
+      if "`dist'"!="" jl GetMatFromMat `dist', source(_boottest_jl.`=cond("`svmat'"=="t", "dist", "numerdist")'')
       if "`svv'" !="" jl GetMatFromMat `svv', source(_boottest_jl.auxweights)
     }
 
@@ -1113,7 +1114,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
-* 4.5.9  Added sameseed option
+* 4.5.0  Add sameseed option. No longer sort return value from svmat.
 * 4.4.14 Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
 * 4.4.13 Check for and support used of contrast operators in margins
 * 4.4.12 Fixed crash on boottest, margins after areg
