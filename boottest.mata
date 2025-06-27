@@ -168,7 +168,7 @@ real matrix boottestOLS::_select(real matrix X, real rowvector v)
 
 real matrix boottestOLS::perp(real matrix A) {
   real matrix vec; real rowvector val; pragma unset vec; pragma unset val
-  symeigensystem(A*invsym(A'A)*A', vec, val); _edittozero(val, 1000)
+  symeigensystem(A*invsym(A'A)*A', vec, val); _edittozero(val, 1e6)
   return (_select(vec, !val))
 }
 
@@ -187,7 +187,7 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
     if (all(diagonal(R1invR1R1))==0)
       _error(111, "Null hypothesis or model constraints are inconsistent or redundant.")
     R1invR1R1 = R1 ' R1invR1R1
-    symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 1000)
+    symeigensystem(R1invR1R1 * R1, vec, val); _edittozero(val, 1e6)
     R1perp = _select(vec, !val)  // eigenvectors orthogonal to span of R1; foundation for parameterizing subspace compatible with constraints
   } else
     R1invR1R1 = J(parent->kZ,0,0)  // and R1perp = I
@@ -196,8 +196,8 @@ void boottestOLS::SetR(real matrix R1, | real matrix R) {
     // prepare to reduce regression via FWL
     _R = R \ J(parent->kY2, parent->kX1, 0), I(parent->kY2)  // rows to prevent partialling out of endogenous regressors
     if (restricted)
-      _R = _R * R1perp 
-    symeigensystem(_R ' invsym(_R * _R') * _R, vec, val); _edittozero(val, 1000)
+      _R = _R * R1perp
+    symeigensystem(_R ' invsym(_R * _R') * _R, vec, val); _edittozero(val, 1e6)
     Rpar = _select(vec, val); if (restricted) Rpar = R1perp * Rpar  // par of RR₁perp
 
     if (isDGP | !parent->WREnonARubin) {  // in WRE, Rperp is same DGP and Repl; might not be in WUE, but is arranged so by call to SetR()
@@ -2201,7 +2201,10 @@ void boottest::MakeWREStats(real scalar w) {
         for (i=Repl.kZ;i>=0;i--)
           YYstar[i+1].M = HessianFixedkappa(i..Repl.kZ, i, 0, _jk)  // kappa=0 => Y*MZperp*Y
     }
-    
+"(Repl.RRpar * betas[,1] + Repl.Rt1) - *pr"
+ (Repl.RRpar * betas[,1] + Repl.Rt1) - *pr
+"Repl.RRpar, betas[,1]"
+ Repl.RRpar; betas[,1]
     for (b=cols(v); b; b--) {
       numer_b = null | w==1 & b==1? (Repl.RRpar * betas[,b] + Repl.Rt1) - *pr : Repl.RRpar * (betas[,b] - betas[,1])
       if (bootstrapt) {
