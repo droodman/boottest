@@ -1,5 +1,5 @@
-*! boottest 4.4.11 12 April 2024
-*! Copyright (C) 2015-23 David Roodman
+*! boottest 4.5.1 27 June 2025
+*! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -1004,6 +1004,7 @@ real scalar boottest::getpadj(|real scalar classical) {
 
 real scalar boottest::getstat() {
   if (dirty) boottest()
+
   return(multiplier * (*pDist)[1])
 }
 real scalar boottest::getdf() {
@@ -1519,9 +1520,15 @@ void boottest::InitWRE() {  // stuff done only once that knits together results 
   SstarUYbar = SstarinvZperpZperpZperpU = SstarZperpU = SstarUXinvXX = SstarUX = smatrix(Repl.kZ+1)
   SstarUU = smatrix(Repl.kZ+1, Repl.kZ+1)
 
+  if (Repl.kZ>1) {
+    if (robust) Zyi = smatrix(Repl.kZ+1)
+    if (!LIML) {
+      deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
+      deltadenom = smatrix(Repl.kZ+1)
+    }
+  }
+
   if (bootstrapt) {
-    deltadenom_b = J(Repl.kZ, Repl.kZ, 0)
-    Zyi = deltadenom = smatrix(Repl.kZ+1)
     SstarUMZperp = SstarUPX = SstarUX
     _Jcap = J(Clust.N, Repl.kZ, 0)
     if (granular==0)
@@ -2186,13 +2193,15 @@ void boottest::MakeWREStats(real scalar w) {
       }
     }
 
-    if (robust)
-      for(i=Repl.kZ;i;i--)
-        Zyi[i].M = *Filling(i, betas, _jk)
-    else
-      for (i=Repl.kZ;i>=0;i--)
-        YYstar[i+1].M = HessianFixedkappa(i..Repl.kZ, i, 0, _jk)  // kappa=0 => Y*MZperp*Y
-
+    if (bootstrapt) {
+      if (robust)
+        for(i=Repl.kZ;i;i--)
+          Zyi[i].M = *Filling(i, betas, _jk)
+      else
+        for (i=Repl.kZ;i>=0;i--)
+          YYstar[i+1].M = HessianFixedkappa(i..Repl.kZ, i, 0, _jk)  // kappa=0 => Y*MZperp*Y
+    }
+    
     for (b=cols(v); b; b--) {
       numer_b = null | w==1 & b==1? (Repl.RRpar * betas[,b] + Repl.Rt1) - *pr : Repl.RRpar * (betas[,b] - betas[,1])
       if (bootstrapt) {

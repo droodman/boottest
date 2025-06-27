@@ -1,4 +1,4 @@
-*! boottest 4.5.0 18 June 2025
+*! boottest 4.5.1 27 June 2025
 *! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -456,6 +456,9 @@ program define _boottest, rclass sortpreserve
 
 		local colnames: colnames e(b)
     if `partial' local colnames `colnames' `e(partial1)'
+    local colnames: subinstr local colnames "b." ".", all
+    local colnames: subinstr local colnames "bn." ".", all
+
     local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
 		local _cons _cons
     local cons = "`:list colnames & _cons'" != ""
@@ -463,6 +466,8 @@ program define _boottest, rclass sortpreserve
 
 		if `IV' {
 			local Xnames_endog `e(instd)'
+      local Xnames_endog: subinstr local Xnames_endog "b." ".", all
+      local Xnames_endog: subinstr local Xnames_endog "bn." ".", all
 			local Xnames_exog: list colnames - Xnames_endog
 			local cons = `cons' | e(partialcons)==1
 
@@ -492,7 +497,6 @@ program define _boottest, rclass sortpreserve
 
 		local cons = `cons' & !0`NFE'  // no constant in FE model
 		if !`cons' local _cons
-
 		mata _boottestp = J(`cons', 1, `k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))]  // for putting vars in cons-exog-endog order
 		if `cons' mat `keepC' = 1
 		local colnames `_cons' `Xnames_exog' `Xnames_endog'
@@ -1114,6 +1118,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
+* 4.5.1  Fix bugs causing crashes under certain circumstances
 * 4.5.0  Add sameseed option. No longer sort return value from svmat.
 * 4.4.14 Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
 * 4.4.13 Check for and support used of contrast operators in margins
