@@ -1,4 +1,4 @@
-*! boottest 4.5.2 25 July 2025
+*! boottest 4.5.2 27 July 2025
 *! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1130,7 +1130,9 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
-* 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug. Add algorithm() option.
+* 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug.
+*        Add algorithm() option.
+*        Fix: jl SetEnv to restore caller's environment was zapping r() macros
 * 4.5.1  Fix bugs causing crashes under certain circumstances
 * 4.5.0  Add sameseed option. No longer sort return value from svmat.
 * 4.4.14 Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
