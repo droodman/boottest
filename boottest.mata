@@ -131,7 +131,7 @@ class boottest {
   struct structFE rowvector FEs
 
   void new(), setsqrt(), setX1(), setptype(), setdirty(), setY2(), setY(), setX2(), setobswt(), setsc(), setML(), setLIML(), setARubin(), setauxwttype(),
-    setFuller(), setkappa(), setquietly(), setbeta(), setA(), setsmall(), sethascons(), setjk(), setscoreBS(), setB(), setnull(), setID(), setFEID(), setlevel(), setptol(), 
+    setFuller(), setkappa(), setquietly(), setbeta(), setA(), setsmall(), sethascons(), setjk(), setscoreBS(), setB(), setnull(), setgranular(), setID(), setFEID(), setlevel(), setptol(), 
     setrobust(), setR1(), setR(), setwillplot(), setgrid(), setmadjust(), setMaxMatSize(), setstattype(), close()
   private void MakeNumerAndJ(), _clustAccum(), MakeWREStats(), MakeInterpolables(), _MakeInterpolables(), MakeNonWREStats(), UpdateBootstrapcDenom(), Init(), plot(), MakeWildWeights(), boottest(), crosstabCapstarMinus(), InitWRE(), PrepWRE(), storeWtGrpResults(), NoNullUpdate()
   real matrix getplot(), getCI(), getV(), getv()
@@ -565,6 +565,8 @@ void boottestIVGMM::MakeH() {
   invH = invsym(*pH)
 
   if (pRperp) {  // for score bootstrap
+// "rows(*pRperp),cols(*pRperp),rows(*pH),cols(*pH)"
+// rows(*pRperp),cols(*pRperp),rows(*pH),cols(*pH)
     pA = cols(*pRperp)? &(*pRperp * invsym(*pRperp ' (*pH) * *pRperp) * *pRperp') : &invH
     AR = *pA * (Rpar ' (*parent->pR'))
     XAR = *pX12B(*pX1, *pX2, V * AR)
@@ -765,11 +767,11 @@ pointer(real matrix) scalar boottest::partialFE(pointer(real matrix) scalar pIn)
 }
 
 void boottest::new() {
-  ARubin = LIML = Fuller = WRE = small = scoreBS = auxwttype = ML = initialized = quietly = sqrt = ptype = robust = NFE = FEboot = granular = NErrClustCombs = subcluster = B = BFeas = interpolating = jk = 0
+  ARubin = LIML = Fuller = WRE = small = scoreBS = auxwttype = ML = initialized = quietly = sqrt = ptype = robust = NFE = FEboot = NErrClustCombs = subcluster = B = BFeas = interpolating = jk = 0
   twotailed = null = dirty = willplot = v_sd = notplotted = FEdfadj = bootstrapt = 1
   level = 95
   ptol = 1e-6
-  confpeak = MaxMatSize = .
+  confpeak = MaxMatSize = granular = .
   pY2 = pX1 = pX2 = py1 = pSc = pID = pFEID = pR1 = pR = pwt = &J(0,0,0)
   pr1 = pr = &J(0,1,0)
   pIDBootData = pIDBootAll = &.
@@ -875,6 +877,9 @@ void boottest::setB(real scalar B) {
 }
 void boottest::setnull    (real scalar null) {
   this.null = null; setdirty(1)
+}
+void boottest::setgranular(real scalar granular) {
+  this.granular = granular
 }
 void boottest::setID      (real matrix ID, | real scalar NBootClustVar, real scalar NErrClustVar) {
   this.pID = &ID; this.NBootClustVar = editmissing(NBootClustVar,1); this.NErrClustVar=editmissing(NErrClustVar,editmissing(NBootClustVar,1)); setdirty(1)
@@ -1184,8 +1189,8 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
     minN = rows(infoBootData)
 
   purerobust = robust & (scoreBS | subcluster)==0 & Nstar==Nobs  // do we ever error- *and* bootstrap-cluster by individual?
-  granular   = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Nall*B*(Nstar+1)) :
-                             !jk & robust & scoreBS==0 & (purerobust | (Nall+Nstar)*kZ*B + (Nall-Nstar)*B + kZ*B < Nall*kZ*kZ + Nobs*kZ + Nall * Nstar*kZ + Nall*Nstar)
+  if (granular == .) granular = WREnonARubin? 2*Nobs*B*(2*Nstar+1) < Nstar*(Nstar*Nobs+Nall*B*(Nstar+1)) :
+                                !jk & robust & scoreBS==0 & (purerobust | (Nall+Nstar)*kZ*B + (Nall-Nstar)*B + kZ*B < Nall*kZ*kZ + Nobs*kZ + Nall * Nstar*kZ + Nall*Nstar)
 
   if (jk & !WREnonARubin)
     granularjk = kZ^3 + Nstar * (Nobs/Nstar*kZ^2 + (Nobs/Nstar)^2*kZ + (Nobs/Nstar)^2 + (Nobs/Nstar)^3) < Nstar * (kZ^2*Nobs/Nstar + kZ^3 + 2*kZ*(kZ + Nobs/Nstar))
@@ -2201,10 +2206,7 @@ void boottest::MakeWREStats(real scalar w) {
         for (i=Repl.kZ;i>=0;i--)
           YYstar[i+1].M = HessianFixedkappa(i..Repl.kZ, i, 0, _jk)  // kappa=0 => Y*MZperp*Y
     }
-"(Repl.RRpar * betas[,1] + Repl.Rt1) - *pr"
- (Repl.RRpar * betas[,1] + Repl.Rt1) - *pr
-"Repl.RRpar, betas[,1]"
- Repl.RRpar; betas[,1]
+
     for (b=cols(v); b; b--) {
       numer_b = null | w==1 & b==1? (Repl.RRpar * betas[,b] + Repl.Rt1) - *pr : Repl.RRpar * (betas[,b] - betas[,1])
       if (bootstrapt) {
@@ -2888,7 +2890,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
   string scalar X2names, string scalar samplename, string scalar scnames, real scalar robust, string scalar IDnames, real scalar NBootClustVar, real scalar NErrClustVar, 
   string scalar FEname, real scalar NFE, real scalar FEdfadj, string scalar wtname, string scalar obswttype, string scalar R1name, string scalar r1name, string scalar Rname, string scalar rname, real scalar B, string scalar repsname, string scalar repsFeasname, 
   real scalar small, string scalar diststat, string scalar distname, string scalar gridmin, string scalar gridmax, string scalar gridpoints, real scalar MaxMatSize, real scalar quietly,
-  string scalar b0name, string scalar V0name, string scalar vname, string scalar NBootClustname) {
+  string scalar b0name, string scalar V0name, string scalar vname, string scalar NBootClustname, real scalar granular) {
   real matrix X2, ID, FEID, sc, Y2, X1
   real colvector wt, Y
   class boottest scalar M
@@ -2912,6 +2914,7 @@ void boottest_stata(string scalar statname, string scalar dfname, string scalar 
   M.setR (st_matrix(Rname ), st_matrix(rname ))
   M.setnull(null)
   M.setsmall(small)
+  M.setgranular(granular)
   M.setrobust(robust)
   M.setjk(jk)
   M.setscoreBS(scoreBS)

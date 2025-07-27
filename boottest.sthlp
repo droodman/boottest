@@ -52,6 +52,7 @@ individual constraint expression must conform to the syntax for {help constraint
 {synopt:{opt jack:knife} or {opt jk}}request jackknifing of bootstrap data-generating process{p_end}
 {synopt:{opt stat:istic(t | c)}}specify statistic type to bootstrap; default is {it:t}{p_end}
 {synopt:{opt r:eps(#)}}specifies number of replications for bootstrap-based tests; default is 999; set to 0 for Rao or Wald test{p_end}
+{synopt:{cmdab:algo:rithm(}{it:coarse} {cmd:|} {it:granular}{cmd:)}}Override default algorithm; should only affect speed{p_end}
 {synopt:{opt nonul:l}}suppress imposition of null before bootstrapping{p_end}
 {synopt:{opt marg:ins}}bootstrap current results from {cmd:margins}{p_end}
 {synopt:{opt madj:ust(bonferroni | sidak)}}specify adjustment for multiple hypothesis tests{p_end}
@@ -351,6 +352,12 @@ distributions for t, z, F, or chi2 statistics. The alternative, {it:c}, requests
 {phang}{opt r:eps(#)} sets the number of bootstrap replications. The default is 999. Especially when clusters are few, increasing this number costs little in run 
 time. {opt r:eps(0)} requests a Wald test or--if {opt boottype(score)} is also specified and {opt nonul:l} is not--a Rao test. The wrappers {cmd:waldtest}
 and {cmd:scoretest} facilitate this usage.
+
+{phang}{cmdab:algo:rithm(}{it:coarse} {cmd:|} {it:granular}{cmd:)} controls which algorithm is used to run the bootstrap. As described in Roodman et al. (2019), a defining feature of {cmd:boottest} is its fast algorithm 
+for the case when clusters are few ("coarse clustering"). However, when clusters are many
+("granular clustering"), the optimization tricks can backfire. {cmd:boottest} will automatically switch to an alternative
+and more direct implementation of the bootstrap in these cases. But its decision rule is not
+perfect. This option lets you override {cmd:boottest}'s judgment. It might save time, but should not affect results.
 
 {phang}{opt nonul:l} suppresses the imposition of the null before bootstrapping. This is rarely a good idea.
 

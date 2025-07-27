@@ -1,4 +1,4 @@
-*! boottest 4.5.1 27 June 2025
+*! boottest 4.5.2 25 July 2025
 *! Copyright (C) 2015-25 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -107,7 +107,7 @@ program define _boottest, rclass sortpreserve
 	local 0 `*'
 	syntax, [h0(numlist integer >0) Reps(integer 999) seed(string) sameseed BOOTtype(string) CLuster(string) Robust BOOTCLuster(string) noNULl QUIetly WEIGHTtype(string) Ptype(string) STATistic(string) NOCI Level(real `c(level)') NOSMall SMall SVMat ///
 						noGRaph gridmin(string) gridmax(string) gridpoints(string) graphname(string asis) graphopt(string asis) ar MADJust(string) CMDline(string) MATSIZEgb(real 1000000) PTOLerance(real 1e-3) svv MARGins ///
-            issorted julia PRECision(integer 64) Format(string) jk JACKknife *]
+            issorted julia PRECision(integer 64) Format(string) ALGOrithm(string) jk JACKknife *]
 
   if "`format'"=="" local format %10.4g
   qui query born
@@ -199,6 +199,17 @@ program define _boottest, rclass sortpreserve
 		di as err "{cmdab:r:eps()} option must be non-negative."
 		exit 198
 	}
+
+  if `"`algorithm'"' == "" local granular .  // let program decide between coarse and granular implementations
+    else {
+      local 0, `algorithm'
+      syntax, [GRANular coarse]
+      if "`granular'" != "" & "`coarse'" != "" {
+        di as err "{cmd:coarse} and {cmd:granular} suboptions conflict."
+        exit 198
+      }
+      local granular = "`granular'"!=""
+    }
 
 	local 0, `madjust'
 	syntax, [Bonferroni Sidak]
@@ -456,8 +467,9 @@ program define _boottest, rclass sortpreserve
 
 		local colnames: colnames e(b)
     if `partial' local colnames `colnames' `e(partial1)'
-    local colnames: subinstr local colnames "b." ".", all
-    local colnames: subinstr local colnames "bn." ".", all
+//     local colnames: subinstr local colnames "b." ".", all  // introduced in 51192a82d181920ca7009f95cc7744a2f031c9bf but interferes with _ms_parse_parts below
+//     local colnames: subinstr local colnames "bn." ".", all
+        local colnames: subinstr local colnames "bn." "b.", all
 
     local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
 		local _cons _cons
@@ -466,8 +478,9 @@ program define _boottest, rclass sortpreserve
 
 		if `IV' {
 			local Xnames_endog `e(instd)'
-      local Xnames_endog: subinstr local Xnames_endog "b." ".", all
-      local Xnames_endog: subinstr local Xnames_endog "bn." ".", all
+//       local Xnames_endog: subinstr local Xnames_endog "b." ".", all
+//       local Xnames_endog: subinstr local Xnames_endog "bn." ".", all
+        local colnames: subinstr local colnames "bn." "b.", all
 			local Xnames_exog: list colnames - Xnames_endog
 			local cons = `cons' | e(partialcons)==1
 
@@ -498,7 +511,7 @@ program define _boottest, rclass sortpreserve
 		local cons = `cons' & !0`NFE'  // no constant in FE model
 		if !`cons' local _cons
 		mata _boottestp = J(`cons', 1, `k') \ order(tokens("`colnames'")', 1)[invorder(order(tokens("`Xnames_exog' `Xnames_endog'")', 1))]  // for putting vars in cons-exog-endog order
-		if `cons' mat `keepC' = 1
+    if `cons' mat `keepC' = 1
 		local colnames `_cons' `Xnames_exog' `Xnames_endog'
 
 		foreach varlist in Xnames_exog Ynames Xnames_endog ZExclnames {
@@ -518,8 +531,8 @@ program define _boottest, rclass sortpreserve
 			}
 			local `varlist': copy local _revarlist
 		}
-		mata _boottestkeepC = st_matrix("`keepC'"); _boottestp = cols(_boottestkeepC)? _boottestp[_boottestkeepC] : J(0,1,0)
 
+		mata _boottestkeepC = st_matrix("`keepC'"); _boottestp = cols(_boottestkeepC)? _boottestp[_boottestkeepC] : J(0,1,0)
 		if 0`hascns' {
       if `partial' mat `R1' = `R1', J(rowsof(`R1'), `:word count `e(partial1)'', 0)  // add blanks for partialled-out 
       mata st_matrix("`R1'", st_matrix("`R1'")[,_boottestp])  // put cols in standardized order & drop those for omitted regressors
@@ -835,7 +848,7 @@ program define _boottest, rclass sortpreserve
                           "`madjust'", `N_h0s', "`Xnames_exog'", "`Xnames_endog'", ///
                           "`Ynames'", `=cond(`ML', `" "`b'", "`V'" "', `" "","" "')', "`ZExclnames'", "`hold'", "`scnames'", `hasrobust', "`allclustvars'", `NBootClustVar', `NErrClustVar', ///
                           "`FEname'", `NFE', `FEdfadj', "`wtname'", "`wtype'", "`R1'", "`r1'", "`R'", "`r'", `reps', "`repsname'", "`repsFeasname'", `small', "`svmat'", "`dist'", ///
-                          "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', `quietly', "`b0'", "`V0'", "`svv'", "`NBootClustname'")
+                          "`gridmin'", "`gridmax'", "`gridpoints'", `matsizegb', `quietly', "`b0'", "`V0'", "`svv'", "`NBootClustname'", `granular')
     }
     else {
       foreach X in R R1 V {
@@ -894,7 +907,8 @@ program define _boottest, rclass sortpreserve
                           getdist = Bool("`svmat'"!=""), ///
                           getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
                           getauxweights = "`svv'"!="", ///
-                          rng=rng)
+                          rng=rng, ///
+                          granular=`=cond(`granular', "True", "False", "missing")' )
       _jl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
       set seed `r(ans)'
       if "`plotmat'"!="" {
@@ -1118,6 +1132,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
+* 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug. Add algorithm() option.
 * 4.5.1  Fix bugs causing crashes under certain circumstances
 * 4.5.0  Add sameseed option. No longer sort return value from svmat.
 * 4.4.14 Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
