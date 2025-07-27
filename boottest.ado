@@ -43,7 +43,7 @@ cap program drop _boottest
 program define _boottest, rclass sortpreserve
 	version 11
 
-  local JLVERSION 0.8.0
+  local JLVERSION 1.1.9
 
 	local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2" | ("`e(cmd)'"=="ivreghdfe" & "`e(extended_absvars)'"==""), "ivreg2", "`e(cmd)'")
 	local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
