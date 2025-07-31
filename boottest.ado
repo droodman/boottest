@@ -896,7 +896,7 @@ program define boottest, rclass sortpreserve
                             getci = `level'<100 && "`cimat'" != "", getplot = "`plotmat'"!="", ///
                             getauxweights = "`svv'"!="", ///
                             rng=rng, ///
-                            granular=`=cond(`granular', "True", "False", "missing")' )
+                            granular=`=cond(`granular', "true", "false", "missing")' )
         _jl: rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
         set seed `r(ans)'
         if "`plotmat'"!="" {
