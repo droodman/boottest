@@ -34,56 +34,24 @@ program define boottest, rclass sortpreserve
     local   cmd = cond(substr("`e(cmd)'", 1, 6)=="ivreg2" | ("`e(cmd)'"=="ivreghdfe" & "`e(extended_absvars)'"==""), "ivreg2", "`e(cmd)'")
     local ivcmd = cond(inlist("`cmd'","reghdfe","ivreghdfe"), cond("`e(model)'"=="iv", "ivreg2", ""), cond("`cmd'"=="xtivreg2", "ivreg2", "`cmd'"))
 
-    if "`e(cmd)'" == "" {
-      di as err "No estimates detected."
-      error 198
-    }
-    if "`e(prefix)'" == "svy" {
-      di as err "Doesn't work after {cmd:svy}."
-      exit 198
-    }
-    if inlist("`cmd'", "mvreg", "sureg") {
-      di as err "Doesn't work after {cmd:`e(cmd)'}."
-      exit 198
-    }
-    if "`e(cmd)'" == "margins" {
-      di as err "Doesn't work after {cmd:margins ..., post}."
-      exit 198
-    }
-    if inlist("`cmd'", "xtreg", "xtivreg") & "`e(model)'"!="fe" {
-      di as err "Doesn't work after {`cmd', `e(model)'}."
-      exit 198
-    }
-    if "`cmd'"=="xtivreg2" & "`e(xtmodel)'"!="fe" {
-      di as err "Doesn't work after {`cmd', `e(xtmodel)'}."
-      exit 198
-    }
+    _assert "`e(cmd)'" != "", msg(No estimates detected) rc(198)
+    _assert "`e(prefix)'" != "svy", msg(Doesn't work after {cmd:svy}) rc(198)
+    _assert !inlist("`cmd'", "mvreg", "sureg"), msg(Doesn't work after {cmd:`e(cmd)'}) rc(198)
+    _assert "`e(cmd)'" != "margins", msg(Doesn't work after {cmd:margins ..., post}) rc(198)
+    _assert !inlist("`cmd'", "xtreg", "xtivreg") | "`e(model)'"=="fe", msg(Doesn't work after {`cmd', `e(model)'}) rc(198)
+    _assert !("`cmd'"=="xtreg" & `:word count `e(absvar)''>1), msg(Doesn't work after `cmd' with the {cmdab:a:bsorb()} option) rc(198)
+    _assert "`cmd'"!="xtivreg2" | "`e(xtmodel)'"=="fe", msg(Doesn't work after {`cmd', `e(xtmodel)'}) rc(198)
     if inlist("`cmd'","reghdfe","ivreghdfe","reghdfejl","ivreghdfejl") & `"`e(absvars)'"'!="" {
       fvunab absvars: `e(absvars)'
-      if `:word count `absvars''>1 {
-        di as err "Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms."
-        exit 198
-      }
-      if strpos("`absvars'", "c.") {
-        di as err "Doesn't work after {cmd:`cmd'} with absorbed interaction terms containing slopes."
-        exit 198
-      }
-      else local absvars = subinstr(subinstr("`absvars'", "#", " ", .), "i.", "", .)
+      _assert `:word count `absvars''<2, msg(Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms) rc(198)
+      _assert !strpos("`absvars'", "c."), msg(Doesn't work after {cmd:`cmd'} with absorbed interaction terms containing slopes) rc(198)
+      local absvars = subinstr(subinstr("`absvars'", "#", " ", .), "i.", "", .)
     }
     
-    if inlist("`cmd'", "sem", "gsem") & c(stata_version) < 14 {
-      di as err "Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}."
-      exit 198
-    }
-    if "`e(cmd)'"=="regress" & "`e(model)'" == "iv" {
-      di as err "Doesn't support the undocumented IV syntax of {cmd:regress}."
-      exit 198
-    }
-    
-    if ("`ivcmd'"=="ivreg2" & "`e(model)'"=="gmm2s") | ("`cmd'"=="ivregress" & "`e(estimator)'"=="gmm") {
-      di as err "GMM no longer supported."
-      exit 198
-    }
+    _assert !inlist("`cmd'", "sem", "gsem") | c(stata_version) >= 14, msg(Requires Stata version 14.0 or later to work with {cmd:`e(cmd)'}) rc(198)
+    _assert "`e(cmd)'`e(model)'"!="regressiv", msg(Doesn't support the undocumented IV syntax of {cmd:regress}) rc(198)
+
+    _assert "`ivcmd'`e(model)'"!="ivreg2gmm2s" & "`cmd'`e(estimator)'"!="ivregressgmm", msg(GMM no longer supported) rc(198)
 
     tokenize `"`0'"', parse(",")
     if `"`1'"' != "," {
@@ -105,23 +73,13 @@ program define boottest, rclass sortpreserve
     local margins = "`margins'" != ""
 
     if `margins' {
-      if `"`h0s'`h0'"' != "" {
-        di as err "Include the {cmd:margins} option or state null hyptheses, but don't do both."
-        exit 198
-      }
-      if "`r(predict1_label)'" != "Linear prediction" {
-        di as err _n "{cmd:margins} option only works with linear margins predictions such as average predictions after {cmd:regress}."
-        exit 198
-      }
-      if strlen("`r(Jacobian)'") {
-        tempname rJacobian
-        mat `rJacobian' = r(Jacobian)
-        if strlen("`r(L)'") mat `rJacobian' = r(L) * `rJacobian'
-      }
-      else {
-        di as err "{cmd:margins} results not found."
-        error 303
-      }
+      _assert `"`h0s'`h0'"' == "", msg(Include the {cmd:margins} option or state null hyptheses, but don't do both) rc(198)
+      _assert "`r(predict1_label)'" == "Linear prediction", msg({cmd:margins} option only works with linear margins predictions such as average predictions after {cmd:regress}) rc(198)
+      _assert strlen("`r(Jacobian)'"), msg({cmd:margins} results not found) rc(303)
+
+      tempname rJacobian
+      mat `rJacobian' = r(Jacobian)
+      if strlen("`r(L)'") mat `rJacobian' = r(L) * `rJacobian'
     }
 
     if `julia' {
@@ -131,10 +89,7 @@ program define boottest, rclass sortpreserve
 
       if !0$boottest_julia_loaded {
         cap jl version
-        if _rc {
-          di as err `"Can't access Julia. {cmd:boottest} requires that the {cmd:jl} command be installed, via {stata ssc install julia}."
-          exit 198
-        }
+        _assert !_rc, rc(198) msg(Can't access Julia. {cmd:boottest} requires that the {cmd:jl} command be installed, via {stata ssc install julia}.)
         parse "`r(version)'", parse(".")
         local v1: copy local 1
         local v2: copy local 3
@@ -171,32 +126,23 @@ program define boottest, rclass sortpreserve
         local _svmat = cond("`svmat'"=="", "", "t")
         local 0, `options'
         syntax, [SVMat(string) *]
-        if !inlist(`"`svmat'"', "numer", "t", "") {
-          di as err "option " as res "svmat(" `svmat' ")" as err " not allowed."
-          error 198
-        }
+        _assert inlist(`"`svmat'"', "numer", "t", ""), msg(option svmat(`svmat') not allowed) rc(198)
         if "`svmat'" == "" local svmat: copy local _svmat
       }
 
     if `"`options'"' != "" {
-      if `"`options'"'=="ci" di as err "Option {cmd:ci} is obsolete, because it is now the default."
-        else di as err `"Option `options' not allowed."'
+      if `"`options'"'=="ci" di as err  "Option {cmd:ci} is obsolete, because it is now the default."
+        else                 di as err `"Option `options' not allowed."'
       exit 198
     }
 
-    if `reps' < 0 {
-      di as err "{cmdab:r:eps()} option must be non-negative."
-      exit 198
-    }
+    _assert `reps'>=0, msg({cmdab:r:eps()} option must be non-negative) rc(198)
 
     if `"`algorithm'"' == "" local granular .  // let program decide between coarse and granular implementations
       else {
         local 0, `algorithm'
         syntax, [GRANular coarse]
-        if "`granular'" != "" & "`coarse'" != "" {
-          di as err "{cmd:coarse} and {cmd:granular} suboptions conflict."
-          exit 198
-        }
+        _assert "`granular'" == "" | "`coarse'" == "", msg({cmd:coarse} and {cmd:granular} suboptions conflict) rc(198)
         local granular = "`granular'"!=""
       }
 
@@ -217,10 +163,7 @@ program define boottest, rclass sortpreserve
         if !_rc {
           local rc = `g' <= 0
         }
-        if `rc' {
-          di as err "{cmd:gridpoints()} entry not a positive integer."
-          exit 198
-        }
+        _assert !`rc', msg({cmd:gridpoints()} entry not a positive integer) rc(198)
       }
     }
 
@@ -229,10 +172,7 @@ program define boottest, rclass sortpreserve
         foreach g of local `macro' {
           if `"`g'"' != "." {
             cap confirm number `g'
-            if _rc {
-              di as err "{cmd:`macro'()} entry not numeric."
-              exit 198
-            }
+            _assert !_rc, msg({cmd:`macro'()} entry not numeric) rc(198)
           }
         }
       }
@@ -258,10 +198,7 @@ program define boottest, rclass sortpreserve
     local ar = "`ar'" != ""
     if `ar' & `"`h0s'`h0'"' == "" local h0s `e(instd)'
 
-    if `:word count `weighttype'' > 1 {
-      di as err "The {cmd:weight:type} option must be {cmdab:rad:emacher}, {cmdab:mam:men}, {cmdab:nor:mal}, {cmdab:web:b}, or {cmdab:gam:ma}."
-      exit 198
-    }
+    _assert `:word count `weighttype'' <= 1, msg(The {cmd:weight:type} option must be {cmdab:rad:emacher}, {cmdab:mam:men}, {cmdab:nor:mal}, {cmdab:web:b}, or {cmdab:gam:ma}) rc(198)
     if "`weighttype'"'=="" local weighttype rademacher
     else {
       local 0, `weighttype'
@@ -269,10 +206,8 @@ program define boottest, rclass sortpreserve
       local weighttype `rademacher'`mammen'`normal'`webb'`gamma'
     }
 
-    if `:word count `ptype'' > 1 {
-      di as err "The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:lower}, or {cmd:upper}."
-      exit 198
-    }
+    _assert `:word count `ptype''<2, msg(The {cmd:wp:type} option must be {cmdab:sym:metric}, {cmdab:eq:qualtail}, {cmd:lower}, or {cmd:upper}) rc(198)
+
     if "`ptype'"'=="" local ptype symmetric
     else {
       local 0, `ptype'
@@ -281,13 +216,9 @@ program define boottest, rclass sortpreserve
     }
    
     if `"`statistic'"'=="" local statistic t
-    else if !inlist(`"`statistic'"', "t", "c") {
-      di as err "The {cmd:stat:istic} option must be {cmd:t} or {cmd:c}."
-      exit 198
-    }
-    else if "`statistic'"=="c" & `reps'==0 {
-      di as err "{cmdab:stat:istic(c)} not allowed with non-bootstrap tests."
-      exit 198
+    else {
+      _assert inlist(`"`statistic'"', "t", "c"), msg(The {cmd:stat:istic} option must be {cmd:t} or {cmd:c}) rc(198)
+      _assert "`statistic'"!="c" | `reps', msg({cmdab:stat:istic(c)} not allowed with non-bootstrap tests) rc(198)
     }
 
     local ML = e(converged) != . & !inlist("`cmd'", "reghdfe", "ivreghdfe", "reghdfejl")
@@ -301,10 +232,7 @@ program define boottest, rclass sortpreserve
 
     local DID = inlist("`cmd'", "didregress", "xtdidregress")
     if `DID' {
-      if "`e(aggmethod)'" != "" {
-        di as err "Doesn't work after {cmd:`e(cmd)'} with aggregation."
-        exit 198
-      }
+      _assert "`e(aggmethod)'"=="", msg(Doesn't work after {cmd:`e(cmd)'} with aggregation) rc(198)
       local treatment `e(treatment)'
       local 0 `e(cmdline)'
       syntax [anything], [NOGTEFFECTS *]
@@ -317,29 +245,16 @@ program define boottest, rclass sortpreserve
     local lower             Prob<`tz'
     local upper             Prob>`tz'
 
-    if `ar' & !`IV' {
-      di as err "Anderson-Rubin test is only for IV models."
-      exit 198
-    }
-
-    if `jk' & `ML' {
-      di as err "boottest can't jackknife ML-based estimates."
-      exit 198
-    }
+    _assert !`ar' | `IV', msg(Anderson-Rubin test is only for IV models) rc(198)
+    _assert !`jk' | !`ML', msg(Can't jackknife ML-based estimates) rc(198)
     
     if "`boottype'"'=="" local boottype = cond(`ML', "score", "wild")
     else {
       local 0, `boottype'
       syntax, [Wild SCore]
       local boottype `score'`wild'
-      if "`boottype'" == "wild" & `ML' {
-        di as err "{cmd:boottype(wild)} not accepted after Maximum Likelihood-based estimation."
-        exit 198
-      }
-      if "`boottype'"=="score" & "`fuller'`K'" != "." & "`e(model)'"!="liml" {
-        di as err "{cmd:boottype(score)} not accepted after Fuller LIML or k-class estimation."
-        exit 198
-      }
+      _assert "`boottype'" != "wild" | !`ML', msg({cmd:boottype(wild)} not accepted after Maximum Likelihood-based estimation) rc(198)
+      _assert "`boottype'"!="score" | "`fuller'`K'" == "." | "`e(model)'"=="liml", rc(198) msg({cmd:boottype(score)} not accepted after Fuller LIML or k-class estimation)
     }
     local scoreBS = "`boottype'"=="score"
     
@@ -384,10 +299,7 @@ program define boottest, rclass sortpreserve
     }
 
     if `"`h0s'"' != "" {
-      if "`h0'" != "" {
-        di as err "Specify hypotheses before comma or with {cmd:h0()} option, but not both."
-        exit 198
-      }
+      _assert "`h0'" == "", rc(198) msg(Specify hypotheses before comma or with {cmd:h0()} option, but not both)
       local multiple = strpos(`"`h0s'"', "{")
       if !`multiple' local h0s {`h0s'}
       local N_h0s 0  // number of nulls
@@ -411,10 +323,7 @@ program define boottest, rclass sortpreserve
       mata st_local("marginsnames", invtokens(st_matrixrowstripe("`rJacobian'")[_boottestp,2]'))
       mata st_matrix("`marginsH0'", st_matrix("`rJacobian'")[_boottestp,])
       mata st_local("N_h0s", strofreal(length(_boottestp)))
-      if `N_h0s'==0 {
-        di as err "No valid {cmd:margins} results not found."
-        error 303
-      }
+      _assert `N_h0s', msg(No valid {cmd:margins} results not found) rc(303)
       scalar `df' = 1  // always when working with margins results, df = 1 and constant term = 0
       mat `r' = 0
 
@@ -614,10 +523,7 @@ program define boottest, rclass sortpreserve
       if 0`NFE' {
         mata st_local("rc", strofreal(any(0:!=select(st_matrix("`R'"),st_matrixcolstripe("`R'")[,2]':=="_cons"))))
 
-        if `rc' {
-          di as err "In fixed-effect models, null hypotheses may not involve constant term."
-          exit 111
-        }
+        _assert !`rc', msg(In fixed-effect models, null hypotheses may not involve constant term) rc(111)
       }
 
       local plotmat
@@ -720,10 +626,8 @@ program define boottest, rclass sortpreserve
           cap `=cond(`quietly', "", "noisily")' `cmdline' `from' `init' `iterate' `=cond("`cmd'"=="slogit","nocorner","")' constraints(`_constraints') `cmdline2'
           local rc = _rc
           constraint drop `_constraints'
-          if e(converged)==0 {
-            di as err "Could not impose null."
-            exit 430
-          }
+          _assert e(converged), msg(Could not impose null) rc(430)
+
           if !`rc' {
             mat `b0' = e(b)
             _mkvec `b', update from(`b0', skip) first  // mlexp doesn't handle from(..., skip)
@@ -732,10 +636,7 @@ program define boottest, rclass sortpreserve
             local rc = _rc
             mat drop `b0'
           }
-          if `rc' {
-            di as err "Error imposing null. Perhaps {cmd:`cmd'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options, as needed."
-            exit `rc'
-          }
+          _assert !`rc', msg(Error imposing null. Perhaps {cmd:`cmd'} does not accept the {cmd:constraints()}, {cmd:from()}, and {cmd:iterate()} options) rc(`rc')
           if !`quietly' {
             mata st_numscalar("`t'", any(!diagonal(st_matrix("e(V)")) :& st_matrix("e(b)")'))
             if `t' {
@@ -808,18 +709,12 @@ program define boottest, rclass sortpreserve
           local kEnd: word count `Xnames_endog'
           local kEx : word count `Xnames_exog'
           mata st_numscalar("`p'", rows(st_matrix("`R'"))!=`kEnd' | (`kEx'? any(st_matrix("`R'")[|.,.\.,`kEx'|]) : 0))
-          if `p' {
-            di as err "For Anderson-Rubin test, null hypothesis must constrain all the instrumented variables and no others."
-            exit 198
-          }			
+          _assert !`p', msg(For Anderson-Rubin test, null hypothesis must constrain all the instrumented variables and no others) rc(198)
         }
       }
 
       cap confirm var `hold'
-      if _rc {
-        di as err "Sample marker for the regression not found. Perhaps the data set was cleared and reconstructed."
-        exit _rc
-      }
+      _assert !_rc, msg(Sample marker for the regression not found. Perhaps the data set was cleared and reconstructed) rc(`=_rc')
 
       if `margins' {
         cap drop `touse'
@@ -1123,7 +1018,7 @@ program define boottest, rclass sortpreserve
 	cap mata mata drop _boottestm
 	cap mata mata drop _boottestt
   
-  if `julia' qui jl SetEnv `env' // revert to original Julia environment
+  if 0`julia' qui jl SetEnv `env' // revert to original Julia environment
 end
 
 cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle to the plugin to reduce the chance that Stata unloads it
