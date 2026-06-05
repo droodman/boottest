@@ -1,5 +1,5 @@
-*! boottest 4.5.2 27 July 2025
-*! Copyright (C) 2015-25 David Roodman
+*! boottest 4.5.3 5 June 2026
+*! Copyright (C) 2015-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -41,7 +41,13 @@ program define boottest, rclass sortpreserve
     _assert !inlist("`cmd'", "xtreg", "xtivreg") | "`e(model)'"=="fe", msg(Doesn't work after {`cmd', `e(model)'}) rc(198)
     _assert !("`cmd'"=="xtreg" & `:word count `e(absvar)''>1), msg(Doesn't work after `cmd' with the {cmdab:a:bsorb()} option) rc(198)
     _assert "`cmd'"!="xtivreg2" | "`e(xtmodel)'"=="fe", msg(Doesn't work after {`cmd', `e(xtmodel)'}) rc(198)
-    if inlist("`cmd'","reghdfe","ivreghdfe","reghdfejl","ivreghdfejl") & `"`e(absvars)'"'!="" {
+    
+    if "`cmd'"=="reghdfe" {
+      local absvars
+      local df_a 0
+      local df_a_initial 0
+    }
+    else if inlist("`cmd'","reghdfe","ivreghdfe","reghdfejl","ivreghdfejl") & `"`e(absvars)'"' != "" {
       fvunab absvars: `e(absvars)'
       _assert `:word count `absvars''<2, msg(Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms) rc(198)
       _assert !strpos("`absvars'", "c."), msg(Doesn't work after {cmd:`cmd'} with absorbed interaction terms containing slopes) rc(198)
@@ -261,7 +267,7 @@ program define boottest, rclass sortpreserve
     if inlist("`cmd'","xtreg","xtivreg","xtivreg2") local NFE = e(N_g) + 0`e(singleton)'
     else local NFE = cond(`DID', 0`e(N_clust)',                       ///
                                  cond("`cmd'"=="areg", 1+e(df_a),     ///
-                                       max(0`e(K1)', 0`e(df_a)', 0`e(df_a_initial)')))  // reghdfe
+                                       max(0`e(K1)', 0`df_a', 0`df_a_initial')))  // reghdfe
 
     local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`absvars'"))
     if `"`_FEname'"' != "" {
@@ -1025,6 +1031,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
+* 4.5.3  Fix crash after "reghdfe, a()". Fix score boottstrap crashes.
 * 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug.
 *        Add algorithm() option.
 *        Fix: jl SetEnv to restore caller's environment was zapping r() macros

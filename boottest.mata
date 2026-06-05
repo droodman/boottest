@@ -1,5 +1,5 @@
-*! boottest 4.5.1 27 June 2025
-*! Copyright (C) 2015-25 David Roodman
+*! boottest 4.5.3 5 June 2026
+*! Copyright (C) 2015-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -565,8 +565,6 @@ void boottestIVGMM::MakeH() {
   invH = invsym(*pH)
 
   if (pRperp) {  // for score bootstrap
-// "rows(*pRperp),cols(*pRperp),rows(*pH),cols(*pH)"
-// rows(*pRperp),cols(*pRperp),rows(*pH),cols(*pH)
     pA = cols(*pRperp)? &(*pRperp * invsym(*pRperp ' (*pH) * *pRperp) * *pRperp') : &invH
     AR = *pA * (Rpar ' (*parent->pR'))
     XAR = *pX12B(*pX1, *pX2, V * AR)
@@ -737,7 +735,7 @@ void boottestOLS::InitTestDenoms() {
         WXAR[d].M = XAR[,d]
     }
 
-    if (parent->NFE & parent->robust & (parent->FEboot | parent->scoreBS)==0 & parent->granular < parent->NErrClustCombs) {  // make first factor of second term of (64) for c=∩ (c=1)
+    if (parent->NFE & parent->robust & parent->FEboot==0 & parent->granular < parent->NErrClustCombs) {  // make first factor of second term of (64) for c=∩ (c=1)
       CT_XAR = smatrix(parent->df)
       for (d=parent->df;d;d--)
         CT_XAR[d].M = parent->crosstabFE(XAR[,d], *parent->pinfoCapData)
@@ -2440,7 +2438,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
 
   if (interpolate_u) {
     pustar = B? &(v :* DGP.u1ddot[1+_jk].M) : &DGP.u1ddot[1+_jk].M
-    if (scoreBS) pustar = &(*pustar :- colsum(*pustar) * ClustShare)  // Center variance if interpolated
+    if (scoreBS) pustar = &(*pustar :- ClustShare * colsum(*pustar))  // Center variance if interpolated
             else pustar = &(*pustar - *pX12B(*pX1, *pX2, betadev))  // residuals of wild bootstrap regression are the wildized residuals after partialling out X (or XS) (Kline & Santos eq (11))
   }
 

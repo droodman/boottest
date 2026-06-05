@@ -52,7 +52,6 @@ foreach julia in "" julia {
   margins, dydx(south)
   boottest, `julia' margins graphopt(xtitle(Average effect of south)) nogr  // bootstrap CI of average impact in sample of changing south from 0 to 1
 
-  local julia julia
   qui ivregress 2sls wage ttl_exp collgrad (tenure = union), cluster(industry)
   boottest tenure, `julia' ptype(equaltail) seed(987654321) nogr  // Wald test, wild restricted efficient bootstrap, Rademacher weights, null imposed, 999 reps
   boottest tenure, `julia' ptype(equaltail) stat(c) nogr  // same but bootstrap-c
