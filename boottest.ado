@@ -43,11 +43,18 @@ program define boottest, rclass sortpreserve
     _assert "`cmd'"!="xtivreg2" | "`e(xtmodel)'"=="fe", msg(Doesn't work after {`cmd', `e(xtmodel)'}) rc(198)
     
     if "`cmd'"=="reghdfe" {
-      local absvars
-      local df_a 0
-      local df_a_initial 0
+      if `"`e(absvars)'"' == "_cons" {
+        local absvars
+        local df_a 0
+        local df_a_initial 0
+      }
+      else {
+        local absvars = e(absvars)
+        local df_a = e(df_a)
+        local df_a_initial = e(df_a_initial)
+      }
     }
-    else if inlist("`cmd'","reghdfe","ivreghdfe","reghdfejl","ivreghdfejl") & `"`e(absvars)'"' != "" {
+    if inlist("`cmd'","reghdfe","ivreghdfe","reghdfejl","ivreghdfejl") & `"`e(absvars)'"' != "" {
       fvunab absvars: `e(absvars)'
       _assert `:word count `absvars''<2, msg(Doesn't work after {cmd:`cmd'} with more than one set of absorbed fixed effects or with absorbed interaction terms) rc(198)
       _assert !strpos("`absvars'", "c."), msg(Doesn't work after {cmd:`cmd'} with absorbed interaction terms containing slopes) rc(198)
@@ -1031,7 +1038,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
-* 4.5.3  Fix crash after "reghdfe, a()". Fix score boottstrap crashes.
+* 4.5.3  Fix crash after "reghdfe, a()". Fix score bootstrap crashes.
 * 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug.
 *        Add algorithm() option.
 *        Fix: jl SetEnv to restore caller's environment was zapping r() macros
