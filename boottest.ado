@@ -1,4 +1,4 @@
-*! boottest 4.5.3 5 June 2026
+*! boottest 4.5.4 22 October 2026
 *! Copyright (C) 2015-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -114,7 +114,7 @@ program define boottest, rclass sortpreserve
           ssc install julia, replace
         }
 
-    // _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
+// _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
         jl AddPkg StableRNGs
         jl AddPkg WildBootTests, minver(1.0.2)
         _jl: using StableRNGs, WildBootTests
@@ -1023,6 +1023,7 @@ program define boottest, rclass sortpreserve
     return scalar reps = `repsname'
     return scalar NH0s = `N_h0s'
   }  // cap noi ...
+  local rc = _rc
   
 	constraint drop `constraints'
 	cap mata mata drop _boottestp
@@ -1032,12 +1033,14 @@ program define boottest, rclass sortpreserve
 	cap mata mata drop _boottestt
   
   if 0`julia' qui jl SetEnv `env' // revert to original Julia environment
+  exit `rc'
 end
 
 cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle to the plugin to reduce the chance that Stata unloads it
 
 
 * Version history
+* 4.5.4  Bug fixes: jk with non-zero r_1; null not imposed in AR (!). Thanks to Joe Francis and his AI agents.
 * 4.5.3  Fix crash after "reghdfe, a()". Fix score bootstrap crashes.
 * 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug.
 *        Add algorithm() option.

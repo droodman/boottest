@@ -1,4 +1,4 @@
-*! boottest 4.5.3 5 June 2026
+*! boottest 4.5.4 22 October 2026
 *! Copyright (C) 2015-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -547,15 +547,11 @@ void boottestIVGMM::InitVars(|pointer(real matrix) scalar pRperp) {
 // For WRE, should only be called once for the replication regressions, since for them r1 is the unchanging model constraint
 void boottestOLS::Estimate(real scalar _jk, real colvector r1) {
   beta.M = beta0 - dbetadr * r1
-  if (_jk & rows(R1perp))
-    t1 = R1invR1R1 * r1
 }
 
 void boottestARubin::Estimate(real scalar _jk, real colvector r1) {
   beta.M = beta0 - dbetadr * r1
   py1par = &(*parent->py1 - *parent->pY2 * r1)
-  if (_jk & rows(R1perp))
-    t1 = R1invR1R1 * r1
 }
 
 void boottestIVGMM::MakeH() {
@@ -642,25 +638,17 @@ void boottestOLS::MakeResiduals(real scalar _jk) {
     m = parent->small? sqrt((parent->Nstar - 1) / parent->Nstar) : 1
     
     if (parent->purerobust)  // somewhat faster handling classic hc3
-      if (rows(R1perp)) {
-        Xt1 = *pX12B(*parent->pX1, *parent->pX2, t1)
-        u1ddot[2].M = m * ((invMg.M :* (u1ddot.M + Xt1)) - Xt1)
-      } else
-        u1ddot[2].M = m * invMg.M :* u1ddot.M
+      u1ddot[2].M = m * invMg.M :* u1ddot.M
     else if (parent->granularjk) {
       for (g=parent->Nstar; g; g--) {
         S = parent->NClustVar? parent->infoBootData[g,]' : g\g
-        if (rows(R1perp)) {
-          Xt1 = Xg[g].M * t1
-          u1ddot[2].M[|S|] = m * (cross(invMg[g].M, u1ddot.M[|S|] + Xt1) - Xt1)
-        } else
-          u1ddot[2].M[|S|] = m * cross(invMg[g].M, u1ddot.M[|S|])
+        u1ddot[2].M[|S|] = m * cross(invMg[g].M, u1ddot.M[|S|])
       }
     } else
       for (g=parent->Nstar; g; g--) {
         S = parent->infoBootData[g,]'
         u1ddotg = u1ddot.M[|S|]
-        u1ddot[2].M[|S|] = m * (u1ddotg + XinvHg[g].M * (rows(R1perp)? cross(Xg[g].M, u1ddotg) + XXg[g].M * t1 : cross(Xg[g].M, u1ddotg)))
+        u1ddot[2].M[|S|] = m * (u1ddotg + XinvHg[g].M * cross(Xg[g].M, u1ddotg))
       }
   }
 }
@@ -1314,7 +1302,7 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
       }
        
       DGP = boottestARubin(); DGP.parent = &this
-      DGP.SetR(*pR1)
+      DGP.SetR(null? *pR1 \ *pR : *pR1)
       DGP.InitVars()
       DGP.InitTestDenoms()
       pM = &DGP  // estimator object from which to get A, AR, XAR
@@ -2354,11 +2342,12 @@ void boottest::_MakeInterpolables(real colvector r) {
     SuwtXA = scoreBS?
                 (B? 
                    (NClustVar? *_panelsum(uXAR, infoBootData) : 
-                               uXAR                  ) :
+                                          uXAR                  ) :
                    colsum(uXAR)')                             :
                 *DGP.pA * *_panelsum2(*pX1, *pX2, DGP.u1ddot[1+_jk].M, infoBootData)'  // same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X2 empty except in Anderson-Rubin
 
-    if (robust & granular < NErrClustCombs & bootstrapt) {
+    granularnotjk = granular * !(jk & !_jk)
+    if (robust & granularnotjk < NErrClustCombs & bootstrapt) {
       pustarXAR = _panelsum(uXAR, *pinfoAllData)  // collapse data to all-boot & error-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights
 
       if (B) {
@@ -2379,7 +2368,7 @@ void boottest::_MakeInterpolables(real colvector r) {
             Kd[d].M = Kd[d].M - ClustShare * colsum(Kd[d].M)  // recenter
         }
 
-        for (c=1+granular; c<=NErrClustCombs; c++) {
+        for (c=1+granularnotjk; c<=NErrClustCombs; c++) {
           if (rows(Clust[c].order))
             for (d=df;d;d--)
               Kd[d].M = Kd[d].M[Clust[c].order,]
@@ -2411,7 +2400,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
   real scalar c, d; real matrix _v; real matrix betadev
 
   if (jk & !_jk) {
-    if (!ARubin & null) 
+    if (null) 
       (*pnumer)[,1] = v_sd * (  // full original-sample test stat numerator
                           scoreBS?
                              (B? 
@@ -2428,7 +2417,7 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                (robust==0 | granular | purerobust?
                   *pR * (betadev = SuwtXA * v) :
                  (*pR * SuwtXA) * v)
-    if (w==1) {
+    if (w==1 & !null) {
       if      ( ARubin) numerw[,1] = v_sd * DGP.Rpar * DGP.beta.M[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
       else if (null==0) numerw[,1] = v_sd * (*pR * (ML? beta : pM->Rpar * pM->beta.M) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
     }

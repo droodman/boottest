@@ -254,9 +254,9 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.0991
+                        Prob>|t| =     0.0631
 
-95% confidence set for null hypothesis expression: [.03571, .07199]
+95% confidence set for null hypothesis expression: [.03974, .07098]
 
 Wild bootstrap-t, null not imposed, jackknifed residuals, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.04
@@ -449,9 +449,9 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
   tenure
 
                                z =     2.4454
-                        Prob>|z| =     0.0350
+                        Prob>|z| =     0.0480
 
-95% confidence set for null hypothesis expression: [.0541, 1.25]
+95% confidence set for null hypothesis expression: [−.365, −.2182] ∪ [.07537, 1.755]
 
 Rao score (Lagrange multiplier) test:
   tenure
@@ -542,9 +542,9 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
   tenure
 
                    chi2(2) =    18.4337
-               Prob > chi2 =     0.0000
+               Prob > chi2 =     0.0601
 
-95% confidence set for null hypothesis expression: [.3628, 3.582]
+95% confidence set for null hypothesis expression: [−.3447, 2.565]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
@@ -628,7 +628,7 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
                            t(12) =     0.4874
                         Prob>|t| =     0.6216
 
-95% confidence set for null hypothesis expression: [−.04623, .1141]
+95% confidence set for null hypothesis expression: [−.046, .1139]
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
@@ -648,7 +648,7 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
                            t(12) =     0.4874
                         Prob>|t| =     0.6186
 
-95% confidence set for null hypothesis expression: [−.04341, .1151]
+95% confidence set for null hypothesis expression: [−.04519, .116]
 
 Re-running regression with null imposed.
 
@@ -1231,9 +1231,9 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
   tenure
 
                                z =     2.4454
-                        Prob>|z| =     0.0300
+                        Prob>|z| =     0.0490
 
-95% confidence set for null hypothesis expression: [.07184, 1.26]
+95% confidence set for null hypothesis expression: [−.365, −.2182] ∪ [.07537, 1.753]
 
 Wild bootstrap-t, null not imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
@@ -1454,9 +1454,9 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
   post_self=.04
 
                             t(7) =     2.0194
-                        Prob>|t| =     0.1061
+                        Prob>|t| =     0.0881
 
-95% confidence set for null hypothesis expression: [.0347, .07089]
+95% confidence set for null hypothesis expression: [.03773, .07076]
 
 Wild bootstrap-t, null not imposed, jackknifed residuals, 999 replications, Wald test, bootstrap clustering by year, Webb weights:
   post_self=.04
@@ -1647,9 +1647,9 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
   tenure
 
                                z =     2.4454
-                        Prob>|z| =     0.0360
+                        Prob>|z| =     0.0390
 
-95% confidence set for null hypothesis expression: [.04002, 1.255]
+95% confidence set for null hypothesis expression: [.07537, 1.85]
 
 Rao score (Lagrange multiplier) test:
   tenure
@@ -1740,9 +1740,9 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
   tenure
 
                    chi2(2) =    18.4337
-               Prob > chi2 =     0.0000
+               Prob > chi2 =     0.0591
 
-95% confidence set for null hypothesis expression: [.3411, 5.24]
+95% confidence set for null hypothesis expression: [−.3797, 2.31]
 
 Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   collgrad tenure
@@ -1826,7 +1826,7 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
                            t(12) =     0.4874
                         Prob>|t| =     0.6597
 
-95% confidence set for null hypothesis expression: [−.04571, .1132]
+95% confidence set for null hypothesis expression: [−.04534, .1138]
 
 Overriding estimator's cluster/robust settings with cluster(age occupation)
 
@@ -1846,7 +1846,7 @@ Wild bootstrap-t, null imposed, jackknifed residuals, 999 replications, Wald tes
                            t(12) =     0.4874
                         Prob>|t| =     0.6466
 
-95% confidence set for null hypothesis expression: [−.04119, .1152]
+95% confidence set for null hypothesis expression: [−.04956, .1162]
 
 Re-running regression with null imposed.
 
@@ -2433,9 +2433,9 @@ Wild bootstrap-t, null imposed, 999 replications, Anderson-Rubin Wald test, boot
   tenure
 
                                z =     2.4454
-                        Prob>|z| =     0.0320
+                        Prob>|z| =     0.0350
 
-95% confidence set for null hypothesis expression: [.05702, 1.265]
+95% confidence set for null hypothesis expression: [.07537, 1.819]
 
 Wild bootstrap-t, null not imposed, 999 replications, Anderson-Rubin Wald test, bootstrap clustering by industry, Rademacher weights:
   tenure
