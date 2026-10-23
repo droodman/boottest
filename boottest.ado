@@ -116,7 +116,7 @@ program define boottest, rclass sortpreserve
 
 // _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
         jl AddPkg StableRNGs
-        jl AddPkg WildBootTests, minver(1.0.2)
+        jl AddPkg WildBootTests, minver(1.1.0)
         _jl: using StableRNGs, WildBootTests
         global boottest_julia_loaded 1
       }
