@@ -2316,7 +2316,7 @@ void boottest::MakeInterpolables() {
 
 // Construct stuff that depends linearly or quadratically on r and doesn't depend on v. No interpolation.
 void boottest::_MakeInterpolables(real colvector r) {
-  real scalar d, c, _jk; real colvector uXAR; pointer (real matrix) scalar pustarXAR, ptmp
+  real scalar d, c, _jk, granularnotjk; real colvector uXAR; pointer (real matrix) scalar pustarXAR, ptmp
 
   if (ML)
     uXAR = *pSc * (AR = *pA * *pR')
