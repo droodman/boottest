@@ -268,10 +268,12 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   X2X1 = cross(*parent->pX2, *parent->pX1)
   H = cross(*parent->pX1, *parent->pX1), X2X1' \ X2X1, cross(*parent->pX2, *parent->pX2)
   pA = &invsym(H)
+
   pR1AR1 = rows(R1perp)? &(R1perp * invsym(R1perp ' H * R1perp) * R1perp') : pA
   X1y1 = cross(*parent->pX1, *parent->py1)
   X2y1 = cross(*parent->pX2, *parent->py1)
   beta0   = *pR1AR1 * (X1y1 \ X2y1)
+
   dbetadr = *pR1AR1 * (cross(*parent->pX1, *parent->pY2) \ cross(*parent->pX2, *parent->pY2))
   
   if (parent->jk)
@@ -2339,13 +2341,12 @@ void boottest::_MakeInterpolables(real colvector r) {
     if (!ML & (scoreBS | (robust & granular * !(jk & !_jk) < NErrClustCombs)))
       uXAR = DGP.u1ddot[1+_jk].M :* pM->XAR
 
-    SuwtXA = scoreBS?
+      SuwtXA = scoreBS?
                 (B? 
                    (NClustVar? *_panelsum(uXAR, infoBootData) : 
                                           uXAR                  ) :
                    colsum(uXAR)')                             :
                 *DGP.pA * *_panelsum2(*pX1, *pX2, DGP.u1ddot[1+_jk].M, infoBootData)'  // same calc as in score BS but broken apart to grab intermediate stuff, and assuming residuals defined; X2 empty except in Anderson-Rubin
-
     granularnotjk = granular * !(jk & !_jk)
     if (robust & granularnotjk < NErrClustCombs & bootstrapt) {
       pustarXAR = _panelsum(uXAR, *pinfoAllData)  // collapse data to all-boot & error-cluster-var intersections. If no collapsing needed, _panelsum() will still fold in any weights

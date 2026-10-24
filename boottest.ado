@@ -98,7 +98,7 @@ program define boottest, rclass sortpreserve
     if `julia' {
       qui jl GetEnv
       local env `r(env)'
-      qui jl SetEnv boottest
+      qui jl SetEnv @boottest
 
       if !0$boottest_julia_loaded {
         cap jl version
@@ -114,9 +114,9 @@ program define boottest, rclass sortpreserve
           ssc install julia, replace
         }
 
-// _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
+        //  _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
         jl AddPkg StableRNGs
-        jl AddPkg WildBootTests, minver(1.1.0)
+        jl AddPkg WildBootTests, minver(1.1.1)
         _jl: using StableRNGs, WildBootTests
         global boottest_julia_loaded 1
       }
@@ -776,8 +776,8 @@ program define boottest, rclass sortpreserve
         }
         _jl: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname)
         _jl: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars)
-  // jl: using JLD
-  // jl: @save "/Users/davidroodman/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V rng
+//   jl: using JLD
+//   jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V rng
         _jl: using Random; Random.seed!(rng, `=runiformint(0, 9007199254740992)')  // chain Stata rng to Julia rng
         _jl: _boottest_jl = wildboottest!(Float`precision', R, r; resp=Ynames, predexog=Xnames_exog, predendog=Xnames_endog, inst=ZExclnames, ///
                             obswt=wtname, clustid=allclustvars, feid=FEname, scores=scnames, ///
