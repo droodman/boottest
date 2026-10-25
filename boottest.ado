@@ -98,6 +98,10 @@ program define boottest, rclass sortpreserve
     if `julia' {
       qui jl GetEnv
       local env `r(env)'
+      qui findfile boottest_project.toml
+      local projectfile `r(fn)'
+      qui findfile boottest_manifest.toml
+      jl SetEnv @boottest, quietly update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
       qui jl SetEnv @boottest
 
       if !0$boottest_julia_loaded {
@@ -114,9 +118,9 @@ program define boottest, rclass sortpreserve
           ssc install julia, replace
         }
 
-        //  _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
+//          _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
         jl AddPkg StableRNGs
-        jl AddPkg WildBootTests, minver(1.1.1)
+        jl AddPkg WildBootTests, minver(1.1.2)
         _jl: using StableRNGs, WildBootTests
         global boottest_julia_loaded 1
       }
@@ -1036,7 +1040,7 @@ program define boottest, rclass sortpreserve
   exit `rc'
 end
 
-cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle to the plugin to reduce the chance that Stata unloads it
+cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle to the plugin to reduce chance that Stata unloads it
 
 
 * Version history

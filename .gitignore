@@ -51,3 +51,4 @@ jk IV simulator.do
 ~boottest.ado.stswp
 *.stswp
 scoretest vs lmtest.do
+/boottest
