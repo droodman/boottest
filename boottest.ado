@@ -1,4 +1,4 @@
-*! boottest 4.5.4 22 October 2026
+*! boottest 4.5.5 24 October 2026
 *! Copyright (C) 2015-26 David Roodman
 
 * This program is free software: you can redistribute it and/or modify
@@ -1044,6 +1044,7 @@ cap program _julia_boottest, plugin using(jl.plugin)  // create an extra handle 
 
 
 * Version history
+* 4.5.5  Add proper toml files to define Julia environment. Move to WildBootTests 1.1.2.
 * 4.5.4  Bug fixes: jk with non-zero r_1; null not imposed in AR (!). Thanks to Joe Francis and his AI agents.
 * 4.5.3  Fix crash after "reghdfe, a()". Fix score bootstrap crashes.
 * 4.5.2  Revert one 4.5.1 change (51192a82d181920ca7009f95cc7744a2f031c9bf) because it created a new bug.
