@@ -278,7 +278,7 @@ program define boottest, rclass sortpreserve
     if inlist("`cmd'","xtreg","xtivreg","xtivreg2") local NFE = e(N_g) + 0`e(singleton)'
     else local NFE = cond(`DID', 0`e(N_clust)',                       ///
                                  cond("`cmd'"=="areg", 1+e(df_a),     ///
-                                       max(0`e(K1)', 0`df_a', 0`df_a_initial')))  // reghdfe
+                                       max(0`e(K1)', 0`e(df_a)', 0`df_a', 0`df_a_initial')))  // reghdfe
 
     local _FEname = cond(inlist("`cmd'","xtreg","xtivreg","xtivreg2"), "`e(ivar)'", cond(`DID', "`e(clustvar)'", "`e(absvar)'`absvars'"))
     if `"`_FEname'"' != "" {
@@ -383,7 +383,7 @@ program define boottest, rclass sortpreserve
       if `partial' local colnames `colnames' `e(partial1)'
   //     local colnames: subinstr local colnames "b." ".", all  // introduced in 51192a82d181920ca7009f95cc7744a2f031c9bf but interferes with _ms_parse_parts below
   //     local colnames: subinstr local colnames "bn." ".", all
-          local colnames: subinstr local colnames "bn." "b.", all
+//       local colnames: subinstr local colnames "bn." "b.", all
 
       local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
       local _cons _cons
@@ -394,7 +394,7 @@ program define boottest, rclass sortpreserve
         local Xnames_endog `e(instd)'
   //       local Xnames_endog: subinstr local Xnames_endog "b." ".", all
   //       local Xnames_endog: subinstr local Xnames_endog "bn." ".", all
-          local colnames: subinstr local colnames "bn." "b.", all
+//         local colnames: subinstr local colnames "bn." "b.", all
         local Xnames_exog: list colnames - Xnames_endog
         local cons = `cons' | e(partialcons)==1
 
@@ -771,14 +771,18 @@ program define boottest, rclass sortpreserve
           if "``X''" != "" jl PutVarsToMat ``X'' if `hold', dest(`X')
             else _jl: `X' = Matrix{Float`precision'}(undef,0,0)
         }
-        foreach X in Ynames wtname FEname {
+        foreach X in Ynames wtname  {
           if "``X''" != "" {
             jl PutVarsToMat ``X'' if `hold', dest(`X')
             _jl: `X' = dropdims(`X'; dims=2)
           }
-          else _jl: `X' = Vector{Float`precision'}(undef,0)
+          else _jl: `X' = Float`precision'[]
         }
-        _jl: FEname = iszero(`NFE') ? Vector{Int64}(undef,0) : Vector{Int64}(FEname)
+        if 0`NFE' {
+          jl PutVarsToMat `FEname' if `hold', dest(FEname)
+          _jl: FEname = Int64.(FEname[:])
+        }
+        else _jl: FEname = Int64[]
         _jl: allclustvars = iszero(`hasclust') ? Matrix{Int64}(undef,0,0) : Matrix{Int64}(allclustvars)
 //   jl: using JLD
 //   jl: @save "c:/users/drood/Downloads/tmp.jld" Ynames Xnames_exog Xnames_endog ZExclnames wtname allclustvars FEname scnames R r R1 r1 gridminvec gridmaxvec gridpointsvec b V rng
