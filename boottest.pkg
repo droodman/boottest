@@ -36,3 +36,5 @@ f artest.ado
 f scoretest.ado
 f waldtest.ado
 f lboottest.mlib
+F boottest_project.toml
+F boottest_manifest.toml
