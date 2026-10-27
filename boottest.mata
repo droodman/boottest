@@ -268,12 +268,10 @@ void boottestARubin::InitVars(| pointer(real matrix) pRperp) {
   X2X1 = cross(*parent->pX2, *parent->pX1)
   H = cross(*parent->pX1, *parent->pX1), X2X1' \ X2X1, cross(*parent->pX2, *parent->pX2)
   pA = &invsym(H)
-
   pR1AR1 = rows(R1perp)? &(R1perp * invsym(R1perp ' H * R1perp) * R1perp') : pA
   X1y1 = cross(*parent->pX1, *parent->py1)
   X2y1 = cross(*parent->pX2, *parent->py1)
   beta0   = *pR1AR1 * (X1y1 \ X2y1)
-
   dbetadr = *pR1AR1 * (cross(*parent->pX1, *parent->pY2) \ cross(*parent->pX2, *parent->pY2))
   
   if (parent->jk)
@@ -859,8 +857,6 @@ void boottest::setjk (real scalar jk) {
 }
 void boottest::setB(real scalar B) {
   this.B = B
-  if (B==0)
-    setscoreBS(1)
   setdirty(1)
 }
 void boottest::setnull    (real scalar null) {
@@ -1054,6 +1050,9 @@ void boottest::Init() {  // for efficiency when varying r repeatedly to make CI,
   real matrix Combs, tmp, IDCap
   real scalar i, j, c, minN, _B, i_FE, sumFEwt, _df
   pragma unset pIDAllData; pragma unset pIDCapData
+
+  if (B==0 & ARubin==0) scoreBS = 1
+
   Nobs = rows(*py1)
   NClustVar = cols(*pID)
   kX = (kX1 = cols(*pX1)) + (kX2 = cols(*pX2))
@@ -2341,7 +2340,7 @@ void boottest::_MakeInterpolables(real colvector r) {
     if (!ML & (scoreBS | (robust & granular * !(jk & !_jk) < NErrClustCombs)))
       uXAR = DGP.u1ddot[1+_jk].M :* pM->XAR
 
-      SuwtXA = scoreBS?
+    SuwtXA = scoreBS?
                 (B? 
                    (NClustVar? *_panelsum(uXAR, infoBootData) : 
                                           uXAR                  ) :
@@ -2377,7 +2376,6 @@ void boottest::_MakeInterpolables(real colvector r) {
             Kcd[c,d].M = *_panelsum(Kd[d].M, Clust[c].info)
         }
       } else {  // B = 0. In this case, only 1st term of (64) is non-zero after multiplying by v* (= all 1's), and it is then a one-way sum by c
-
         if (scoreBS)
           pustarXAR = &(*pustarXAR :- ClustShare * colsum(*pustarXAR))  // recenter if OLS
 
@@ -2416,11 +2414,11 @@ void boottest::MakeNumerAndJ(real scalar w, real scalar _jk, | real colvector r)
                  cross(SuwtXA, v) : 
                  SuwtXA * v_sd    ) :
                (robust==0 | granular | purerobust?
-                  *pR * (betadev = SuwtXA * v) :
+                  *pR * (betadev = B? SuwtXA * v : rowsum(SuwtXA)) :
                  (*pR * SuwtXA) * v)
     if (w==1 & !null) {
-      if      ( ARubin) numerw[,1] = v_sd * DGP.Rpar * DGP.beta.M[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
-      else if (null==0) numerw[,1] = v_sd * (*pR * (ML? beta : pM->Rpar * pM->beta.M) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
+      if   (ARubin) numerw[,1] = v_sd * DGP.Rpar * DGP.beta.M[|kX1+1\.|]  // coefficients on excluded instruments in ARubin OLS
+      else          numerw[,1] = v_sd * (*pR * (ML? beta : pM->Rpar * pM->beta.M) - r)  // Analytical Wald numerator; if imposing null then numer[,1] already equals this. If not, then it's 0 before this.
     }
 
     storeWtGrpResults(pnumer, w, numerw)
@@ -2481,6 +2479,7 @@ void boottest::MakeNonWREStats(real scalar w) {
       storeWtGrpResults(pDist, w, numerw :/ sqrt(denom.M))
       if (w==1)
         statDenom = denom.M[1]  // original-sample denominator
+
     } else if (df == 2) {  // hand-code 2D numer'inv(denom)*numer
       t1 = numerw[1,]; t2 = numerw[2,]; t12 = t1:*t2
       storeWtGrpResults(pDist, w, (t1:*t1:*denom[2,2].M - (t12+t12):*denom[2,1].M + t2:*t2:*denom[1,1].M) :/ (denom[1,1].M:*denom[2,2].M - denom[2,1].M:*denom[2,1].M))

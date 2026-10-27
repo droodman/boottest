@@ -118,9 +118,9 @@ program define boottest, rclass sortpreserve
           ssc install julia, replace
         }
 
-//          _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
+//         _jl: pushfirst!(LOAD_PATH, "D:/OneDrive/Documents/Macros/WildBootTests.jl")
         jl AddPkg StableRNGs
-        jl AddPkg WildBootTests, minver(1.1.2)
+        jl AddPkg WildBootTests, minver(1.1.3)
         _jl: using StableRNGs, WildBootTests
         global boottest_julia_loaded 1
       }
@@ -381,9 +381,6 @@ program define boottest, rclass sortpreserve
 
       local colnames: colnames e(b)
       if `partial' local colnames `colnames' `e(partial1)'
-  //     local colnames: subinstr local colnames "b." ".", all  // introduced in 51192a82d181920ca7009f95cc7744a2f031c9bf but interferes with _ms_parse_parts below
-  //     local colnames: subinstr local colnames "bn." ".", all
-//       local colnames: subinstr local colnames "bn." "b.", all
 
       local k = `:word count `colnames'' + (`partial' & 0`e(partialcons)')
       local _cons _cons
@@ -392,9 +389,6 @@ program define boottest, rclass sortpreserve
 
       if `IV' {
         local Xnames_endog `e(instd)'
-  //       local Xnames_endog: subinstr local Xnames_endog "b." ".", all
-  //       local Xnames_endog: subinstr local Xnames_endog "bn." ".", all
-//         local colnames: subinstr local colnames "bn." "b.", all
         local Xnames_exog: list colnames - Xnames_endog
         local cons = `cons' | e(partialcons)==1
 
